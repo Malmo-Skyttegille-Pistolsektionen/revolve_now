@@ -218,6 +218,17 @@ const HEARTBEAT_INTERVAL = 10000; // 10 seconds
 const TICK_INTERVAL = 1000; // 1 second
 /** `kMaxUploadBytes` in firmware/main/config.h. */
 const MAX_UPLOAD_BYTES = 1024 * 1024;
+/** `kMaxFirmwareUploadBytes` in firmware/main/config.h: the server-wide upload ceiling. */
+const MAX_FIRMWARE_UPLOAD_BYTES = 4608 * 1024;
+/** `ESP_IMAGE_HEADER_MAGIC`: `esp_ota_write` refuses a first byte that is anything else. */
+const IMAGE_HEADER_MAGIC = 0xe9;
+/** `esp_app_desc_t` follows the 24-byte image header and the 8-byte first segment header. */
+const APP_DESC_OFFSET = 24 + 8;
+const APP_DESC_MAGIC_WORD = 0xabcd5432;
+/** After `magic_word`, `secure_version`, `reserv1[2]` and `version[32]`. */
+const APP_DESC_PROJECT_NAME_OFFSET = APP_DESC_OFFSET + 48;
+/** `project()` in firmware/CMakeLists.txt: what an uploaded image is checked against. */
+export const FIRMWARE_PROJECT_NAME = 'rotation_target_backend';
 /** `kFirstUploadId` in firmware/main/config.h - the floor for uploaded audio AND program ids. */
 const FIRST_UPLOAD_ID = 100;
 /**
@@ -349,9 +360,10 @@ export interface MockSeed {
    */
   partitions?: DiagnosticsInfo['partitions'];
   /**
-   * Make `POST /system/restart` answer `500 /problems/restart_failed` instead
-   * of restarting - the device out of memory for the restart task (#341). The
-   * only way to reach that branch, since nothing here can run out.
+   * Make `POST /system/restart` and an accepted `POST /ota` answer
+   * `500 /problems/restart_failed` instead of restarting - the device out of
+   * memory for the restart task (#341). The only way to reach that branch,
+   * since nothing here can run out.
    */
   restartFails?: boolean;
 }
@@ -536,6 +548,34 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
   };
 }
 
+/** `rt::ota::message(kEmptyImage)` in firmware/lib/rt_logic/ota_policy.h. */
+const OTA_EMPTY_IMAGE_DETAIL = 'The upload was empty or too small to be a firmware image';
+const OTA_RESTART_FAILED_DETAIL =
+  'The firmware was installed and is the boot partition, but the restart could not be started. Power-cycle the device to run it.';
+
+/** `rt::ota::message(kInvalidImage)`. */
+const OTA_INVALID_IMAGE_DETAIL = 'That file is not a firmware image, or it is incomplete - upload refused';
+
+/** `esp_app_desc_t::project_name`: a fixed char[32], not necessarily terminated. */
+function appDescProjectName(image: Buffer): string {
+  const field = image.subarray(APP_DESC_PROJECT_NAME_OFFSET, APP_DESC_PROJECT_NAME_OFFSET + 32);
+  const end = field.indexOf(0);
+  return field.subarray(0, end === -1 ? field.length : end).toString('latin1');
+}
+
+/**
+ * Enough of an ESP-IDF application image for `POST /ota` to read its
+ * description: the magic word and `project_name` at their real offsets, zeros
+ * elsewhere.
+ */
+export function fakeFirmwareImage(projectName: string = FIRMWARE_PROJECT_NAME, size = 4096): Buffer {
+  const image = Buffer.alloc(size);
+  if (size > 0) image[0] = IMAGE_HEADER_MAGIC;
+  if (size >= APP_DESC_OFFSET + 4) image.writeUInt32LE(APP_DESC_MAGIC_WORD, APP_DESC_OFFSET);
+  if (size >= APP_DESC_PROJECT_NAME_OFFSET + 32) image.write(projectName, APP_DESC_PROJECT_NAME_OFFSET, 32, 'latin1');
+  return image;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -637,6 +677,12 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   // client that keeps polling.
   let downFrom: number | null = null;
   let downUntil = 0;
+  /**
+   * `UploadSession::awaiting_power_cycle_` in firmware/lib/rt_logic/ota_upload.h:
+   * an image was installed but no restart could be started. Only a power cycle
+   * clears it - `restart()` on the handle, here.
+   */
+  let otaAwaitingPowerCycle = false;
   const wifiNetworks: WifiNetwork[] = seed.wifiNetworks ?? DEFAULT_WIFI_NETWORKS;
   /** The banks this device booted on; the array's length is the count. */
   const bankCount = (): number => activeHardware.banks.length;
@@ -666,6 +712,22 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     );
     if (savedWifiSsid !== null) wifi = { ...wifi, ssid: savedWifiSsid };
     wifiSavedSinceBoot = false;
+    otaAwaitingPowerCycle = false;
+  }
+
+  /**
+   * Answered, so keep serving for the drain delay, go away, and come back
+   * running what was saved. The clock is injectable, so a test decides when
+   * each of those happens rather than waiting.
+   */
+  function scheduleRestart(): void {
+    clients.forEach((client) => {
+      client.cancelHeartbeat();
+      client.res.end();
+    });
+    clients.length = 0;
+    downFrom = clock.now() + RESTART_DRAIN_MS;
+    downUntil = downFrom + RESTART_DOWN_MS;
   }
 
   const state: ServerState = {
@@ -1554,7 +1616,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       if (!checkControlLockAuth(req, res)) return;
 
       if (isRunning()) {
-        problemResponse(res, '/problems/program_running', 'A program is running - stop it before restarting the device');
+        problemResponse(
+          res,
+          '/problems/program_running',
+          'A program is running - stop it before restarting the device',
+        );
         return;
       }
 
@@ -1568,17 +1634,77 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       }
 
       jsonResponse(res, 200, { status: 'accepted', restarting: true });
+      scheduleRestart();
+      return;
+    }
 
-      // Then behave like the firmware: keep serving for the drain delay, go
-      // away, and come back running what was saved. The clock is injectable, so
-      // a test decides when each of those happens rather than waiting.
-      clients.forEach((client) => {
-        client.cancelHeartbeat();
-        client.res.end();
-      });
-      clients.length = 0;
-      downFrom = clock.now() + RESTART_DRAIN_MS;
-      downUntil = downFrom + RESTART_DOWN_MS;
+    // POST /ota - `UploadSession` in firmware/lib/rt_logic/ota_upload.h, in the
+    // order the handler's callbacks reach it: the middleware before the body,
+    // the first chunk, the image check once it has landed.
+    if (endpoint === '/ota' && req.method === 'POST') {
+      if (!checkControlLockAuth(req, res)) return;
+
+      if (otaAwaitingPowerCycle) {
+        problemResponse(res, '/problems/restart_failed', OTA_RESTART_FAILED_DETAIL);
+        return;
+      }
+      if (!(req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
+        problemResponse(
+          res,
+          '/problems/upload_missing_file',
+          'Expected a multipart/form-data body with the image in a file part',
+        );
+        return;
+      }
+
+      const body = await parseBodyBuffer(req);
+      if (body.byteLength > MAX_FIRMWARE_UPLOAD_BYTES) {
+        // PsychicUploadHandler's own refusal, after the middleware: not a
+        // problem detail, same as for audio.
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end(`File size must be less than ${MAX_FIRMWARE_UPLOAD_BYTES} bytes!`);
+        return;
+      }
+
+      // An empty or missing file part never reaches onUpload, so nothing is
+      // checked - not even whether a program is running.
+      const image = parseMultipart(req, body)?.content ?? Buffer.alloc(0);
+      if (image.byteLength === 0) {
+        problemResponse(res, '/problems/ota_image_refused', OTA_EMPTY_IMAGE_DETAIL);
+        return;
+      }
+      if (isRunning()) {
+        problemResponse(
+          res,
+          '/problems/program_running',
+          'A program is running - stop it before updating the firmware',
+        );
+        return;
+      }
+      if (image[0] !== IMAGE_HEADER_MAGIC) {
+        problemResponse(res, '/problems/ota_image_refused', OTA_INVALID_IMAGE_DETAIL);
+        return;
+      }
+      // ota.cpp reads the description off the written slot first, and a slot
+      // without one is a foreign image whatever its size.
+      const readable =
+        image.byteLength >= APP_DESC_OFFSET + 4 && image.readUInt32LE(APP_DESC_OFFSET) === APP_DESC_MAGIC_WORD;
+      if (readable && image.byteLength <= 256) {
+        problemResponse(res, '/problems/ota_image_refused', OTA_EMPTY_IMAGE_DETAIL);
+        return;
+      }
+      if (!readable || appDescProjectName(image) !== FIRMWARE_PROJECT_NAME) {
+        problemResponse(res, '/problems/ota_image_refused', 'That firmware is for a different device - upload refused');
+        return;
+      }
+
+      if (seed.restartFails === true) {
+        otaAwaitingPowerCycle = true;
+        problemResponse(res, '/problems/restart_failed', OTA_RESTART_FAILED_DETAIL);
+        return;
+      }
+      jsonResponse(res, 200, { status: 'accepted', restarting: true });
+      scheduleRestart();
       return;
     }
 

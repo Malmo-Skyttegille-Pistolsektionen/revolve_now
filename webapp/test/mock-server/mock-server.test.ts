@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AudioFile, DiagnosticsInfo, LibraryChangedPayload, StateUpdatePayload } from '../../src/api/types';
 import { PROGRAM_FALT_TRANING } from '../fixtures';
 import { createFakeClock, type FakeClock } from './clock';
-import { HARDWARE_DEFAULTS, createMockServer, loadSeedFromDisk, type MockServer } from './server';
+import { HARDWARE_DEFAULTS, createMockServer, fakeFirmwareImage, loadSeedFromDisk, type MockServer } from './server';
 import { flushIO, openSSE, type SSEReader } from './sse-reader';
 
 /** The app's tsconfig targets ES2020, so no `Array.prototype.at`. */
@@ -1000,12 +1000,14 @@ describe('hardware configuration', () => {
  * configuration PUTs stored.
  */
 describe('restarting the device', () => {
-  const restart = async (init?: RequestInit): Promise<Response> =>
-    api('/system/restart', { method: 'POST', ...init });
+  const restart = async (init?: RequestInit): Promise<Response> => api('/system/restart', { method: 'POST', ...init });
 
   // Any answer at all means the device is there - a 404 included, since what
   // this is telling apart is "answered" from "dropped the socket".
-  const unreachable = async (): Promise<boolean> => api('/version').then(() => false).catch(() => true);
+  const unreachable = async (): Promise<boolean> =>
+    api('/version')
+      .then(() => false)
+      .catch(() => true);
 
   // The firmware answers, keeps serving for 1.5 s so the response drains, and
   // only then reboots - so a client that polls immediately still gets answers.
@@ -1111,6 +1113,149 @@ describe('restarting the device', () => {
       expect((await fetch(`${shutBase}/system/restart`, { method: 'POST' })).status).toBe(200);
     } finally {
       await shut.close();
+    }
+  });
+});
+
+/**
+ * `POST /ota` (#344): `UploadSession` in firmware/lib/rt_logic/ota_upload.h,
+ * whose host test drives the same table. Each request answers for itself -
+ * the two defects #342 fixed were answers carried over from the previous one.
+ */
+describe('firmware upload', () => {
+  const upload = async (image: Buffer | null, init?: RequestInit, target = base): Promise<Response> => {
+    const body = new FormData();
+    if (image !== null) body.append('file', new Blob([new Uint8Array(image)]), 'rotation_target_backend.bin');
+    return fetch(`${target}/ota`, { method: 'POST', body, ...init });
+  };
+  const unreachable = async (): Promise<boolean> =>
+    api('/version')
+      .then(() => false)
+      .catch(() => true);
+
+  const emptyImage = {
+    type: '/problems/ota_image_refused',
+    title: 'Firmware image refused',
+    status: 400,
+    detail: 'The upload was empty or too small to be a firmware image',
+  };
+  const restartFailed = {
+    type: '/problems/restart_failed',
+    title: 'Could not start the restart',
+    status: 500,
+    detail:
+      'The firmware was installed and is the boot partition, but the restart could not be started. Power-cycle the device to run it.',
+  };
+
+  it('accepts an image for this project, drains, then goes away', async () => {
+    const res = await upload(fakeFirmwareImage());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'accepted', restarting: true });
+
+    expect(await unreachable()).toBe(false);
+    clock.advance(1500);
+    expect(await unreachable()).toBe(true);
+    clock.advance(1500);
+    expect(await unreachable()).toBe(false);
+  });
+
+  it('refuses while a program is running, with 409', async () => {
+    await api('/programs/40/load', { method: 'POST' });
+    await start(40);
+    await expectProblem(await upload(fakeFirmwareImage()), {
+      type: '/problems/program_running',
+      title: 'A program is running',
+      status: 409,
+      detail: 'A program is running - stop it before updating the firmware',
+    });
+  });
+
+  it('refuses an image for another project, with 400', async () => {
+    await expectProblem(await upload(fakeFirmwareImage('AutoLee')), {
+      type: '/problems/ota_image_refused',
+      title: 'Firmware image refused',
+      status: 400,
+      detail: 'That firmware is for a different device - upload refused',
+    });
+  });
+
+  it('refuses a name that only starts the same', async () => {
+    expect((await upload(fakeFirmwareImage('rotation_target'))).status).toBe(400);
+  });
+
+  it('refuses something that is not an image at all on its first byte', async () => {
+    await expectProblem(await upload(Buffer.from('not firmware')), {
+      type: '/problems/ota_image_refused',
+      title: 'Firmware image refused',
+      status: 400,
+      detail: 'That file is not a firmware image, or it is incomplete - upload refused',
+    });
+  });
+
+  it('refuses an image with no app description as a foreign one, whatever its size', async () => {
+    const image = Buffer.alloc(16);
+    image[0] = 0xe9;
+    const res = await upload(image);
+    expect(((await res.json()) as { detail: string }).detail).toBe(
+      'That firmware is for a different device - upload refused',
+    );
+  });
+
+  it('refuses a readable header with nothing behind it as too small', async () => {
+    await expectProblem(await upload(fakeFirmwareImage(undefined, 256)), emptyImage);
+  });
+
+  it('answers an empty file part for itself, not with the previous refusal', async () => {
+    await api('/programs/40/load', { method: 'POST' });
+    await start(40);
+    expect((await upload(fakeFirmwareImage())).status).toBe(409);
+
+    // Not even the running program is checked: the device never reaches
+    // onUpload for an empty part.
+    await expectProblem(await upload(Buffer.alloc(0)), emptyImage);
+    await expectProblem(await upload(null), emptyImage);
+  });
+
+  it('answers a raw body with a problem detail, before reading it', async () => {
+    await expectProblem(
+      await fetch(`${base}/ota`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: new Uint8Array(fakeFirmwareImage()),
+      }),
+      {
+        type: '/problems/upload_missing_file',
+        title: 'No file uploaded',
+        status: 400,
+        detail: 'Expected a multipart/form-data body with the image in a file part',
+      },
+    );
+  });
+
+  it('is behind the control lock', async () => {
+    expect(
+      (await api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'pw' }) })).status,
+    ).toBe(200);
+    expect((await upload(fakeFirmwareImage())).status).toBe(401);
+  });
+
+  it('refuses every later upload with restart_failed until a power cycle', async () => {
+    const oom = createMockServer({ clock, seed: { programs: {}, audios: [], restartFails: true } });
+    const oomBase = `http://127.0.0.1:${await oom.listen()}/api/v2`;
+    try {
+      await expectProblem(await upload(fakeFirmwareImage(), undefined, oomBase), restartFailed);
+      // The next upload would be written over the image waiting to run.
+      await expectProblem(await upload(fakeFirmwareImage(), undefined, oomBase), restartFailed);
+      await expectProblem(await upload(Buffer.alloc(0), undefined, oomBase), restartFailed);
+      await expectProblem(
+        await fetch(`${oomBase}/ota`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' } }),
+        restartFailed,
+      );
+
+      oom.restart();
+      expect((await upload(fakeFirmwareImage('AutoLee'), undefined, oomBase)).status).toBe(400);
+    } finally {
+      await oom.close();
     }
   });
 });

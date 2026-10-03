@@ -6,7 +6,7 @@
 // Whether a firmware image may be accepted, and why not.
 //
 // In rt_logic rather than main/ because these are decisions, not effects: the
-// ESP-IDF calls that write flash live in main/net/ota.cpp, and everything that
+// ESP-IDF calls that write flash live in main/ota/ota.cpp, and everything that
 // says *no* lives here where a host test reaches it. Two of the three refusals
 // are safety rules rather than plumbing, and a safety rule that only exists
 // inside an HTTP handler is one nobody can test.
@@ -23,6 +23,9 @@ enum class Refusal {
   kProjectMismatch,
   // Nothing arrived, or not enough to be an image.
   kEmptyImage,
+  // Not an application image, or a damaged one: ESP-IDF's own verification
+  // refused it, on the first byte or once it had all landed.
+  kInvalidImage,
 };
 
 // Checked when the upload starts, before a byte is written to the inactive
@@ -58,6 +61,8 @@ constexpr const char *message(Refusal refusal) {
       return "That firmware is for a different device - upload refused";
     case Refusal::kEmptyImage:
       return "The upload was empty or too small to be a firmware image";
+    case Refusal::kInvalidImage:
+      return "That file is not a firmware image, or it is incomplete - upload refused";
   }
   return "";
 }

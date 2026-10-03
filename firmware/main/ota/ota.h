@@ -11,14 +11,16 @@
 // but cannot get that far is rolled back to the slot this one came from, with
 // no cable involved.
 //
-// What is NOT covered: the LittleFS image. The web app, the shipped programs
-// and the audio live there, and this replaces only the app. A device updated
-// this way serves the bundle it already had - see #142.
+// The web app, the shipped programs and the audio are inside the app image
+// (#227), so they update with it. Uploads on `userdata` are not touched.
 namespace ota {
 
-// Registers POST /api/v2/ota on `server`. Behind the control lock, like every
-// other write.
-void register_routes(PsychicHttpServer &server);
+// web_server's control-lock check: true to proceed, false once it has answered.
+using ControlLockGuard = bool (*)(PsychicRequest *, PsychicResponse *);
+
+// Registers POST /api/v2/ota on `server`, behind `require_control_lock` like
+// every other write.
+void register_routes(PsychicHttpServer &server, ControlLockGuard require_control_lock);
 
 // True from the first byte of an upload until it finishes or is abandoned.
 // The run loop refuses to start a program while this is true: a reboot is

@@ -816,9 +816,9 @@ export interface paths {
          *     valid only once it is serving; an image that boots but cannot get that
          *     far is rolled back to the slot it replaced, with no cable involved.
          *
-         *     **This replaces the application only.** The web app, the shipped
-         *     programs and the audio live in the LittleFS image and are not touched,
-         *     so a device updated this way serves the bundle it already had.
+         *     **The web app, the shipped programs and the audio are inside the
+         *     image**, so they update with it. Uploads are on a partition no update
+         *     writes, and survive.
          *
          *     Refused with `409` while a program is running: the targets are
          *     mid-sequence and somebody may be downrange acting on what the sequence
@@ -2768,8 +2768,12 @@ export interface operations {
                 };
             };
             /**
-             * @description The upload was empty, too small to be an image, or not for this
+             * @description `/problems/ota_image_refused` — the upload was empty, too small to
+             *     be an image, not an image at all or incomplete, or not for this
              *     project.
+             *
+             *     `/problems/upload_missing_file` — the body was not
+             *     `multipart/form-data`. Answered before any of it is read.
              */
             400: {
                 headers: {

@@ -81,6 +81,7 @@ void test_every_refusal_has_a_sentence() {
   TEST_ASSERT_TRUE(rt::ota::message(Refusal::kProgramRunning)[0] != '\0');
   TEST_ASSERT_TRUE(rt::ota::message(Refusal::kProjectMismatch)[0] != '\0');
   TEST_ASSERT_TRUE(rt::ota::message(Refusal::kEmptyImage)[0] != '\0');
+  TEST_ASSERT_TRUE(rt::ota::message(Refusal::kInvalidImage)[0] != '\0');
 }
 
 int main() {

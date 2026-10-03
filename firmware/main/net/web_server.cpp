@@ -1611,7 +1611,7 @@ bool start() {
   // Lives in its own translation unit: the ESP-IDF OTA calls have a lifetime
   // discipline of their own (a handle that must be aborted, not ended, before
   // it is finalised) and do not belong mixed into the request handlers here.
-  ota::register_routes(s_server);
+  ota::register_routes(s_server, require_control_lock);
 
   sse_hub::attach(s_server, "/sse/v2");
 
