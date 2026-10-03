@@ -34,6 +34,19 @@ repos:
       - id: clang-format
         types_or: [c, c++]
 
+  # The version matches webapp/package.json's; Renovate moves both in one PR
+  # (.github/renovate.json5). --ignore-path because pre-commit runs from the
+  # repository root, where Prettier would not look for webapp's ignore file.
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (webapp)
+        language: node
+        additional_dependencies: [prettier@3.9.9]
+        entry: prettier --write --ignore-unknown --log-level warn --ignore-path webapp/.prettierignore
+        files: ^webapp/
+        types: [text]
+
   # A generated sdkconfig holds the WiFi SSID and password and is gitignored -
   # but `idf.py` also writes sdkconfig.bak-<timestamp>, and one of those reached
   # a public repository through `git add -A`. Deleting it does not unpublish it,
