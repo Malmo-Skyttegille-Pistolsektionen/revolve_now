@@ -2964,6 +2964,14 @@ components:
                 description: The bank's configured name, possibly empty.
         controlLockEnabled:
           type: boolean
+        sseClients:
+          type: integer
+          minimum: 0
+          description: >-
+            Clients connected to `/sse/v2` right now. Each holds one of the
+            device's sockets, so a figure well above the browsers actually
+            open points at abandoned streams. Optional: firmware from before
+            this field existed omits it.
         startupIssues:
           type: array
           description: |

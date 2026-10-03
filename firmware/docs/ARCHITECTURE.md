@@ -64,10 +64,12 @@ bank in letter order, sized at `executor::init()` from `targets::count()`;
 both an event's `command` and the `/targets/*` endpoints use. `targetBanks` on
 the wire is one key per bank and the only thing the wire says about them.
 
-**SSE broadcasts happen outside that lock.** `rt::Effects::state_changed()`
-only sets a flag; the payload is serialized under the lock and sent after
-releasing it. Fanning out to every connected client while holding the run-state
-lock would let one slow socket stall the run loop.
+**SSE never waits on a client.** `rt::Effects::state_changed()` only sets a
+flag; `flush()` serializes the state and hands it to the httpd work queue under
+the lock, so snapshot order is send order, and the run loop never touches a
+socket. The httpd task then sends it, and since that task serves REST too, a
+client whose socket cannot take a whole frame is closed rather than waited for
+(`rt::SseClients`, #343).
 
 ## Storage
 
