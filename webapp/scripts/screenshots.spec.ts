@@ -12,10 +12,49 @@ import { createServer, type PluginOption, type ViteDevServer } from 'vite';
 import viteConfig from '../vite.config';
 import { mockServerV2Plugin } from '../vite-plugins/mock-server-v2';
 import { resolveVersion } from '../vite-plugins/resolve-version';
-import { createMockServer, loadSeedFromDisk, type MockServer } from '../test/mock-server/server';
+import fs from 'fs';
+import type { AudioFile, Program } from '../src/api/types';
+import { createMockServer, type MockSeed, type MockServer } from '../test/mock-server/server';
 
 const webappDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imgDir = path.resolve(webappDir, '../docs/site/img');
+const resourcesDir = path.resolve(webappDir, '../resources');
+
+// docs/site/programs-and-audio.md: uploads are numbered from 1000.
+const TUTORIAL_ID = 1000;
+
+/** What a board ships, from resources/ rather than the mock's test fixtures, plus the tutorial's upload. */
+function shippedSeed(): Pick<MockSeed, 'programs' | 'audios'> {
+  const programsDir = path.join(resourcesDir, 'programs/files');
+  const programs: Record<number, Program> = {};
+  for (const file of fs.readdirSync(programsDir).filter((f) => f.endsWith('.json'))) {
+    const program = JSON.parse(fs.readFileSync(path.join(programsDir, file), 'utf-8')) as Program;
+    programs[program.id] = { ...program, readonly: true };
+  }
+
+  // The program docs/site/writing-a-program.md builds: the first two series of
+  // Militär Snabbmatch, with the clock anchored on the shooting.
+  programs[TUTORIAL_ID] = {
+    id: TUTORIAL_ID,
+    title: 'Militär Snabbmatch (kort)',
+    description: 'Provserie 10s + Serie 1, 10s',
+    readonly: false,
+    series: programs[1].series.slice(0, 2).map((s) => ({ ...s, timer_start_index: 3 })),
+  };
+
+  const index = JSON.parse(fs.readFileSync(path.join(resourcesDir, 'audios/audios.json'), 'utf-8')) as Record<
+    string,
+    { title: string; filename: string }
+  >;
+  const audios: AudioFile[] = Object.entries(index).map(([id, audio]) => ({
+    id: Number(id),
+    title: audio.title,
+    filename: `/embedded/audio/${audio.filename}`,
+    readonly: true,
+  }));
+
+  return { programs, audios };
+}
 
 let server: ViteDevServer;
 let mock: MockServer;
@@ -32,7 +71,7 @@ function withoutDefaultMock(options: PluginOption[]): PluginOption[] {
 
 test.beforeAll(async () => {
   const seed = {
-    ...loadSeedFromDisk(),
+    ...shippedSeed(),
     // Matching the bundle's version keeps the "built from a different commit" warning off Settings.
     firmwareVersion: resolveVersion(),
     ipAddress: '192.168.1.50',
@@ -116,21 +155,7 @@ test('run page on a phone', async ({ browser }) => {
   await page.close();
 });
 
-test('tutorial program', async ({ page, request }) => {
-  // The program docs/site/writing-a-program.md builds: the first two series of
-  // Militär Snabbmatch, with the clock anchored on the shooting.
-  const shipped = (await (await request.get(`${base}/api/v2/programs/1`)).json()) as {
-    series: Record<string, unknown>[];
-  };
-  const created = await request.post(`${base}/api/v2/programs`, {
-    data: {
-      title: 'Militär Snabbmatch (kort)',
-      description: 'Provserie 10s + Serie 1, 10s',
-      series: shipped.series.slice(0, 2).map((s) => ({ ...s, timer_start_index: 3 })),
-    },
-  });
-  if (!created.ok()) throw new Error(`creating the tutorial program: ${created.status()}`);
-
+test('tutorial program', async ({ page }) => {
   // Tall enough that the page never scrolls to follow the run, which would bring in the compact header.
   await page.setViewportSize({ width: 1100, height: 880 });
   await loadProgram(page, 'Militär Snabbmatch (kort)');
