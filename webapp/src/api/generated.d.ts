@@ -816,9 +816,9 @@ export interface paths {
          *     valid only once it is serving; an image that boots but cannot get that
          *     far is rolled back to the slot it replaced, with no cable involved.
          *
-         *     **This replaces the application only.** The web app, the shipped
-         *     programs and the audio live in the LittleFS image and are not touched,
-         *     so a device updated this way serves the bundle it already had.
+         *     **The web app, the shipped programs and the audio are inside the
+         *     image**, so they update with it. Uploads are on a partition no update
+         *     writes, and survive.
          *
          *     Refused with `409` while a program is running: the targets are
          *     mid-sequence and somebody may be downrange acting on what the sequence
@@ -1284,7 +1284,7 @@ export interface components {
              *     `program_invalid` `backend_issue` code in `asyncapi.yaml`.
              * @enum {string}
              */
-            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed";
+            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed";
             /**
              * @description A short summary of the type, identical for every occurrence of it. Not for display — it does not describe this occurrence.
              * @example Program is read-only
@@ -2770,8 +2770,12 @@ export interface operations {
                 };
             };
             /**
-             * @description The upload was empty, too small to be an image, or not for this
+             * @description `/problems/ota_image_refused` — the upload was empty, too small to
+             *     be an image, not an image at all or incomplete, or not for this
              *     project.
+             *
+             *     `/problems/upload_missing_file` — the body was not
+             *     `multipart/form-data`. Answered before any of it is read.
              */
             400: {
                 headers: {
@@ -2790,7 +2794,14 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description A program is running. */
+            /**
+             * @description `/problems/program_running` — a program is running.
+             *
+             *     `/problems/restart_pending` — an image was just accepted and the
+             *     device is about to restart into it. The slot the next upload would
+             *     be written to is that image, so nothing is written until the
+             *     restart.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2804,11 +2815,15 @@ export interface operations {
              *     partition, but the restart could not be started. The update is
              *     installed; a power cycle runs it.
              *
-             *     **Every further upload answers this too, until that power cycle.**
-             *     The slot the next upload would be written to is now the boot
-             *     partition, so a retry would erase the image somebody is waiting to
-             *     run. The device refuses before writing a byte rather than accepting
-             *     an upload it would destroy the update to serve.
+             *     **Every further upload answers this too, until that power cycle**,
+             *     for the same reason as `restart_pending`. The device refuses before
+             *     writing a byte rather than accepting an upload it would destroy the
+             *     update to serve.
+             *
+             *     `/problems/ota_write_failed` — the device could not open, write or
+             *     finalise the inactive slot, or could not make it the boot
+             *     partition. The image may have been fine; the running firmware is
+             *     unchanged.
              */
             500: {
                 headers: {

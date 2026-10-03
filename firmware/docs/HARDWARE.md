@@ -231,31 +231,16 @@ after every hard reset, so back-to-back esptool invocations are less reliable
 than one long call; `--before no-reset --after no-reset` holds it in the
 bootloader. This firmware does not use native USB and does not do that.
 
-### Reflashing discards uploaded programs and audio
+### Reflashing keeps uploaded programs and audio
 
-`idf.py flash` rewrites the LittleFS image, so anything a club uploaded to the
-device goes with it. Use `idf.py app-flash` to update only the firmware and
-leave the uploaded files alone.
-
-The `nvs` partition survives either way, so the WiFi credentials and the
-hardware configuration outlive a reflash.
+No image is flashed into the `userdata` partition (#227), so `idf.py flash`
+leaves anything a club uploaded alone. The `nvs` partition survives too, so the
+WiFi credentials and the hardware configuration outlive a reflash.
 
 ## Partitions
 
-16 MB, `partitions.csv`:
-
-| Partition | Offset | Size | Purpose |
-|---|---|---|---|
-| `nvs` | 0x9000 | 24 K | WiFi credentials, calibration |
-| `otadata` | 0xF000 | 8 K | Which OTA slot is active |
-| `ota_0` | 0x20000 | 3 M | Firmware (~1 MB used) |
-| `ota_1` | 0x320000 | 3 M | Second OTA slot |
-| `storage` | 0x620000 | 9.75 M | LittleFS: shipped + uploaded audio and programs |
-| `coredump` | 0xFE0000 | 128 K | Crash dump |
-
-Sums to exactly 16 MB. Repartitioning a deployed device means a full erase, so
-the slots are deliberately larger than currently needed.
-
-OTA rollback is enabled and the app self-validates at the end of `app_main`,
-but there is **no OTA endpoint yet** — the only way to write the second slot
-today is `idf.py app-flash` over USB.
+16 MB, laid out in [`partitions.csv`](../partitions.csv), whose comments say
+what each partition holds and why it is the size it is. In short: two
+app slots, each carrying the firmware, the web app and the shipped audio and
+programs; `userdata` for uploads, which no update path writes; `nvs` for
+settings. `POST /api/v2/ota` writes the inactive slot, and rollback is enabled.

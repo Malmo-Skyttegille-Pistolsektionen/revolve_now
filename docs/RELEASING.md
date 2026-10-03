@@ -139,7 +139,7 @@ Two of them are what somebody actually reaches for:
 | Asset | What it is for |
 |---|---|
 | `rotation_target-<version>-factory.bin` | A new board, or one being put back to a known state. Everything at its offset in one file, written at `0x0`. **Wipes NVS**, so the device comes back up in the setup portal — but **keeps uploaded programs and audio**, because nothing is built for the `userdata` partition (#227). Erasing those is a separate `esptool erase-region`. |
-| `rotation_target-<version>-ota.bin` | An already-configured device. The app slot — **firmware and web app together** since #227 — and this is what `POST /api/v2/ota` accepts. It leaves NVS and the uploaded files alone. The shipped audio and programs are still on the filesystem and are *not* updated by it. |
+| `rotation_target-<version>-ota.bin` | An already-configured device. The app slot — **firmware, web app, shipped audio and programs together** since #227 — and this is what `POST /api/v2/ota` accepts. It leaves NVS and the uploaded files alone. |
 
 Flashing the factory image needs no offsets:
 
