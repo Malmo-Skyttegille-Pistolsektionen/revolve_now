@@ -17,6 +17,7 @@ on:
       - docs/hooks/**
       - webapp/src/**
       - webapp/editor.html
+      - webapp/public/**
       - webapp/vite.editor.config.ts
       - webapp/vite-plugins/resolve-version.ts
       - webapp/package.json
@@ -29,6 +30,7 @@ on:
       - docs/hooks/**
       - webapp/src/**
       - webapp/editor.html
+      - webapp/public/**
       - webapp/vite.editor.config.ts
       - webapp/vite-plugins/resolve-version.ts
       - webapp/package.json

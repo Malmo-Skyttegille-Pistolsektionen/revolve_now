@@ -3,6 +3,7 @@ import { useId, useState } from 'react';
 import { useDiagnosticsApi } from '../api/diagnostics';
 import type { BuildInfo } from '../api/types';
 import { APP_VERSION } from '../appVersion';
+import { Logo } from './Logo';
 import styles from './AboutSection.module.css';
 
 /**
@@ -55,7 +56,7 @@ export function AboutSection(): React.ReactNode {
 
       {/* The only place the app names itself: the tab bar stays free of brand (DESIGN.md). */}
       <p className={styles.product} data-testid='product-name'>
-        Revolve Now
+        <Logo />
       </p>
 
       <dl className={styles.rows}>

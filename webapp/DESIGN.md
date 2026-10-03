@@ -539,6 +539,17 @@ for that reason.
 - **Backdrop:** `rgba(0, 0, 0, 0.5)` with a 2px blur.
 - **Content:** centred column, `2rem` padding (`1.5rem` on a phone), `1rem` gap.
 
+### Logo
+
+- **Symbol** (`public/revolve-now.svg`): one target plate face-on, half-turned
+  and edge-on. The favicon, and the docs site's header.
+- **Logo** (`public/revolve-now-logo.svg`): the symbol beside "**Revolve**Now"
+  in Barlow Semi Condensed, as outlines. Settings → About and the program
+  editor's heading, through `Logo`.
+- **Colour:** `text-strong`, one grey in either theme, never a signal hue.
+- **Placement:** About and the editor heading, nowhere on the run path.
+- Both SVGs are masters; `npm run icons` derives the ICO, PNG and docs copies.
+
 ## Do's and Don'ts
 
 ### Do:

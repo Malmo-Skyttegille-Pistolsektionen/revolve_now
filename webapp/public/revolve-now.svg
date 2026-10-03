@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- One target plate face-on, half-turned and edge-on, turning counter-clockwise
+       seen from above. The master: `npm run icons` derives the other icons from it. -->
+  <style>
+    .mark { fill: #374151 }
+    @media (prefers-color-scheme: dark) { .mark { fill: #d1d5db } }
+  </style>
+  <g class="mark" fill-rule="evenodd">
+    <path d="M2.5 3h8A1.5 1.5 0 0 1 12 4.5v23a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 1 27.5v-23A1.5 1.5 0 0 1 2.5 3Z
+             M2.9 12.9a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0-7.2 0Z
+             M4.9 12.9a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0Z" />
+    <path d="M14.5 2.5 23.5 6v20l-9 3.5Z
+             M16.8 13.2a2.5 4.8 0 1 0 5 0a2.5 4.8 0 1 0-5 0Z
+             M18.15 13.2a1.1 2.15 0 1 0 2.2 0a1.1 2.15 0 1 0-2.2 0Z" />
+    <rect x="26.5" y="3" width="3.5" height="26" rx="1" />
+  </g>
+</svg>

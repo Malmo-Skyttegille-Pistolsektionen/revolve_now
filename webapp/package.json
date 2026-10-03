@@ -21,6 +21,7 @@
     "e2e": "playwright test",
     "e2e:local": "e2e/run-local.sh",
     "screenshots": "playwright test -c scripts/screenshots.config.ts",
+    "icons": "node scripts/brand-icons.ts",
     "zip": "ts-node --esm scripts/zip-dist.ts"
   },
   "dependencies": {
