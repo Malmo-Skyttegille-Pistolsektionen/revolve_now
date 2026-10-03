@@ -178,6 +178,31 @@ void test_keys_a_device_has_never_seen_keep_their_compiled_default() {
   TEST_ASSERT_EQUAL_STRING("revolve-now", config.hostname.c_str());
 }
 
+// D-44: the old default was written by every hardware save, whether or not
+// anyone chose it, so it must not pin a device to the name it no longer ships.
+void test_the_pre_rename_default_hostname_gives_way_to_the_compiled_one() {
+  FakeStore store;
+  store.strings[rt::hw_key::kHostname] = rt::kLegacyDefaultHostname;
+  store.strings[rt::hw_key::kDisplayName] = "Bana 1";
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+
+  TEST_ASSERT_EQUAL_STRING("revolve-now", config.hostname.c_str());
+  // Only the hostname is migrated; the rest of what was saved stands.
+  TEST_ASSERT_EQUAL_STRING("Bana 1", config.display_name.c_str());
+}
+
+void test_a_hostname_somebody_chose_is_kept() {
+  FakeStore store;
+  store.strings[rt::hw_key::kHostname] = "rotation-target-2";
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+
+  TEST_ASSERT_EQUAL_STRING("rotation-target-2", config.hostname.c_str());
+}
+
 // The keys are 15 characters at most, which is what NVS accepts. A longer one
 // is not a truncated key, it is a write that never happens.
 void test_every_key_fits_what_nvs_accepts() {
@@ -198,6 +223,8 @@ int main() {
   RUN_TEST(test_a_half_written_bank_set_is_refused_rather_than_partly_applied);
   RUN_TEST(test_a_count_this_build_cannot_support_is_treated_as_absent);
   RUN_TEST(test_keys_a_device_has_never_seen_keep_their_compiled_default);
+  RUN_TEST(test_the_pre_rename_default_hostname_gives_way_to_the_compiled_one);
+  RUN_TEST(test_a_hostname_somebody_chose_is_kept);
   RUN_TEST(test_every_key_fits_what_nvs_accepts);
   return UNITY_END();
 }

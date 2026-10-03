@@ -31,6 +31,10 @@ constexpr const char *kHttpPort = "hw_http_port";
 constexpr const char *kWifiRetry = "hw_wifi_retry";
 }  // namespace hw_key
 
+// The default hostname before the rename (D-44). Every hardware save stored it,
+// so a stored copy means "never chosen" and gives way to this build's default.
+constexpr const char *kLegacyDefaultHostname = "rotation-target";
+
 // `hw_bk<i>_gpio`, `hw_bk<i>_alow`, `hw_bk<i>_name` - built rather than spelled
 // out. Eleven characters at a single-digit index, inside NVS's cap of fifteen;
 // the buffer is larger only so the compiler can see it cannot truncate.

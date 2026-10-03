@@ -1888,10 +1888,14 @@ that check runs on the code already on the board, so **every board running
 `rotation_target_backend` needs one cable flash** to cross the rename. Accepted:
 the fleet is three boards, all in hand.
 
-**Consequence:** a board whose hostname was never saved in Expert mode answers
-at `revolve-now.local` after its next update. `rotation-target.local` stops
-working, and so do bookmarks to it. A board whose hostname was set explicitly
-keeps that name. GitHub redirects the repository's URLs after a rename, but
+**Consequence:** every board answers at `revolve-now.local` after its update,
+and `rotation-target.local` stops working, along with bookmarks to it. A
+hostname stays in NVS, but saving *any* hardware setting writes the hostname
+too, so a stored `rotation-target` says nothing about whether anyone chose it.
+The overlay therefore reads it as unset (`rt::kLegacyDefaultHostname`), and the
+next save writes the new default over it. Any other stored hostname is kept.
+The cost: somebody who really did choose `rotation-target` has to choose it
+again. GitHub redirects the repository's URLs after a rename, but
 Pages does not, so the old `…github.io/rotation_target/` links break.
 
 **Contract:** the default host moves in both specs' `servers`, which the
