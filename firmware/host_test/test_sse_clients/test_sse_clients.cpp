@@ -1,9 +1,6 @@
 // ============================================================================
-//  The /sse/v2 fan-out with one client that has stopped reading (#343).
-//  On hardware such a client wedged the httpd task: the vendored send retried
-//  a full socket forever, and REST stopped answering along with SSE. What
-//  matters here is that the healthy clients keep receiving every frame, and
-//  the stalled one is dropped on the first frame it cannot take.
+//  rt::SseClients with a client that has stopped reading: the others keep
+//  receiving every frame, and the stalled one is dropped once and only once.
 // ============================================================================
 #include <algorithm>
 #include <map>
@@ -108,6 +105,49 @@ void test_a_reused_socket_number_receives_again_once_closed() {
   TEST_ASSERT_EQUAL_STRING(kFrame.c_str(), sockets.received[4].c_str());
 }
 
+void test_a_dropped_socket_is_skipped_without_a_write() {
+  // What the reaper does to a peer that has gone: no frame goes to it either.
+  rt::SseClients clients;
+  FakeSockets sockets;
+  clients.drop(4);
+
+  TEST_ASSERT_TRUE(clients.send({3, 4}, kFrame, sockets).empty());
+  TEST_ASSERT_EQUAL_INT(1, sockets.writes);
+  TEST_ASSERT_EQUAL_UINT(0, sockets.received.count(4));
+}
+
+void test_a_close_is_overdue_only_after_a_full_beat() {
+  // The first beat after a drop must not resend the close: it may still be
+  // queued, and a second close for the session can hit a new connection.
+  rt::SseClients clients;
+  clients.drop(4);
+
+  TEST_ASSERT_TRUE(clients.overdue().empty());
+  const std::vector<int> late = clients.overdue();
+  TEST_ASSERT_EQUAL_UINT(1, late.size());
+  TEST_ASSERT_EQUAL_INT(4, late[0]);
+  // And on every beat after that until the close lands.
+  TEST_ASSERT_EQUAL_UINT(1, clients.overdue().size());
+}
+
+void test_a_close_that_landed_is_never_overdue() {
+  rt::SseClients clients;
+  clients.drop(4);
+  clients.overdue();
+  clients.closed(4);
+
+  TEST_ASSERT_TRUE(clients.overdue().empty());
+}
+
+void test_dropping_twice_does_not_restart_the_clock() {
+  rt::SseClients clients;
+  clients.drop(4);
+  clients.overdue();
+  clients.drop(4);
+
+  TEST_ASSERT_EQUAL_UINT(1, clients.overdue().size());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_every_client_gets_the_frame);
@@ -115,5 +155,9 @@ int main() {
   RUN_TEST(test_a_short_write_is_dropped);
   RUN_TEST(test_a_client_that_stops_reading_is_dropped_once_and_not_written_again);
   RUN_TEST(test_a_reused_socket_number_receives_again_once_closed);
+  RUN_TEST(test_a_dropped_socket_is_skipped_without_a_write);
+  RUN_TEST(test_a_close_is_overdue_only_after_a_full_beat);
+  RUN_TEST(test_a_close_that_landed_is_never_overdue);
+  RUN_TEST(test_dropping_twice_does_not_restart_the_clock);
   return UNITY_END();
 }

@@ -641,7 +641,7 @@ std::string diagnostics_info_json() {
   out += ']';
   out += ",\"controlLockEnabled\":";
   out += s_control_lock.enabled() ? "true" : "false";
-  // Both callers are request handlers, i.e. on the httpd task client_count() needs.
+  // Both callers are request handlers.
   out += ",\"sseClients\":";
   out += std::to_string(sse_hub::client_count());
   // The backend_issues raised before this server existed, which is the only

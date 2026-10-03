@@ -84,9 +84,10 @@ info:
     a FIN.
 
     A client that is connected but not reading — a backgrounded tab, a phone
-    walking out of range — is closed on the first frame its socket cannot take
-    whole, rather than waited for. It loses nothing: with `retry: 500` it
-    reconnects into a fresh snapshot once it reads again.
+    walking out of range — is closed once its socket cannot take a whole frame,
+    rather than waited for. Run state survives that, because a reconnect starts
+    with a full `stateUpdate`; one-off events sent in between (`libraryChanged`,
+    `configWindow`, `backend_issue`) are not replayed, as after any reconnect.
 
     ## Sockets
 

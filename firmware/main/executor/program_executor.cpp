@@ -35,10 +35,8 @@ class DeviceEffects : public rt::Effects {
 
   void state_changed() override { pending_broadcast = true; }
 
-  // The broadcast is deferred to the end of the locked section rather than
-  // sent from here: PsychicEventSource fans out to every connected client, and
-  // holding the run-state lock across that would let one slow socket stall the
-  // run loop.
+  // Deferred to flush() rather than published from here, so a locked section
+  // that changes several things publishes once, after all of them.
   bool pending_broadcast = false;
 };
 
