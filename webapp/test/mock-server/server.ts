@@ -1554,7 +1554,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       if (!checkControlLockAuth(req, res)) return;
 
       if (isRunning()) {
-        problemResponse(res, '/problems/program_running', 'A program is running - stop it before restarting the device');
+        problemResponse(
+          res,
+          '/problems/program_running',
+          'A program is running - stop it before restarting the device',
+        );
         return;
       }
 

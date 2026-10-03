@@ -74,8 +74,8 @@ export function AboutSection(): React.ReactNode {
         <p className={styles.mismatch} data-testid='version-mismatch'>
           This app was built from a different commit than the firmware it is talking to. They ship as one image, so a
           page served <em>by</em> the device always matches it. This page came from somewhere else — a development
-          server, or a copy on a laptop — pointed at a board built from a different commit. Reloading will not help;
-          the two really are different.
+          server, or a copy on a laptop — pointed at a board built from a different commit. Reloading will not help; the
+          two really are different.
         </p>
       )}
 

@@ -22,8 +22,7 @@ export function useWifiApi() {
   return {
     status: (): Promise<WifiStatus> => client.request<WifiStatus>('/wifi'),
 
-    networks: (): Promise<{ networks: WifiNetwork[] }> =>
-      client.request<{ networks: WifiNetwork[] }>('/wifi/networks'),
+    networks: (): Promise<{ networks: WifiNetwork[] }> => client.request<{ networks: WifiNetwork[] }>('/wifi/networks'),
 
     // Stores only, since #341: the device stays on the network it is on and
     // reports `restartRequired` until POST /system/restart adopts this.

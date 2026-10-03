@@ -88,10 +88,7 @@ describe('connection', () => {
 
     act(() => FakeEventSource.latest.open());
 
-    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
-      ['hardware-config'],
-      ['wifi'],
-    ]);
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([['hardware-config'], ['wifi']]);
   });
 
   it('reconnects five seconds after an error, having closed the dead stream', () => {

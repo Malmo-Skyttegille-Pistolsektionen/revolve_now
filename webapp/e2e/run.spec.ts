@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { CONTROL_LOCK_PASSWORD, enableControlLockViaUi, expectProblem, openApp, resetDevice, TEST_PROGRAM } from './device';
+import {
+  CONTROL_LOCK_PASSWORD,
+  enableControlLockViaUi,
+  expectProblem,
+  openApp,
+  resetDevice,
+  TEST_PROGRAM,
+} from './device';
 
 test.beforeEach(async ({ request }) => {
   await resetDevice(request);

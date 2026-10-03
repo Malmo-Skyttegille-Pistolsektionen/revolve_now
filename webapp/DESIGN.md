@@ -2,33 +2,33 @@
 name: Rotation Target
 description: Range-side control for a rotating pistol target — equipment that happens to have a screen.
 colors:
-  ink: "#111827"
-  ink-body: "#213547"
-  text-strong: "#374151"
-  text-subtle: "#4b5563"
-  text-muted: "#6b7280"
-  surface: "#ffffff"
-  surface-sunken: "#fafafa"
-  surface-muted: "#f3f4f6"
-  border: "#e5e7eb"
-  border-strong: "#d1d5db"
-  action: "#2563eb"
-  action-deep: "#1d4ed8"
-  accent: "#6366f1"
-  accent-deep: "#4338ca"
-  accent-tint: "#eef2ff"
-  shown: "#16a34a"
-  shown-tint: "#dcfce7"
-  shown-text: "#14532d"
-  go: "#15803d"
-  go-deep: "#166534"
-  stop: "#dc2626"
-  stop-deep: "#b91c1c"
-  stop-tint: "#fee2e2"
-  stop-text: "#7f1d1d"
-  warn: "#92400e"
-  warn-tint: "#fef3c7"
-  warn-border: "#fcd34d"
+  ink: '#111827'
+  ink-body: '#213547'
+  text-strong: '#374151'
+  text-subtle: '#4b5563'
+  text-muted: '#6b7280'
+  surface: '#ffffff'
+  surface-sunken: '#fafafa'
+  surface-muted: '#f3f4f6'
+  border: '#e5e7eb'
+  border-strong: '#d1d5db'
+  action: '#2563eb'
+  action-deep: '#1d4ed8'
+  accent: '#6366f1'
+  accent-deep: '#4338ca'
+  accent-tint: '#eef2ff'
+  shown: '#16a34a'
+  shown-tint: '#dcfce7'
+  shown-text: '#14532d'
+  go: '#15803d'
+  go-deep: '#166534'
+  stop: '#dc2626'
+  stop-deep: '#b91c1c'
+  stop-tint: '#fee2e2'
+  stop-text: '#7f1d1d'
+  warn: '#92400e'
+  warn-tint: '#fef3c7'
+  warn-border: '#fcd34d'
 typography:
   # Eight steps, and every font-size in src/ is one of them. The ramp was
   # derived from what the app already shipped rather than imposed on it: the
@@ -41,134 +41,134 @@ typography:
   # own `.title` size (1.05, 1.2, 1.25). Nothing moved by more than 0.15rem.
   display:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "clamp(4.5rem, 24vw, 7rem)"
+    fontSize: 'clamp(4.5rem, 24vw, 7rem)'
     fontWeight: 700
     lineHeight: 1
-    fontVariation: "tabular-nums"
+    fontVariation: 'tabular-nums'
     usage: "The run screen's countdown, and nothing else."
   timer:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "clamp(1.5rem, 5vw, 2rem)"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: 'clamp(1.5rem, 5vw, 2rem)'
     fontWeight: 600
     lineHeight: 1.2
     usage: "The sticky timer that follows a run. Fluid on purpose - it has to stay readable on a phone held at arm's length and not dominate a laptop."
   headline:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "1.5rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '1.5rem'
     fontWeight: 600
     lineHeight: 1.3
     usage: "Page headings, and the timeline's duration readout."
   title:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "1.1rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '1.1rem'
     fontWeight: 600
     lineHeight: 1.4
-    usage: "Section and card titles. The one step three components had each guessed differently."
+    usage: 'Section and card titles. The one step three components had each guessed differently.'
   lead:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "1rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '1rem'
     fontWeight: 500
     lineHeight: 1.5
-    usage: "Controls that need to outweigh body text - a primary button, a card title in a dense list."
+    usage: 'Controls that need to outweigh body text - a primary button, a card title in a dense list.'
   bodyLarge:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.95rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.95rem'
     fontWeight: 400
     lineHeight: 1.5
-    usage: "Text the operator reads off a device at the range: table cells, form inputs, read-only values."
+    usage: 'Text the operator reads off a device at the range: table cells, form inputs, read-only values.'
   body:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.9rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.9rem'
     fontWeight: 400
     lineHeight: 1.5
-    usage: "The default. Buttons, labels, most prose."
+    usage: 'The default. Buttons, labels, most prose.'
   small:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.85rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.85rem'
     fontWeight: 400
     lineHeight: 1.5
-    usage: "Supporting text under a control - hints, metadata, error detail. The most-used size in the app."
+    usage: 'Supporting text under a control - hints, metadata, error detail. The most-used size in the app.'
   label:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.75rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.75rem'
     fontWeight: 600
     lineHeight: 1
-    letterSpacing: "0.05em"
-    usage: "Badges, group headings, tick labels. Anything set in caps."
+    letterSpacing: '0.05em'
+    usage: 'Badges, group headings, tick labels. Anything set in caps.'
 rounded:
-  sm: "4px"
-  md: "6px"
-  lg: "8px"
-  xl: "12px"
-  pill: "999px"
+  sm: '4px'
+  md: '6px'
+  lg: '8px'
+  xl: '12px'
+  pill: '999px'
 spacing:
-  xs: "0.25rem"
-  sm: "0.5rem"
-  md: "0.75rem"
-  lg: "1rem"
-  xl: "1.5rem"
-  xxl: "2rem"
+  xs: '0.25rem'
+  sm: '0.5rem'
+  md: '0.75rem'
+  lg: '1rem'
+  xl: '1.5rem'
+  xxl: '2rem'
 components:
   button-default:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink-body}"
-    rounded: "{rounded.sm}"
-    padding: "0.4rem 0.75rem"
-    height: "var(--rt-control-height)"
-    typography: "{typography.body}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.ink-body}'
+    rounded: '{rounded.sm}'
+    padding: '0.4rem 0.75rem'
+    height: 'var(--rt-control-height)'
+    typography: '{typography.body}'
   button-primary:
-    backgroundColor: "{colors.action}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.sm}"
-    padding: "0.4rem 0.75rem"
-    height: "var(--rt-control-height)"
+    backgroundColor: '{colors.action}'
+    textColor: '{colors.surface}'
+    rounded: '{rounded.sm}'
+    padding: '0.4rem 0.75rem'
+    height: 'var(--rt-control-height)'
   button-primary-hover:
-    backgroundColor: "{colors.action-deep}"
-    textColor: "{colors.surface}"
+    backgroundColor: '{colors.action-deep}'
+    textColor: '{colors.surface}'
   button-destructive:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.stop}"
-    rounded: "{rounded.sm}"
-    padding: "0.4rem 0.75rem"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.stop}'
+    rounded: '{rounded.sm}'
+    padding: '0.4rem 0.75rem'
   button-destructive-hover:
-    backgroundColor: "{colors.stop-tint}"
-    textColor: "{colors.stop}"
+    backgroundColor: '{colors.stop-tint}'
+    textColor: '{colors.stop}'
   button-go:
-    backgroundColor: "{colors.go}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.lg}"
-    padding: "0.75rem 1.5rem"
-    height: "48px"
+    backgroundColor: '{colors.go}'
+    textColor: '{colors.surface}'
+    rounded: '{rounded.lg}'
+    padding: '0.75rem 1.5rem'
+    height: '48px'
   button-stop:
-    backgroundColor: "{colors.stop}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.lg}"
-    padding: "0.75rem 1.5rem"
-    height: "48px"
+    backgroundColor: '{colors.stop}'
+    textColor: '{colors.surface}'
+    rounded: '{rounded.lg}'
+    padding: '0.75rem 1.5rem'
+    height: '48px'
   input:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink-body}"
-    rounded: "{rounded.sm}"
-    padding: "0.35rem 0.5rem"
-    typography: "{typography.body}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.ink-body}'
+    rounded: '{rounded.sm}'
+    padding: '0.35rem 0.5rem'
+    typography: '{typography.body}'
   badge-shown:
-    backgroundColor: "{colors.shown-tint}"
-    textColor: "{colors.shown-text}"
-    rounded: "{rounded.md}"
-    padding: "0 0.75rem"
-    height: "36px"
+    backgroundColor: '{colors.shown-tint}'
+    textColor: '{colors.shown-text}'
+    rounded: '{rounded.md}'
+    padding: '0 0.75rem'
+    height: '36px'
   badge-hidden:
-    backgroundColor: "{colors.stop-tint}"
-    textColor: "{colors.stop-text}"
-    rounded: "{rounded.md}"
-    padding: "0 0.75rem"
-    height: "36px"
+    backgroundColor: '{colors.stop-tint}'
+    textColor: '{colors.stop-text}'
+    rounded: '{rounded.md}'
+    padding: '0 0.75rem'
+    height: '36px'
   badge-neutral:
-    backgroundColor: "{colors.surface-muted}"
-    textColor: "{colors.text-strong}"
-    rounded: "{rounded.md}"
-    padding: "0 0.75rem"
-    height: "36px"
+    backgroundColor: '{colors.surface-muted}'
+    textColor: '{colors.text-strong}'
+    rounded: '{rounded.md}'
+    padding: '0 0.75rem'
+    height: '36px'
 ---
 
 # Design System: Rotation Target
@@ -275,7 +275,7 @@ only three weights in the whole system.
 ### Hierarchy
 
 - **Display** (700, `clamp(4.5rem, 24vw, 7rem)`, line-height 1): the countdown
-  digits alone. Scales *up* with the viewport rather than down, and uses
+  digits alone. Scales _up_ with the viewport rather than down, and uses
   tabular numerals so the box does not resize as 10 becomes 9.
 - **Headline** (600, 1.5rem): page titles.
 - **Title** (600, 1.1rem–1.25rem): card and section headings, series titles.

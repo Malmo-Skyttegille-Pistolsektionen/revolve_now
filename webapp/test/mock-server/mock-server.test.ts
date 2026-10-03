@@ -1000,12 +1000,14 @@ describe('hardware configuration', () => {
  * configuration PUTs stored.
  */
 describe('restarting the device', () => {
-  const restart = async (init?: RequestInit): Promise<Response> =>
-    api('/system/restart', { method: 'POST', ...init });
+  const restart = async (init?: RequestInit): Promise<Response> => api('/system/restart', { method: 'POST', ...init });
 
   // Any answer at all means the device is there - a 404 included, since what
   // this is telling apart is "answered" from "dropped the socket".
-  const unreachable = async (): Promise<boolean> => api('/version').then(() => false).catch(() => true);
+  const unreachable = async (): Promise<boolean> =>
+    api('/version')
+      .then(() => false)
+      .catch(() => true);
 
   // The firmware answers, keeps serving for 1.5 s so the response drains, and
   // only then reboots - so a client that polls immediately still gets answers.

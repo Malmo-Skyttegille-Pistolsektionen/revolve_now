@@ -55,9 +55,7 @@ async function device(open: boolean): Promise<void> {
   });
   // `open` is false both when the window is shut and before the first fetch
   // resolves, so waiting for 'false' asserts nothing. Wait for the query.
-  await waitFor(() =>
-    expect(queryClient.getQueryData(['hardware-config'])).not.toBeUndefined(),
-  );
+  await waitFor(() => expect(queryClient.getQueryData(['hardware-config'])).not.toBeUndefined());
 }
 
 beforeEach(() => {
@@ -155,9 +153,7 @@ describe('the configuration window', () => {
 
     const refused = await fetch(`${base}/config/hardware/reset`, { method: 'POST' });
     expect(refused.status).toBe(403);
-    expect(((await refused.json()) as { type: string }).type).toBe(
-      '/problems/hardware_config_window_closed',
-    );
+    expect(((await refused.json()) as { type: string }).type).toBe('/problems/hardware_config_window_closed');
   });
 
   it('refuses reset while a program is running', async () => {

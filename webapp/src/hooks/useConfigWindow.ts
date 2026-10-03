@@ -52,8 +52,7 @@ export function useConfigWindow(): { open: boolean; remainingSeconds: number } {
   // or a second press all correct themselves on the next response instead of
   // accumulating drift. Zero until the first tick, which simply shows what the
   // device said.
-  const elapsedSeconds =
-    nowMs > 0 && dataUpdatedAt > 0 ? Math.max(0, Math.floor((nowMs - dataUpdatedAt) / 1000)) : 0;
+  const elapsedSeconds = nowMs > 0 && dataUpdatedAt > 0 ? Math.max(0, Math.floor((nowMs - dataUpdatedAt) / 1000)) : 0;
 
   return {
     // The device decides whether the window is open — never the local clock.

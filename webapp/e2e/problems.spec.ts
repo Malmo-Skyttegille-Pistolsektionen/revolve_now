@@ -87,15 +87,12 @@ test('validation: a program document that will not parse', async ({ request }) =
 });
 
 test('upload: a POST with no file part', async ({ request }) => {
-  await expectProblem(
-    await request.post(`${API}/audios`, { multipart: { title: 'No file here' } }),
-    {
-      type: '/problems/upload_missing_file',
-      title: 'No file uploaded',
-      status: 400,
-      detail: 'No file uploaded',
-    },
-  );
+  await expectProblem(await request.post(`${API}/audios`, { multipart: { title: 'No file here' } }), {
+    type: '/problems/upload_missing_file',
+    title: 'No file uploaded',
+    status: 400,
+    detail: 'No file uploaded',
+  });
 });
 
 test('auth: a protected call with no credentials, and a wrong password', async ({ playwright, request }, testInfo) => {
@@ -133,12 +130,15 @@ test('auth: a protected call with no credentials, and a wrong password', async (
       detail: 'Invalid password',
     });
 
-    await expectProblem(await request.post(`${API}/control-lock/enable`, { data: { password: CONTROL_LOCK_PASSWORD } }), {
-      type: '/problems/control_lock_already_enabled',
-      title: 'Control lock already on',
-      status: 409,
-      detail: 'The control lock is already on. Log in, or turn it off before turning it on again.',
-    });
+    await expectProblem(
+      await request.post(`${API}/control-lock/enable`, { data: { password: CONTROL_LOCK_PASSWORD } }),
+      {
+        type: '/problems/control_lock_already_enabled',
+        title: 'Control lock already on',
+        status: 409,
+        detail: 'The control lock is already on. Log in, or turn it off before turning it on again.',
+      },
+    );
   } finally {
     await anonymous.dispose();
     const disable = await request.post(`${API}/control-lock/disable`, auth);

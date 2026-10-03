@@ -132,9 +132,7 @@ describe('restart to apply (#341)', () => {
     await saveHardware();
     renderApp('/settings');
 
-    expect((await screen.findByTestId('restart-pending-notice')).textContent).toContain(
-      'saved but not applied',
-    );
+    expect((await screen.findByTestId('restart-pending-notice')).textContent).toContain('saved but not applied');
   });
 
   // A pending restart is a fact about the device, not about the window (D-42).

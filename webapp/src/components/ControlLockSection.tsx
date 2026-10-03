@@ -93,7 +93,9 @@ export function ControlLockSection(): React.ReactNode {
             <span className={clsx(styles.statusBadge, styles.statusOff)} data-testid='control-lock-status'>
               OFF
             </span>
-            <span className={styles.statusDescription}>Full public access — anyone on the network can operate this device</span>
+            <span className={styles.statusDescription}>
+              Full public access — anyone on the network can operate this device
+            </span>
           </div>
           <div className={styles.inputRow}>
             <input
@@ -148,8 +150,8 @@ export function ControlLockSection(): React.ReactNode {
             </button>
           </div>
           <div className={styles.infoText}>
-            Whoever turned the lock on chose this password. Logging in lets you operate the device; turning the
-            lock off returns it to full public access for everyone.
+            Whoever turned the lock on chose this password. Logging in lets you operate the device; turning the lock off
+            returns it to full public access for everyone.
           </div>
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
         </div>
@@ -166,7 +168,9 @@ export function ControlLockSection(): React.ReactNode {
           <span className={clsx(styles.statusBadge, styles.statusActive)} data-testid='control-lock-status'>
             ON ✓
           </span>
-          <span className={styles.statusDescription}>You are holding the lock — nobody else can start or change anything</span>
+          <span className={styles.statusDescription}>
+            You are holding the lock — nobody else can start or change anything
+          </span>
         </div>
         <div className={styles.buttonRow}>
           <button className={clsx(styles.button, styles.buttonSecondary)} onClick={handleLogout} disabled={isPending}>

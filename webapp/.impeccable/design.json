@@ -65,15 +65,43 @@
       }
     },
     "shadows": [
-      { "name": "overlay", "value": "0 25px 50px -12px rgba(0, 0, 0, 0.25)", "purpose": "Modal dialogs only. Things that genuinely float above the page." },
-      { "name": "response", "value": "0 2px 8px rgba(0, 0, 0, 0.1)", "purpose": "Hover and active feedback on an interactive card." },
-      { "name": "lift", "value": "0 4px 12px rgba(0, 0, 0, 0.08)", "purpose": "The running series. Neutral, never tinted to match the accent." },
-      { "name": "focus-action", "value": "0 0 0 3px rgba(37, 99, 235, 0.1)", "purpose": "Focus ring on a blue control." },
-      { "name": "focus-stop", "value": "0 0 0 3px rgba(220, 38, 38, 0.3)", "purpose": "Focus ring on the Cancel button." }
+      {
+        "name": "overlay",
+        "value": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+        "purpose": "Modal dialogs only. Things that genuinely float above the page."
+      },
+      {
+        "name": "response",
+        "value": "0 2px 8px rgba(0, 0, 0, 0.1)",
+        "purpose": "Hover and active feedback on an interactive card."
+      },
+      {
+        "name": "lift",
+        "value": "0 4px 12px rgba(0, 0, 0, 0.08)",
+        "purpose": "The running series. Neutral, never tinted to match the accent."
+      },
+      {
+        "name": "focus-action",
+        "value": "0 0 0 3px rgba(37, 99, 235, 0.1)",
+        "purpose": "Focus ring on a blue control."
+      },
+      {
+        "name": "focus-stop",
+        "value": "0 0 0 3px rgba(220, 38, 38, 0.3)",
+        "purpose": "Focus ring on the Cancel button."
+      }
     ],
     "motion": [
-      { "name": "state", "value": "0.2s ease", "purpose": "Default transition for hover, background and border changes." },
-      { "name": "pulse", "value": "1s ease-in-out", "purpose": "The countdown tick. Suppressed under prefers-reduced-motion." }
+      {
+        "name": "state",
+        "value": "0.2s ease",
+        "purpose": "Default transition for hover, background and border changes."
+      },
+      {
+        "name": "pulse",
+        "value": "1s ease-in-out",
+        "purpose": "The countdown tick. Suppressed under prefers-reduced-motion."
+      }
     ],
     "breakpoints": [
       { "name": "phone-and-tablet", "value": "768px" },
@@ -173,15 +201,51 @@
       "Legibility in daylight outranks visual interest, always"
     ],
     "rules": [
-      { "name": "The Three Signals Rule", "body": "Green means the target is shown, red means it is hidden, amber means no delay is armed. No other element may use those hues for any other purpose. If a new state needs a colour and is not one of those three things, it uses indigo or a grey.", "section": "colors" },
-      { "name": "The One Family Rule", "body": "The palette is the Tailwind scale. Two earlier families are still present in the code - the Vite starter purple (#646cff) and the Material greens (#e8f5e9, #a5d6a7) - and are being retired. Do not add to them.", "section": "colors" },
-      { "name": "The Readable Signal Rule", "body": "Signal colours are chosen for contrast, not brightness. White text sits on green-700 (#15803d), never green-600, because white on green-600 measures 3.3:1 and fails AA. Any new coloured surface must clear 4.5:1 for its text before it ships.", "section": "colors" },
-      { "name": "The Arm's Length Rule", "body": "The countdown grows with the viewport instead of shrinking with it. A phone held at the firing line is further from the eye than a laptop on a desk, so 24vw is the floor of the readout, not its ceiling.", "section": "typography" },
-      { "name": "The Tabular Rule", "body": "Any number that changes in place is font-variant-numeric: tabular-nums. A readout that jitters as its digits change is a readout nobody trusts.", "section": "typography" },
-      { "name": "The No Nested Scroller Rule", "body": "The document scrolls; panels do not. A flex child with overflow-y: auto also computes overflow-x: auto, which silently clipped the programs and audios tables off the right edge on a phone. Wide content gets its own explicitly scrollable wrapper.", "section": "layout" },
-      { "name": "The Flat-By-Default Rule", "body": "A card gets a border, not a shadow. If you are reaching for box-shadow on a resting surface, the answer is a tone change or a border.", "section": "elevation" },
-      { "name": "The Neutral Elevation Rule", "body": "Shadows are black at low alpha. A shadow tinted to match its element's accent colour is decoration pretending to be depth.", "section": "elevation" },
-      { "name": "The Side-Tab Ban", "body": "No thick coloured border on one edge of a card. It is the most recognisable tell of machine-generated UI, and this system says warning with a tinted ground and a full hairline border instead.", "section": "shapes" }
+      {
+        "name": "The Three Signals Rule",
+        "body": "Green means the target is shown, red means it is hidden, amber means no delay is armed. No other element may use those hues for any other purpose. If a new state needs a colour and is not one of those three things, it uses indigo or a grey.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "The palette is the Tailwind scale. Two earlier families are still present in the code - the Vite starter purple (#646cff) and the Material greens (#e8f5e9, #a5d6a7) - and are being retired. Do not add to them.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Signal Rule",
+        "body": "Signal colours are chosen for contrast, not brightness. White text sits on green-700 (#15803d), never green-600, because white on green-600 measures 3.3:1 and fails AA. Any new coloured surface must clear 4.5:1 for its text before it ships.",
+        "section": "colors"
+      },
+      {
+        "name": "The Arm's Length Rule",
+        "body": "The countdown grows with the viewport instead of shrinking with it. A phone held at the firing line is further from the eye than a laptop on a desk, so 24vw is the floor of the readout, not its ceiling.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Any number that changes in place is font-variant-numeric: tabular-nums. A readout that jitters as its digits change is a readout nobody trusts.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Nested Scroller Rule",
+        "body": "The document scrolls; panels do not. A flex child with overflow-y: auto also computes overflow-x: auto, which silently clipped the programs and audios tables off the right edge on a phone. Wide content gets its own explicitly scrollable wrapper.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "A card gets a border, not a shadow. If you are reaching for box-shadow on a resting surface, the answer is a tone change or a border.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Neutral Elevation Rule",
+        "body": "Shadows are black at low alpha. A shadow tinted to match its element's accent colour is decoration pretending to be depth.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Side-Tab Ban",
+        "body": "No thick coloured border on one edge of a card. It is the most recognisable tell of machine-generated UI, and this system says warning with a tinted ground and a full hairline border instead.",
+        "section": "shapes"
+      }
     ],
     "dos": [
       "Do reserve green, red and amber for target shown, target hidden, and no delay armed. Anything else that needs colour uses indigo or a grey.",

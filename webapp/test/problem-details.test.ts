@@ -86,12 +86,18 @@ describe('unloadFailureNotice', () => {
 
 describe('failureNotice', () => {
   it('sends an unauthenticated caller to Settings', () => {
-    const notice = failureNotice(apiError('/problems/control_lock_credentials_required', 'Nope', 401), 'Could not load.');
+    const notice = failureNotice(
+      apiError('/problems/control_lock_credentials_required', 'Nope', 401),
+      'Could not load.',
+    );
     expect(notice.message).toContain('sign in under Settings');
   });
 
   it('shows detail for everything else', () => {
-    const notice = failureNotice(apiError('/problems/audio_playing', 'Audio is currently playing', 409), 'Could not delete.');
+    const notice = failureNotice(
+      apiError('/problems/audio_playing', 'Audio is currently playing', 409),
+      'Could not delete.',
+    );
     expect(notice.message).toBe('Could not delete. Audio is currently playing');
   });
 });
@@ -156,7 +162,12 @@ describe('the client parses the wire document', () => {
     // Parsed by shape, not by Content-Type: an intermediary that rewrites the
     // header must not cost the client its discriminator.
     respond(
-      JSON.stringify({ type: '/problems/audio_playing', title: 'Audio is currently playing', status: 409, detail: 'd' }),
+      JSON.stringify({
+        type: '/problems/audio_playing',
+        title: 'Audio is currently playing',
+        status: 409,
+        detail: 'd',
+      }),
       { status: 409, headers: { 'Content-Type': 'application/json' } },
     );
     expect(problemType(await reject())).toBe('/problems/audio_playing');
