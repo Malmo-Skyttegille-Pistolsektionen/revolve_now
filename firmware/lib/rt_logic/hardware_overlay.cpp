@@ -50,7 +50,7 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
 
   std::string text;
   if (reader.read_str(hw_key::kHostname, text)) {
-    out.hostname = text;
+    if (text != kLegacyDefaultHostname) out.hostname = text;
     found = true;
   }
   if (reader.read_str(hw_key::kDisplayName, text)) {
