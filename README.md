@@ -8,6 +8,10 @@ and plays the spoken range commands over an amplifier. A React web app — serve
 by the board itself over WiFi — starts and stops programs, follows the run live
 over Server-Sent Events, and manages the stored programs and audio.
 
+<p align="center">
+  <img src="docs/site/img/run-phone.png" width="300" alt="The Run page on a phone, partway through a program">
+</p>
+
 ## ⚠️ SAFETY WARNING — READ BEFORE INSTALLING OR OPERATING
 
 **This device moves steel on a live firing range, and it moves it on a timer.**

@@ -17,8 +17,8 @@ one at any point (see [Skipping](#optional-series-and-skipping) below).
 ## Starting
 
 **Start delay** sets how many seconds count down before the program actually
-starts — 0 starts it at once. It is saved in the browser you set it in, so
-another phone or tablet at the same range keeps its own value.
+starts — **No delay** starts it at once. It is saved in the browser you set it
+in, so another phone or tablet at the same range keeps its own value.
 
 With a delay set, Start opens a countdown with its own **Start Now** (skip the
 rest of the wait) and **Cancel** buttons. The countdown is cancelled
