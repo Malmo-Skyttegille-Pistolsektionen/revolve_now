@@ -52,7 +52,7 @@ export default tseslint.config(
   {
     // The E2E suite runs in Node against a real device, not in the browser,
     // and its `console.log` of the observed SSE samples is deliberate output.
-    files: ['e2e/**/*.ts', 'playwright.config.ts', 'scripts/screenshots.*.ts'],
+    files: ['e2e/**/*.ts', 'playwright.config.ts', 'scripts/screenshots.*.ts', 'scripts/brand-icons.ts'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   eslintConfigPrettier,

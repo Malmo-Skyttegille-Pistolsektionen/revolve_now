@@ -6,6 +6,8 @@ docs_dir: docs/site
 
 theme:
   name: material
+  logo: img/revolve-now-header.svg
+  favicon: img/revolve-now.svg
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default

@@ -1,0 +1,19 @@
+/* A mask over the committed logo SVG, so the artwork has one copy and its
+   colour follows the app's theme setting rather than only the OS one. */
+.logo {
+  display: inline-block;
+  flex: none;
+  height: 1em;
+  aspect-ratio: 627.84 / 101.25;
+  background-color: var(--rt-text-strong);
+  mask: url('/revolve-now-logo.svg') center / contain no-repeat;
+}
+
+.name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

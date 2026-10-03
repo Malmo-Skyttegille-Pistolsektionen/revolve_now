@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ExportPanel } from '../components/ExportPanel';
+import { Logo } from '../components/Logo';
 import { ProgramEditor, type EditorTarget } from '../components/ProgramEditor';
 import { ThemePicker } from '../components/ThemePicker';
 import {
@@ -43,7 +44,10 @@ export function StandaloneEditorApp(): React.ReactNode {
     <main className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headingRow}>
-          <h1 className={styles.heading}>Revolve Now — Program Editor</h1>
+          <h1 className={styles.heading}>
+            <Logo />
+            Program Editor
+          </h1>
           <ThemePicker />
         </div>
         <p className={styles.hint}>

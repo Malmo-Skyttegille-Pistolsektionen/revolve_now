@@ -15,11 +15,11 @@
   font-weight: 600;
 }
 
+/* The logo is sized by font-size: its plates are 1em tall. */
 .product {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--rt-ink);
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .rows {
