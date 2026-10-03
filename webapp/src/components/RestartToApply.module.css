@@ -8,10 +8,10 @@
 .button {
   padding: 0.45rem 0.9rem;
   font-size: 0.9rem;
-  border: 1px solid #b45309;
+  border: 1px solid var(--rt-warn-fill);
   border-radius: 6px;
-  background-color: #b45309;
-  color: #fff;
+  background-color: var(--rt-warn-fill);
+  color: var(--rt-on-fill);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -25,9 +25,9 @@
   margin: 0;
   padding: 0.4rem 0.6rem;
   border-radius: 6px;
-  background-color: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #3730a3;
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
+  color: var(--rt-accent-ink);
   font-size: 0.8rem;
   line-height: 1.4;
 }

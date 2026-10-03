@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ExportPanel } from '../components/ExportPanel';
 import { ProgramEditor, type EditorTarget } from '../components/ProgramEditor';
+import { ThemePicker } from '../components/ThemePicker';
 import {
   GitHubApiError,
   fetchRepoProgramFile,
@@ -41,7 +42,10 @@ export function StandaloneEditorApp(): React.ReactNode {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.heading}>Rotation Target — Program Editor</h1>
+        <div className={styles.headingRow}>
+          <h1 className={styles.heading}>Rotation Target — Program Editor</h1>
+          <ThemePicker />
+        </div>
         <p className={styles.hint}>
           Runs entirely in this browser tab, with no device attached. Open a program, edit it, then download it or send
           it back as a pull request.

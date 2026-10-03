@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -12,13 +12,13 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
 .explain {
   margin: 0;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -36,12 +36,12 @@
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  background-color: #4338ca;
-  color: #fff;
+  background-color: var(--rt-accent-fill);
+  color: var(--rt-on-fill);
 }
 
 .button:hover:not(:disabled) {
-  background-color: #3730a3;
+  background-color: var(--rt-accent-fill-deep);
 }
 
 .button:disabled {
@@ -51,7 +51,7 @@
 
 .muted {
   margin: 0;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   font-style: italic;
 }
@@ -60,8 +60,8 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #312e81;
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
+  color: var(--rt-accent-ink);
   font-size: 0.9rem;
 }

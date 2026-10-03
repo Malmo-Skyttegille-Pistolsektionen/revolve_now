@@ -10,16 +10,16 @@
 .series {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background-color: #fafafa;
+  background-color: var(--rt-surface-sunken);
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--rt-border);
   width: 100%;
   box-sizing: border-box;
 }
 
 .series.active {
-  background-color: #f0f4ff;
-  border: 2px solid #6366f1;
+  background-color: var(--rt-accent-tint);
+  border: 2px solid var(--rt-accent);
   /* Neutral elevation. The indigo border already says "this is the series
      running"; a coloured halo underneath it only says "decorated". */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -29,13 +29,13 @@
   font-weight: 600;
   margin-bottom: 1rem;
   font-size: 1.1rem;
-  color: #444;
+  color: var(--rt-text-strong);
 }
 
 .series.active .seriesTitle {
   /* Deep indigo, not the accent: on the active series' #f0f4ff ground the
      lighter indigo measures 3.7:1 and fails AA for text. */
-  color: #4338ca;
+  color: var(--rt-accent-deep);
 }
 
 /* --- Default Timeline (Box based) --- */
@@ -52,12 +52,12 @@
 }
 
 .eventBox {
-  border: 1px solid #ddd;
+  border: 1px solid var(--rt-border);
   border-radius: 6px;
   padding: 0.75rem 1rem;
   min-width: 70px;
   text-align: center;
-  background-color: #fff;
+  background-color: var(--rt-surface);
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
@@ -70,36 +70,36 @@
    event, which is the one thing it must not look like. Indigo is the app's
    "this is the one running" colour and is not spoken for by show or hide. */
 .eventBox.active {
-  border: 2px solid #4338ca;
+  border: 2px solid var(--rt-accent-deep);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.28);
   position: relative;
   z-index: 1;
 }
 
 .eventBox.active .duration {
-  color: #312e81;
+  color: var(--rt-accent-ink);
 }
 
 .eventBox.show {
-  background-color: #dcfce7;
-  border-color: #16a34a;
+  background-color: var(--rt-shown-tint);
+  border-color: var(--rt-shown);
 }
 
 .eventBox.hide {
-  background-color: #fee2e2;
-  border-color: #fca5a5;
+  background-color: var(--rt-stop-tint);
+  border-color: var(--rt-stop-border);
 }
 
 .eventBox.active.show,
 .eventBox.active.hide {
-  border-color: #4338ca;
+  border-color: var(--rt-accent-deep);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.28);
 }
 
 .duration {
   font-weight: bold;
   font-size: 1.5rem;
-  color: #333;
+  color: var(--rt-text);
 }
 
 .symbol {
@@ -108,15 +108,15 @@
   justify-content: center;
   gap: 0.2rem;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--rt-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .accumulated {
   font-size: 0.75rem;
-  color: #6b7280;
-  border-top: 1px solid #eee;
+  color: var(--rt-text-muted);
+  border-top: 1px solid var(--rt-border);
   margin-top: 4px;
   padding-top: 4px;
 }
@@ -125,8 +125,8 @@
 .fieldContainer {
   position: relative;
   margin-bottom: 2.5rem;
-  background-color: #fff;
-  border: 1px solid #e0e0e0;
+  background-color: var(--rt-surface);
+  border: 1px solid var(--rt-border);
   border-radius: 8px;
   height: 120px;
   width: 100%;
@@ -140,7 +140,7 @@
   left: 0;
   width: 100%;
   height: 2px;
-  background-color: #ddd;
+  background-color: var(--rt-border);
   z-index: 1;
 }
 
@@ -149,8 +149,8 @@
   height: 48px;
   top: 50%;
   transform: translateY(-50%);
-  border: 1px solid #999;
-  background-color: #f5f5f5;
+  border: 1px solid var(--rt-border-strong);
+  background-color: var(--rt-surface-sunken);
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -172,15 +172,15 @@
 }
 
 .segment.show {
-  background-color: #c8e6c9;
-  border-color: #81c784;
+  background-color: var(--rt-shown-tint);
+  border-color: var(--rt-shown);
   top: 28%;
   transform: translateY(-50%);
 }
 
 .segment.hide {
-  background-color: #ffcdd2;
-  border-color: #e57373;
+  background-color: var(--rt-stop-tint);
+  border-color: var(--rt-stop-border);
   top: 50%;
   transform: translateY(-50%);
 }
@@ -189,7 +189,7 @@
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
   z-index: 10;
   border-width: 2px;
-  border-color: #333;
+  border-color: var(--rt-text);
 }
 
 .axis {
@@ -198,8 +198,8 @@
   left: 0;
   width: 100%;
   height: 24px;
-  border-top: 1px solid #e0e0e0;
-  background-color: #fafafa;
+  border-top: 1px solid var(--rt-border);
+  background-color: var(--rt-surface-sunken);
   border-radius: 0 0 8px 8px;
 }
 
@@ -208,7 +208,7 @@
   bottom: 0;
   width: 1px;
   height: 6px;
-  background-color: #bbb;
+  background-color: var(--rt-border-strong);
   transform: translateX(-50%);
 }
 
@@ -217,7 +217,7 @@
   bottom: -18px;
   transform: translateX(-50%);
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   /* .tick is 1px wide, so an absolutely positioned label with no explicit
      width shrink-to-fits against that 1px - harmless for a single digit-run
      token, but the space before the unit gives the browser a break
@@ -227,7 +227,7 @@
 
 /* States the axis unit once, on the final tick. */
 .tickUnit {
-  color: #6b7280;
+  color: var(--rt-text-muted);
 }
 
 .cursor {
@@ -235,7 +235,7 @@
   top: 0;
   height: calc(100% - 24px);
   width: 3px;
-  background-color: #e53935;
+  background-color: var(--rt-stop-ink);
   z-index: 20;
   pointer-events: none;
   transition: left 0.1s linear;
@@ -249,7 +249,7 @@
   left: -5px;
   width: 12px;
   height: 12px;
-  background-color: #e53935;
+  background-color: var(--rt-stop-ink);
   border-radius: 50%;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
@@ -314,7 +314,7 @@
   .accumulated {
     margin-top: 1px;
     padding: 1px 0 0;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--rt-border);
     border-left: none;
     font-size: 0.85rem;
     width: 100%;
@@ -359,16 +359,16 @@
 }
 
 .eventBox.selected {
-  outline: 2px solid #4338ca;
+  outline: 2px solid var(--rt-accent-deep);
   outline-offset: 2px;
 }
 
 .detail {
   margin-top: 0.75rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--rt-border);
   border-radius: 8px;
-  background-color: #fff;
+  background-color: var(--rt-surface);
 }
 
 .detailHead {
@@ -381,7 +381,7 @@
 
 .detailTitle {
   font-weight: 600;
-  color: #374151;
+  color: var(--rt-text-strong);
 }
 
 .detailDismiss {
@@ -389,7 +389,7 @@
   font-size: 0.85rem;
   background: none;
   border: none;
-  color: #4338ca;
+  color: var(--rt-accent-deep);
   cursor: pointer;
   padding: 0;
 }
@@ -402,19 +402,19 @@
 }
 
 .detailRows dt {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.9rem;
 }
 
 .detailRows dd {
   margin: 0;
-  color: #111827;
+  color: var(--rt-ink);
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
 
 .detailNone {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-style: italic;
 }
 
@@ -449,9 +449,9 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #4338ca;
-  background-color: #eef2ff;
-  border: 1px solid #c7d2fe;
+  color: var(--rt-accent-deep);
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
   border-radius: 4px;
   padding: 0.1rem 0.4rem;
 }
@@ -462,10 +462,10 @@
   min-height: var(--rt-control-height);
   padding: 0 0.75rem;
   margin-left: auto;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
-  background-color: #fff;
-  color: #374151;
+  background-color: var(--rt-surface);
+  color: var(--rt-text-strong);
   cursor: pointer;
 }
 
@@ -480,7 +480,7 @@
    anchor is a property of the program, visible before anything runs, and the
    active event is where the run has got to. */
 .eventBox.anchor {
-  border-color: #b45309;
+  border-color: var(--rt-warn-ink);
   border-style: dashed;
 }
 
@@ -488,7 +488,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #b45309;
+  color: var(--rt-warn-ink);
 }
 
 .anchorLine {
@@ -496,7 +496,7 @@
   top: 0;
   bottom: 0;
   width: 0;
-  border-left: 2px dashed #b45309;
+  border-left: 2px dashed var(--rt-warn-ink);
   z-index: 2;
   pointer-events: none;
 }
@@ -507,7 +507,7 @@
   left: 3px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #b45309;
+  color: var(--rt-warn-ink);
   white-space: nowrap;
 }
 
@@ -532,36 +532,36 @@
   height: 16px;
   line-height: 16px;
   border-radius: 4px;
-  border: 1px solid #d1d5db;
-  background-color: #f3f4f6;
-  color: #6b7280;
+  border: 1px solid var(--rt-border-strong);
+  background-color: var(--rt-surface-muted);
+  color: var(--rt-text-subtle);
   font-size: 0.75rem;
   font-weight: 600;
   text-align: center;
 }
 
 .glyphCell.bankShown {
-  background-color: #dcfce7;
-  border-color: #16a34a;
-  color: #14532d;
+  background-color: var(--rt-shown-tint);
+  border-color: var(--rt-shown);
+  color: var(--rt-shown-text);
 }
 
 .glyphCell.bankHidden {
-  background-color: #fee2e2;
-  border-color: #fca5a5;
-  color: #7f1d1d;
+  background-color: var(--rt-stop-tint);
+  border-color: var(--rt-stop-border);
+  color: var(--rt-stop-text);
 }
 
 .glyphCell.addressed.bankShown {
-  background-color: #15803d;
-  border-color: #15803d;
-  color: #fff;
+  background-color: var(--rt-go);
+  border-color: var(--rt-go);
+  color: var(--rt-on-fill);
 }
 
 .glyphCell.addressed.bankHidden {
-  background-color: #dc2626;
-  border-color: #dc2626;
-  color: #fff;
+  background-color: var(--rt-stop);
+  border-color: var(--rt-stop);
+  color: var(--rt-on-fill);
 }
 
 /* --- Time-scaled view, one lane per bank ------------------------------------
@@ -575,29 +575,29 @@
   align-items: center;
   margin-bottom: 2rem;
   padding: 0.75rem;
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
+  background-color: var(--rt-surface);
+  border: 1px solid var(--rt-border);
   border-radius: 8px;
 }
 
 .laneLabel {
   font-size: 0.85rem;
-  color: #4b5563;
+  color: var(--rt-text-subtle);
   text-align: right;
   white-space: nowrap;
 }
 
 .laneLetter {
   font-weight: 600;
-  color: #111827;
+  color: var(--rt-ink);
 }
 
 .lane {
   position: relative;
   height: 22px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--rt-border);
   border-radius: 4px;
-  background-color: #f3f4f6;
+  background-color: var(--rt-surface-muted);
   overflow: hidden;
 }
 
@@ -608,22 +608,22 @@
 }
 
 .laneSegment.bankShown {
-  background-color: #16a34a;
+  background-color: var(--rt-shown);
 }
 
 .laneSegment.bankHidden {
-  background-color: #dc2626;
+  background-color: var(--rt-stop);
 }
 
 /* Where this bank's state actually changes. A boundary between two events that
    left it alone is not a boundary as far as the steel is concerned, so only
    the ones that moved get an edge. */
 .laneSegment.edge {
-  border-left: 2px solid #fff;
+  border-left: 2px solid var(--rt-surface);
 }
 
 .laneSegment.active {
-  box-shadow: inset 0 0 0 2px #4338ca;
+  box-shadow: inset 0 0 0 2px var(--rt-accent-deep);
 }
 
 .laneCursor {
@@ -632,7 +632,7 @@
   bottom: -2px;
   width: 3px;
   margin-left: -1.5px;
-  background-color: #e53935;
+  background-color: var(--rt-stop-ink);
   border-radius: 4px;
   z-index: 3;
   pointer-events: none;
@@ -648,14 +648,14 @@
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  color: #6b7280;
+  color: var(--rt-text-muted);
 }
 
 .laneAxis {
   position: relative;
   height: 18px;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -695,25 +695,25 @@
 }
 
 .bankSwatch.bankShown {
-  background-color: #16a34a;
+  background-color: var(--rt-shown);
 }
 
 .bankSwatch.bankHidden {
-  background-color: #dc2626;
+  background-color: var(--rt-stop);
 }
 
 .bankSwatch.carried.bankShown {
-  background-color: #dcfce7;
-  border-color: #16a34a;
+  background-color: var(--rt-shown-tint);
+  border-color: var(--rt-shown);
 }
 
 .bankSwatch.carried.bankHidden {
-  background-color: #fee2e2;
-  border-color: #fca5a5;
+  background-color: var(--rt-stop-tint);
+  border-color: var(--rt-stop-border);
 }
 
 .bankCarried {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
 }
 

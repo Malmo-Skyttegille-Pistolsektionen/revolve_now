@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -11,7 +11,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
@@ -26,28 +26,28 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.95rem;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   flex: 1;
   min-width: 200px;
   min-height: var(--rt-control-height);
   box-sizing: border-box;
-  background-color: #fff;
-  color: #333;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
 }
 
 .input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--rt-accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .inputError {
-  border-color: #dc2626;
+  border-color: var(--rt-stop-ink);
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }
 
 .inputError:focus {
-  border-color: #dc2626;
+  border-color: var(--rt-stop-ink);
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }
 
@@ -59,8 +59,8 @@
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--rt-fill);
+  color: var(--rt-text-strong);
   transition:
     background-color 0.2s,
     opacity 0.2s;
@@ -71,7 +71,7 @@
 }
 
 .button:hover:not(:disabled) {
-  background-color: #d1d5db;
+  background-color: var(--rt-fill-hover);
 }
 
 .button:disabled {
@@ -81,22 +81,22 @@
 
 .buttonPrimary {
   /* Indigo-600, not -500: white on -500 is 4.47:1, a hair under AA. */
-  background-color: #4f46e5;
-  color: white;
+  background-color: var(--rt-accent-fill);
+  color: var(--rt-on-fill);
 }
 
 .buttonPrimary:hover:not(:disabled) {
-  background-color: #4338ca;
+  background-color: var(--rt-accent-fill-deep);
 }
 
 .errorMessage {
-  color: #dc2626;
+  color: var(--rt-stop-ink);
   font-size: 0.85rem;
   margin-top: 0.25rem;
 }
 
 .successMessage {
-  color: #16a34a;
+  color: var(--rt-shown-ink);
   font-size: 0.85rem;
   margin-top: 0.25rem;
 }
@@ -123,19 +123,19 @@
    second heading. */
 .sectionTitleAside {
   font-weight: 400;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.9rem;
 }
 
 /* Selectable and monospaced - its job is to be copied or read out. */
 .address {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #111827;
+  color: var(--rt-ink);
   user-select: all;
 }
 
 .addressMissing {
   margin-top: 0.5rem;
-  color: #92400e;
+  color: var(--rt-warn);
   font-size: 0.85rem;
 }
