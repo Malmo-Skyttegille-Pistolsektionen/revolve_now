@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -11,20 +11,20 @@
 /* The same amber card as the hardware settings beside it: one page, one
    vocabulary for "this changes what the device is". */
 .expert {
-  border: 1px solid #fcd34d;
-  background-color: #fffbeb;
+  border: 1px solid var(--rt-warn-border);
+  background-color: var(--rt-warn-tint-soft);
 }
 
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
 .explain {
   margin: 0;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -35,16 +35,16 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background-color: var(--rt-warn-tint);
+  border: 1px solid var(--rt-warn-border);
+  color: var(--rt-warn);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
 .current {
   margin: 0;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-size: 0.9rem;
 }
 
@@ -61,7 +61,7 @@
 }
 
 .label {
-  color: #374151;
+  color: var(--rt-text-strong);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -70,19 +70,19 @@
   height: var(--rt-control-height);
   padding: 0.45rem 0.6rem;
   font-size: 0.95rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
   max-width: 22rem;
   box-sizing: border-box;
 }
 
 .input:disabled {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: var(--rt-surface-muted);
+  color: var(--rt-text-subtle);
 }
 
 .input:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--rt-focus);
   outline-offset: 2px;
 }
 
@@ -100,14 +100,14 @@
 
 .hint {
   margin: 0;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
 .hint code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  background: #f3f4f6;
+  background: var(--rt-surface-muted);
   border-radius: 3px;
   padding: 0 0.2rem;
 }
@@ -119,20 +119,20 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #4338ca;
+  color: var(--rt-accent-deep);
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
 }
 
 .linkButton:disabled {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   cursor: not-allowed;
   text-decoration: none;
 }
 
 .linkButton:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--rt-focus);
   outline-offset: 2px;
 }
 
@@ -146,10 +146,10 @@
   height: var(--rt-control-height);
   padding: 0.45rem 0.9rem;
   font-size: 0.9rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
-  background: #fff;
-  color: #374151;
+  background: var(--rt-surface);
+  color: var(--rt-text-strong);
   cursor: pointer;
 }
 
@@ -159,14 +159,14 @@
 }
 
 .button:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--rt-focus);
   outline-offset: 2px;
 }
 
 .buttonPrimary {
-  background-color: #4338ca;
-  border-color: #4338ca;
-  color: #fff;
+  background-color: var(--rt-accent-fill);
+  border-color: var(--rt-accent-fill);
+  color: var(--rt-on-fill);
 }
 
 /* The one thing on this page that takes the device away from the browser
@@ -178,20 +178,20 @@
   gap: 0.6rem;
   padding: 0.75rem;
   border-radius: 6px;
-  background-color: #fef3c7;
-  border: 1px solid #fcd34d;
+  background-color: var(--rt-warn-tint);
+  border: 1px solid var(--rt-warn-border);
 }
 
 .confirmText {
   margin: 0;
-  color: #92400e;
+  color: var(--rt-warn);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
 .confirmText code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  background: #fffbeb;
+  background: var(--rt-warn-tint-soft);
   border-radius: 3px;
   padding: 0 0.2rem;
 }
@@ -200,9 +200,9 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #3730a3;
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
+  color: var(--rt-accent-ink);
   font-size: 0.85rem;
   line-height: 1.5;
 }

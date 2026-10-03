@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -11,7 +11,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
@@ -23,7 +23,7 @@
 }
 
 .label {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.9rem;
 }
 
@@ -31,7 +31,7 @@
    its value. Wraps rather than scrolling: a nested scroller in a flex column
    also computes overflow-x and clips content off the right edge on a phone. */
 .detailLabel {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8rem;
   overflow-wrap: anywhere;
@@ -41,12 +41,12 @@
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9rem;
-  color: #111827;
+  color: var(--rt-ink);
   overflow-wrap: anywhere;
 }
 
 .muted {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-style: italic;
 }
 
@@ -58,10 +58,10 @@
   display: inline-block;
   margin-left: 0.5rem;
   padding: 0.1rem 0.4rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--rt-border);
   border-radius: 6px;
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--rt-surface-muted);
+  color: var(--rt-text-strong);
   font-family: inherit;
   font-size: 0.7rem;
   font-weight: 600;
@@ -74,9 +74,9 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background-color: var(--rt-warn-tint);
+  border: 1px solid var(--rt-warn-border);
+  color: var(--rt-warn);
   font-size: 0.85rem;
 }
 
@@ -85,10 +85,10 @@
   align-self: flex-start;
   height: var(--rt-control-height);
   padding: 0.4rem 0.75rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
-  background-color: #fff;
-  color: #213547;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
   font: inherit;
   font-size: 0.9rem;
   white-space: nowrap;
@@ -97,12 +97,12 @@
 
 .disclosure:hover,
 .copy:hover {
-  background-color: #f3f4f6;
+  background-color: var(--rt-surface-muted);
 }
 
 .disclosure:focus-visible,
 .copy:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--rt-focus);
   outline-offset: 2px;
 }
 
@@ -113,9 +113,9 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--rt-border);
   border-radius: 6px;
-  background-color: #fafafa;
+  background-color: var(--rt-surface-sunken);
 }
 
 .actions {
@@ -126,17 +126,17 @@
 }
 
 .copyStatus {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
 }
 
 .plain {
   margin: 0;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--rt-border);
   border-radius: 6px;
-  background-color: #fff;
-  color: #111827;
+  background-color: var(--rt-surface);
+  color: var(--rt-ink);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8rem;
   /* Its own scroller, and it is not a layout container - the one place wide

@@ -1,0 +1,202 @@
+/* Colour tokens. DESIGN.md is the source of truth for these values, and
+   test/theme-tokens.test.ts fails when the two disagree. Every colour in src/
+   is one of these; a theme is a block of overrides, not a second stylesheet.
+
+   Unset data-theme follows the OS. data-theme="light" or "dark" is an explicit
+   choice from Settings and wins over it, which is why the dark values appear
+   twice: once under the media query, guarded against an explicit light, and
+   once for an explicit dark. The test also keeps those two blocks identical. */
+
+:root {
+  color-scheme: light dark;
+
+  --rt-page: #ffffff;
+  --rt-surface: #ffffff;
+  --rt-surface-sunken: #fafafa;
+  --rt-surface-muted: #f3f4f6;
+  --rt-fill: #e5e7eb;
+  --rt-fill-hover: #d1d5db;
+  --rt-border: #e5e7eb;
+  --rt-border-strong: #d1d5db;
+  --rt-border-hover: #9ca3af;
+
+  --rt-ink: #111827;
+  --rt-text: #213547;
+  --rt-text-strong: #374151;
+  --rt-text-subtle: #4b5563;
+  --rt-text-muted: #6b7280;
+  --rt-on-fill: #ffffff;
+
+  --rt-focus: #2563eb;
+  --rt-action: #2563eb;
+  --rt-action-deep: #1d4ed8;
+  --rt-action-text: #1d4ed8;
+  --rt-action-tint: #eff6ff;
+  --rt-action-tint-strong: #dbeafe;
+
+  --rt-accent: #6366f1;
+  --rt-accent-deep: #4338ca;
+  --rt-accent-ink: #312e81;
+  --rt-accent-tint: #eef2ff;
+  --rt-accent-border: #c7d2fe;
+  --rt-accent-fill: #4338ca;
+  --rt-accent-fill-deep: #3730a3;
+
+  --rt-shown: #16a34a;
+  --rt-shown-ink: #15803d;
+  --rt-shown-text: #14532d;
+  --rt-shown-tint: #dcfce7;
+  --rt-shown-tint-soft: #f0fdf4;
+  --rt-go: #15803d;
+  --rt-go-deep: #166534;
+
+  --rt-stop: #dc2626;
+  --rt-stop-deep: #b91c1c;
+  --rt-stop-ink: #dc2626;
+  --rt-stop-ink-deep: #b91c1c;
+  --rt-stop-text: #7f1d1d;
+  --rt-stop-tint: #fee2e2;
+  --rt-stop-tint-soft: #fef2f2;
+  --rt-stop-border: #fca5a5;
+
+  --rt-warn: #92400e;
+  --rt-warn-ink: #b45309;
+  --rt-warn-fill: #b45309;
+  --rt-warn-fill-deep: #92400e;
+  --rt-warn-tint: #fef3c7;
+  --rt-warn-tint-strong: #fde68a;
+  --rt-warn-tint-soft: #fffbeb;
+  --rt-warn-border: #fcd34d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --rt-page: #111827;
+    --rt-surface: #1f2937;
+    --rt-surface-sunken: #111827;
+    --rt-surface-muted: #374151;
+    --rt-fill: #374151;
+    --rt-fill-hover: #4b5563;
+    --rt-border: #374151;
+    --rt-border-strong: #4b5563;
+    --rt-border-hover: #6b7280;
+
+    --rt-ink: #f9fafb;
+    --rt-text: #e5e7eb;
+    --rt-text-strong: #d1d5db;
+    --rt-text-subtle: #d1d5db;
+    --rt-text-muted: #9ca3af;
+    --rt-on-fill: #ffffff;
+
+    --rt-focus: #60a5fa;
+    --rt-action: #2563eb;
+    --rt-action-deep: #1d4ed8;
+    --rt-action-text: #93c5fd;
+    --rt-action-tint: #172554;
+    --rt-action-tint-strong: #1e3a8a;
+
+    --rt-accent: #818cf8;
+    --rt-accent-deep: #a5b4fc;
+    --rt-accent-ink: #c7d2fe;
+    --rt-accent-tint: #1e1b4b;
+    --rt-accent-border: #3730a3;
+    --rt-accent-fill: #4338ca;
+    --rt-accent-fill-deep: #4f46e5;
+
+    --rt-shown: #22c55e;
+    --rt-shown-ink: #4ade80;
+    --rt-shown-text: #bbf7d0;
+    --rt-shown-tint: #052e16;
+    --rt-shown-tint-soft: #052e16;
+    --rt-go: #15803d;
+    --rt-go-deep: #166534;
+
+    --rt-stop: #dc2626;
+    --rt-stop-deep: #b91c1c;
+    --rt-stop-ink: #f87171;
+    --rt-stop-ink-deep: #fca5a5;
+    --rt-stop-text: #fecaca;
+    --rt-stop-tint: #450a0a;
+    --rt-stop-tint-soft: #450a0a;
+    --rt-stop-border: #991b1b;
+
+    --rt-warn: #fcd34d;
+    --rt-warn-ink: #fbbf24;
+    --rt-warn-fill: #b45309;
+    --rt-warn-fill-deep: #92400e;
+    --rt-warn-tint: #451a03;
+    --rt-warn-tint-strong: #78350f;
+    --rt-warn-tint-soft: #1c1917;
+    --rt-warn-border: #b45309;
+  }
+}
+
+:root[data-theme='dark'] {
+  --rt-page: #111827;
+  --rt-surface: #1f2937;
+  --rt-surface-sunken: #111827;
+  --rt-surface-muted: #374151;
+  --rt-fill: #374151;
+  --rt-fill-hover: #4b5563;
+  --rt-border: #374151;
+  --rt-border-strong: #4b5563;
+  --rt-border-hover: #6b7280;
+
+  --rt-ink: #f9fafb;
+  --rt-text: #e5e7eb;
+  --rt-text-strong: #d1d5db;
+  --rt-text-subtle: #d1d5db;
+  --rt-text-muted: #9ca3af;
+  --rt-on-fill: #ffffff;
+
+  --rt-focus: #60a5fa;
+  --rt-action: #2563eb;
+  --rt-action-deep: #1d4ed8;
+  --rt-action-text: #93c5fd;
+  --rt-action-tint: #172554;
+  --rt-action-tint-strong: #1e3a8a;
+
+  --rt-accent: #818cf8;
+  --rt-accent-deep: #a5b4fc;
+  --rt-accent-ink: #c7d2fe;
+  --rt-accent-tint: #1e1b4b;
+  --rt-accent-border: #3730a3;
+  --rt-accent-fill: #4338ca;
+  --rt-accent-fill-deep: #4f46e5;
+
+  --rt-shown: #22c55e;
+  --rt-shown-ink: #4ade80;
+  --rt-shown-text: #bbf7d0;
+  --rt-shown-tint: #052e16;
+  --rt-shown-tint-soft: #052e16;
+  --rt-go: #15803d;
+  --rt-go-deep: #166534;
+
+  --rt-stop: #dc2626;
+  --rt-stop-deep: #b91c1c;
+  --rt-stop-ink: #f87171;
+  --rt-stop-ink-deep: #fca5a5;
+  --rt-stop-text: #fecaca;
+  --rt-stop-tint: #450a0a;
+  --rt-stop-tint-soft: #450a0a;
+  --rt-stop-border: #991b1b;
+
+  --rt-warn: #fcd34d;
+  --rt-warn-ink: #fbbf24;
+  --rt-warn-fill: #b45309;
+  --rt-warn-fill-deep: #92400e;
+  --rt-warn-tint: #451a03;
+  --rt-warn-tint-strong: #78350f;
+  --rt-warn-tint-soft: #1c1917;
+  --rt-warn-border: #b45309;
+}
+
+/* Native controls - selects, scrollbars, the dialog ground - follow the same
+   choice. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}

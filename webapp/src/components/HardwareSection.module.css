@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -17,8 +17,8 @@
    mismatch banner, the no-delay start control, `.pending` below - so the
    section reads as part of the same vocabulary instead of a decoration. */
 .expert {
-  border: 1px solid #fcd34d;
-  background-color: #fffbeb;
+  border: 1px solid var(--rt-warn-border);
+  background-color: var(--rt-warn-tint-soft);
 }
 
 .head {
@@ -31,13 +31,13 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
 .explain {
   margin: 0;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -46,9 +46,9 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background-color: var(--rt-warn-tint);
+  border: 1px solid var(--rt-warn-border);
+  color: var(--rt-warn);
   font-size: 0.85rem;
   line-height: 1.5;
 }
@@ -69,7 +69,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -79,8 +79,8 @@
 .badge {
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--rt-warn-tint);
+  color: var(--rt-warn);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -89,14 +89,14 @@
 .input {
   padding: 0.45rem 0.6rem;
   font-size: 0.95rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
   max-width: 22rem;
 }
 
 .input:disabled {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: var(--rt-surface-muted);
+  color: var(--rt-text-subtle);
 }
 
 .checkboxRow {
@@ -109,19 +109,19 @@
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.95rem;
-  color: #111827;
+  color: var(--rt-ink);
 }
 
 .hint {
   margin: 0;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
 .hint code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  background: #f3f4f6;
+  background: var(--rt-surface-muted);
   border-radius: 3px;
   padding: 0 0.2rem;
 }
@@ -135,10 +135,10 @@
 .button {
   padding: 0.45rem 0.9rem;
   font-size: 0.9rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
-  background: #fff;
-  color: #374151;
+  background: var(--rt-surface);
+  color: var(--rt-text-strong);
   cursor: pointer;
 }
 
@@ -148,23 +148,23 @@
 }
 
 .buttonPrimary {
-  background-color: #4338ca;
-  border-color: #4338ca;
-  color: #fff;
+  background-color: var(--rt-accent-fill);
+  border-color: var(--rt-accent-fill);
+  color: var(--rt-on-fill);
 }
 
 .buttonDanger {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--rt-stop-ink);
+  color: var(--rt-stop-ink);
 }
 
 .notice {
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #3730a3;
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
+  color: var(--rt-accent-ink);
   font-size: 0.85rem;
   line-height: 1.5;
 }
@@ -180,7 +180,7 @@
   /* The card's own border colour. A lighter amber would read better here, but
      amber-200 is not in DESIGN.md and one divider is not a reason to widen the
      palette. */
-  border-top: 1px solid #fcd34d;
+  border-top: 1px solid var(--rt-warn-border);
 }
 
 .groupTitle {
@@ -190,7 +190,7 @@
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #92400e;
+  color: var(--rt-warn);
 }
 
 /* --- The target bank table (#207) --------------------------------------- */
@@ -205,7 +205,7 @@
 .bankTable {
   border-collapse: collapse;
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--rt-text-strong);
 }
 
 .bankTable th,
@@ -220,7 +220,7 @@
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #92400e;
+  color: var(--rt-warn);
   white-space: nowrap;
 }
 
@@ -228,14 +228,14 @@
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  color: #6b7280;
+  color: var(--rt-text-muted);
 }
 
 .bankLetter {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 1rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--rt-ink);
   /* The letter and its "changed" pill on one line, so a row does not grow
      taller than its inputs when the pill appears. */
   display: flex;
@@ -250,7 +250,7 @@
 
 .padCell {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   white-space: nowrap;
 }
 
@@ -259,10 +259,10 @@
 .removeBank {
   width: 2.25rem;
   height: 2.25rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
-  background: #fff;
-  color: #dc2626;
+  background: var(--rt-surface);
+  color: var(--rt-stop-ink);
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
