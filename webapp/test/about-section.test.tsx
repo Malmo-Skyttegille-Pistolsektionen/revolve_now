@@ -70,6 +70,15 @@ afterEach(async () => {
   await server.close();
 });
 
+describe('the product name', () => {
+  it('is shown, since nothing else in the app says what it is', async () => {
+    await deviceReporting(APP_VERSION);
+    renderSection();
+
+    expect((await screen.findByTestId('product-name')).textContent).toBe('Revolve Now');
+  });
+});
+
 describe('D-29: one tag, so the app and the device report one version', () => {
   it('shows the version this bundle was built at', async () => {
     await deviceReporting(APP_VERSION);
