@@ -32,7 +32,7 @@ function foreignImage(): Buffer {
 }
 
 function filePart(buffer: Buffer) {
-  return { file: { name: 'rotation_target_backend.bin', mimeType: 'application/octet-stream', buffer } };
+  return { file: { name: 'revolve_now.bin', mimeType: 'application/octet-stream', buffer } };
 }
 
 test.beforeEach(async ({ request }) => {

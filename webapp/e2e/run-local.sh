@@ -109,7 +109,7 @@ curl -sf -o /dev/null "http://127.0.0.1:${HOST_PORT}/api/v2/version" || {
 # check and taken by the time QEMU binds it. So assert the device answering is
 # the image just built, reading the expected values straight out of the binary
 # rather than trusting the tree to be clean.
-QEMU_IMAGE="${REPO_ROOT}/firmware/build-qemu/rotation_target_backend.bin"
+QEMU_IMAGE="${REPO_ROOT}/firmware/build-qemu/revolve_now.bin"
 if [ -f "${QEMU_IMAGE}" ]; then
     echo "==> Checking the device is the image we just built"
     APP_DESC="${REPO_ROOT}/firmware/scripts/app_desc.py"

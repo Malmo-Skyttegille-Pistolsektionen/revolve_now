@@ -213,7 +213,7 @@ inside the NVS the flash is about to erase.
    [`docs/HARDWARE.md`](docs/HARDWARE.md).
 3. **Flash the factory image**, which writes the new table:
    ```bash
-   python -m esptool --chip esp32s3 --port /dev/ttyACM0 --no-stub      write-flash 0x0 rotation_target-<version>-factory.bin
+   python -m esptool --chip esp32s3 --port /dev/ttyACM0 --no-stub      write-flash 0x0 revolve_now-<version>-factory.bin
    ```
 4. **The board comes up in the setup portal**, blue LED, because NVS is gone.
    Join `revolve-now-setup-XXXX` and give it the network again — pressing

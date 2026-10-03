@@ -81,9 +81,7 @@ else()
         "a release, to get a real version.")
 endif()
 
-# Not renamed with the product (#435): OTA refuses an image whose project name
-# differs from the running firmware's, so a rename strands every deployed board.
-project(rotation_target_backend)
+project(revolve_now)
 
 # --- what produced this image (#228) ---------------------------------------
 #

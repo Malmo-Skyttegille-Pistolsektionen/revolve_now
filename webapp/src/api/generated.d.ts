@@ -796,7 +796,7 @@ export interface paths {
         /**
          * Upload new firmware
          * @description A `multipart/form-data` body with one file part: an ESP-IDF
-         *     application image (`rotation_target_backend.bin`).
+         *     application image (`revolve_now.bin`).
          *
          *     The image is streamed into the **inactive** app slot, so the running
          *     firmware is never overwritten. Once it has landed the device compares
