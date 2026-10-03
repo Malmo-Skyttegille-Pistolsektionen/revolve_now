@@ -39,11 +39,12 @@ class ByteSource {
 
 // Which of the two encodings a playable WAV carries.
 //
-// Uploaded clips are plain PCM - a browser hands over whatever the club
-// recorded, and transcoding an upload is out of scope. The *shipped* set is
-// IMA ADPCM, transcoded at build time so that firmware, web app and audio fit
-// one OTA-updatable image (#227). So the player has to handle both, and which
-// one a file is is a property of the file rather than of where it came from.
+// The shipped set is IMA ADPCM, transcoded at build time so that firmware, web
+// app and audio fit one OTA-updatable image (#227), and the web app converts
+// uploads to the same format (D-43). A PCM WAV is still accepted - from any
+// other client, or a browser that cannot convert. So the player has to handle
+// both, and which one a file is is a property of the file rather than of where
+// it came from.
 enum class WavFormat {
   kPcm16,
   kImaAdpcm,

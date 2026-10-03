@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -11,7 +11,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
@@ -40,22 +40,22 @@
 /* Each badge's text against its own tint, not against white: #6b7280 on
    #e5e7eb is 3.9:1, and the amber and green pairs were under 3:1. */
 .statusOff {
-  background-color: #e5e7eb;
-  color: #4b5563;
+  background-color: var(--rt-fill);
+  color: var(--rt-text-subtle);
 }
 
 .statusLocked {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--rt-warn-tint);
+  color: var(--rt-warn);
 }
 
 .statusActive {
-  background-color: #dcfce7;
-  color: #14532d;
+  background-color: var(--rt-shown-tint);
+  color: var(--rt-shown-text);
 }
 
 .statusDescription {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.9rem;
   max-width: 68ch;
 }
@@ -71,18 +71,18 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.95rem;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   flex: 1;
   min-width: 200px;
   min-height: var(--rt-control-height);
   box-sizing: border-box;
-  background-color: #fff;
-  color: #333;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
 }
 
 .input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--rt-accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -100,8 +100,8 @@
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--rt-fill);
+  color: var(--rt-text-strong);
   transition:
     background-color 0.2s,
     opacity 0.2s;
@@ -112,7 +112,7 @@
 }
 
 .button:hover:not(:disabled) {
-  background-color: #d1d5db;
+  background-color: var(--rt-fill-hover);
 }
 
 .button:disabled {
@@ -122,45 +122,45 @@
 
 .buttonPrimary {
   /* Indigo-600, not -500: white on -500 is 4.47:1, a hair under AA. */
-  background-color: #4f46e5;
-  color: white;
+  background-color: var(--rt-accent-fill);
+  color: var(--rt-on-fill);
 }
 
 .buttonPrimary:hover:not(:disabled) {
-  background-color: #4338ca;
+  background-color: var(--rt-accent-fill-deep);
 }
 
 .buttonSecondary {
-  background-color: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  background-color: var(--rt-surface-muted);
+  color: var(--rt-text-strong);
+  border: 1px solid var(--rt-border-strong);
 }
 
 .buttonSecondary:hover:not(:disabled) {
-  background-color: #e5e7eb;
+  background-color: var(--rt-fill);
 }
 
 .buttonDestructive {
-  background-color: #dc2626;
-  color: white;
+  background-color: var(--rt-stop);
+  color: var(--rt-on-fill);
 }
 
 .buttonDestructive:hover:not(:disabled) {
-  background-color: #b91c1c;
+  background-color: var(--rt-stop-deep);
 }
 
 .infoText {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   max-width: 68ch;
   font-style: italic;
   padding: 0.5rem 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--rt-border);
   margin-top: 0.5rem;
 }
 
 .errorMessage {
-  color: #dc2626;
+  color: var(--rt-stop-ink);
   font-size: 0.85rem;
   margin-top: 0.25rem;
 }

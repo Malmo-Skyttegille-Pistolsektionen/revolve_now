@@ -23,6 +23,7 @@ constexpr const char *kProgramInvalid = "program_invalid";
 // file is left on disk, unloaded, for an operator to clean up.
 constexpr const char *kProgramIdCollision = "program_id_collision";
 constexpr const char *kAudioIdCollision = "audio_id_collision";
+constexpr const char *kOtaRefused = "ota_refused";
 }  // namespace issue_code
 
 // Ordered because the emitted JSON should be stable across builds, and because

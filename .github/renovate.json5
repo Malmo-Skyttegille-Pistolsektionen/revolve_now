@@ -1,6 +1,11 @@
 {
   extends: ["github>Malmo-Skyttegille-Pistolsektionen/.github//.github/renovate.json5"],
 
+  // .github/workflows/renovate-derived-files.yml commits to Renovate's
+  // branches as this App. Without this Renovate takes the branch as edited by
+  // someone else and stops rebasing it.
+  gitIgnoredAuthors: ["/^\\d+\\+msg-renovate-derived-files\\[bot\\]@users\\.noreply\\.github\\.com$/"],
+
   // ESP-IDF managed components are invisible to every built-in manager: there
   // is no `idf_component.yml` manager, and the org preset's customManagers
   // match only `.github/actions/**` and `.github/workflows/**`. So the three
@@ -135,7 +140,7 @@
     {
       matchDepNames: ["espressif/esp-idf", "espressif/idf"],
       // One PR for the whole toolchain. The manifest, the two workflow refs
-      // and the three digest-pinned containers are one version written in
+      // and the digest-pinned containers are one version written in
       // four places, and idf_component.yml says they must move together -
       // split across two PRs they land days apart, and in between the build
       // fails, because an exact `idf:` pin against an older container is a

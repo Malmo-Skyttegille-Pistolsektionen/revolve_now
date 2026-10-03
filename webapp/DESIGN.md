@@ -2,32 +2,58 @@
 name: Rotation Target
 description: Range-side control for a rotating pistol target — equipment that happens to have a screen.
 colors:
-  ink: '#111827'
-  ink-body: '#213547'
-  text-strong: '#374151'
-  text-subtle: '#4b5563'
-  text-muted: '#6b7280'
+  # The light theme, and the names of the CSS custom properties: `ink` is
+  # `--rt-ink` in src/theme.css. Dark values are in the Colors section below.
+  page: '#ffffff'
   surface: '#ffffff'
   surface-sunken: '#fafafa'
   surface-muted: '#f3f4f6'
+  fill: '#e5e7eb'
+  fill-hover: '#d1d5db'
   border: '#e5e7eb'
   border-strong: '#d1d5db'
+  border-hover: '#9ca3af'
+  ink: '#111827'
+  text: '#213547'
+  text-strong: '#374151'
+  text-subtle: '#4b5563'
+  text-muted: '#6b7280'
+  on-fill: '#ffffff'
+  focus: '#2563eb'
   action: '#2563eb'
   action-deep: '#1d4ed8'
+  action-text: '#1d4ed8'
+  action-tint: '#eff6ff'
+  action-tint-strong: '#dbeafe'
   accent: '#6366f1'
   accent-deep: '#4338ca'
+  accent-ink: '#312e81'
   accent-tint: '#eef2ff'
+  accent-border: '#c7d2fe'
+  accent-fill: '#4338ca'
+  accent-fill-deep: '#3730a3'
   shown: '#16a34a'
-  shown-tint: '#dcfce7'
+  shown-ink: '#15803d'
   shown-text: '#14532d'
+  shown-tint: '#dcfce7'
+  shown-tint-soft: '#f0fdf4'
   go: '#15803d'
   go-deep: '#166534'
   stop: '#dc2626'
   stop-deep: '#b91c1c'
-  stop-tint: '#fee2e2'
+  stop-ink: '#dc2626'
+  stop-ink-deep: '#b91c1c'
   stop-text: '#7f1d1d'
+  stop-tint: '#fee2e2'
+  stop-tint-soft: '#fef2f2'
+  stop-border: '#fca5a5'
   warn: '#92400e'
+  warn-ink: '#b45309'
+  warn-fill: '#b45309'
+  warn-fill-deep: '#92400e'
   warn-tint: '#fef3c7'
+  warn-tint-strong: '#fde68a'
+  warn-tint-soft: '#fffbeb'
   warn-border: '#fcd34d'
 typography:
   # Eight steps, and every font-size in src/ is one of them. The ramp was
@@ -111,43 +137,43 @@ spacing:
 components:
   button-default:
     backgroundColor: '{colors.surface}'
-    textColor: '{colors.ink-body}'
+    textColor: '{colors.text}'
     rounded: '{rounded.sm}'
     padding: '0.4rem 0.75rem'
     height: 'var(--rt-control-height)'
     typography: '{typography.body}'
   button-primary:
     backgroundColor: '{colors.action}'
-    textColor: '{colors.surface}'
+    textColor: '{colors.on-fill}'
     rounded: '{rounded.sm}'
     padding: '0.4rem 0.75rem'
     height: 'var(--rt-control-height)'
   button-primary-hover:
     backgroundColor: '{colors.action-deep}'
-    textColor: '{colors.surface}'
+    textColor: '{colors.on-fill}'
   button-destructive:
     backgroundColor: '{colors.surface}'
-    textColor: '{colors.stop}'
+    textColor: '{colors.stop-ink}'
     rounded: '{rounded.sm}'
     padding: '0.4rem 0.75rem'
   button-destructive-hover:
     backgroundColor: '{colors.stop-tint}'
-    textColor: '{colors.stop}'
+    textColor: '{colors.stop-ink}'
   button-go:
     backgroundColor: '{colors.go}'
-    textColor: '{colors.surface}'
+    textColor: '{colors.on-fill}'
     rounded: '{rounded.lg}'
     padding: '0.75rem 1.5rem'
     height: '48px'
   button-stop:
     backgroundColor: '{colors.stop}'
-    textColor: '{colors.surface}'
+    textColor: '{colors.on-fill}'
     rounded: '{rounded.lg}'
     padding: '0.75rem 1.5rem'
     height: '48px'
   input:
     backgroundColor: '{colors.surface}'
-    textColor: '{colors.ink-body}'
+    textColor: '{colors.text}'
     rounded: '{rounded.sm}'
     padding: '0.35rem 0.5rem'
     typography: '{typography.body}'
@@ -239,6 +265,85 @@ plus a blue for the ordinary "do the thing" action.
   edges, control outlines.
 - **Surface** (`#ffffff`), **Sunken** (`#fafafa`), **Muted** (`#f3f4f6`): the
   three grounds. Layering is done with these, not with shadow.
+
+### Dark theme
+
+Settings offers System (the default, following `prefers-color-scheme`), Light
+and Dark, kept in the browser like the server URL. The dark theme is the same
+tokens with different values, never a second set of rules. It exists for the
+range at night: a phone at arm's length under floodlights, where a white page
+is the brightest thing in view.
+
+It is composed, not inverted. Elevation runs the other way — the page is the
+darkest ground (gray-900) and a card steps _up_ to gray-800, because a shadow
+cannot be seen on a dark page. Text steps up the gray scale to stay above
+4.5:1 on every ground it sits on, including `surface-muted`.
+
+The signal hues split by job. A **fill** that carries white text (`go`,
+`stop`, `action`, `accent-fill`, `warn-fill`) keeps its light value, because
+white on it already clears 4.5:1 on any ground. An **ink** — the same hue used
+as text or a line on the page (`stop-ink`, `shown-ink`, `warn-ink`,
+`accent-deep`, `action-text`, `focus`) — moves to the 300–400 step, because
+red-600 text on gray-800 does not. Tints drop to the 950 step. Green is still
+shown, red still hidden, amber still no delay: the Three Signals Rule holds on
+the dark ground by re-deriving each hue for contrast, not by flipping it.
+
+`warn-tint-soft` (the Expert-mode ground) is stone-900 in the dark theme: amber
+has no step dark enough to sit under a whole region without glowing.
+
+| Token                | Light     | Dark      |
+| -------------------- | --------- | --------- |
+| `page`               | `#ffffff` | `#111827` |
+| `surface`            | `#ffffff` | `#1f2937` |
+| `surface-sunken`     | `#fafafa` | `#111827` |
+| `surface-muted`      | `#f3f4f6` | `#374151` |
+| `fill`               | `#e5e7eb` | `#374151` |
+| `fill-hover`         | `#d1d5db` | `#4b5563` |
+| `border`             | `#e5e7eb` | `#374151` |
+| `border-strong`      | `#d1d5db` | `#4b5563` |
+| `border-hover`       | `#9ca3af` | `#6b7280` |
+| `ink`                | `#111827` | `#f9fafb` |
+| `text`               | `#213547` | `#e5e7eb` |
+| `text-strong`        | `#374151` | `#d1d5db` |
+| `text-subtle`        | `#4b5563` | `#d1d5db` |
+| `text-muted`         | `#6b7280` | `#9ca3af` |
+| `on-fill`            | `#ffffff` | `#ffffff` |
+| `focus`              | `#2563eb` | `#60a5fa` |
+| `action`             | `#2563eb` | `#2563eb` |
+| `action-deep`        | `#1d4ed8` | `#1d4ed8` |
+| `action-text`        | `#1d4ed8` | `#93c5fd` |
+| `action-tint`        | `#eff6ff` | `#172554` |
+| `action-tint-strong` | `#dbeafe` | `#1e3a8a` |
+| `accent`             | `#6366f1` | `#818cf8` |
+| `accent-deep`        | `#4338ca` | `#a5b4fc` |
+| `accent-ink`         | `#312e81` | `#c7d2fe` |
+| `accent-tint`        | `#eef2ff` | `#1e1b4b` |
+| `accent-border`      | `#c7d2fe` | `#3730a3` |
+| `accent-fill`        | `#4338ca` | `#4338ca` |
+| `accent-fill-deep`   | `#3730a3` | `#4f46e5` |
+| `shown`              | `#16a34a` | `#22c55e` |
+| `shown-ink`          | `#15803d` | `#4ade80` |
+| `shown-text`         | `#14532d` | `#bbf7d0` |
+| `shown-tint`         | `#dcfce7` | `#052e16` |
+| `shown-tint-soft`    | `#f0fdf4` | `#052e16` |
+| `go`                 | `#15803d` | `#15803d` |
+| `go-deep`            | `#166534` | `#166534` |
+| `stop`               | `#dc2626` | `#dc2626` |
+| `stop-deep`          | `#b91c1c` | `#b91c1c` |
+| `stop-ink`           | `#dc2626` | `#f87171` |
+| `stop-ink-deep`      | `#b91c1c` | `#fca5a5` |
+| `stop-text`          | `#7f1d1d` | `#fecaca` |
+| `stop-tint`          | `#fee2e2` | `#450a0a` |
+| `stop-tint-soft`     | `#fef2f2` | `#450a0a` |
+| `stop-border`        | `#fca5a5` | `#991b1b` |
+| `warn`               | `#92400e` | `#fcd34d` |
+| `warn-ink`           | `#b45309` | `#fbbf24` |
+| `warn-fill`          | `#b45309` | `#b45309` |
+| `warn-fill-deep`     | `#92400e` | `#92400e` |
+| `warn-tint`          | `#fef3c7` | `#451a03` |
+| `warn-tint-strong`   | `#fde68a` | `#78350f` |
+| `warn-tint-soft`     | `#fffbeb` | `#1c1917` |
+| `warn-border`        | `#fcd34d` | `#b45309` |
 
 ### Named Rules
 
@@ -380,7 +485,7 @@ with a tinted ground and a full hairline border instead.
 
 - **Shape:** tight radius (4px), `--rt-control-height` tall, `0.4rem 0.75rem`
   padding, never wrapping (`white-space: nowrap`).
-- **Default:** white ground, `#ccc` border, body text. The neutral majority.
+- **Default:** `surface` ground, `border-strong` border, body text. The neutral majority.
 - **Primary:** Signal Blue fill (`#2563eb`), white text, matching border;
   deepens to `#1d4ed8` on hover. One per view, at most.
 - **Destructive:** white ground with a red border and red text (`#dc2626`),
@@ -405,12 +510,12 @@ with a tinted ground and a full hairline border instead.
 ### Cards / Control Boards
 
 - **Corner:** 8px. **Ground:** white on the page's `#fafafa`.
-- **Border:** 1px `#eee`–`#e5e7eb`. **Shadow:** none at rest.
+- **Border:** 1px `border` (`#e5e7eb`). **Shadow:** none at rest.
 - **Padding:** `1rem`, with a `0.75rem` header rule above the content.
 
 ### Inputs
 
-- **Style:** white ground, 1px `#ccc` border, 4px radius, `0.35rem 0.5rem`
+- **Style:** `surface` ground, 1px `border-strong` border, 4px radius, `0.35rem 0.5rem`
   padding, `font: inherit` so they never drift from the body face.
 - **Labels:** 0.75rem uppercase, stacked above the field with a `0.2rem` gap.
 - **Focus:** the same 2px blue outline as buttons.
@@ -438,6 +543,11 @@ for that reason.
 
 ### Do:
 
+- **Do** write every colour as a `var(--rt-*)` token from `src/theme.css`. A
+  literal hex in a component is a colour the dark theme cannot reach.
+- **Do** pick the token by its job, not its hue: a red that is a fill is
+  `stop`, a red that is text or a line is `stop-ink`. They match in light and
+  part in dark.
 - **Do** reserve green, red and amber for target shown, target hidden, and no
   delay armed. Anything else that needs colour uses indigo or a grey.
 - **Do** put every interactive control at `var(--rt-control-height)` so mixed

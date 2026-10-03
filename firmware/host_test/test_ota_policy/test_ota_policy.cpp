@@ -1,5 +1,5 @@
 // ============================================================================
-//  Whether a firmware image may be accepted (#127). Two of the three refusals
+//  Whether a firmware image may be accepted (#127). Two of the refusals
 //  are safety rules, not plumbing - and a safety rule that only exists inside
 //  an HTTP handler is one nobody can test.
 // ============================================================================
@@ -81,6 +81,7 @@ void test_every_refusal_has_a_sentence() {
   TEST_ASSERT_TRUE(rt::ota::message(Refusal::kProgramRunning)[0] != '\0');
   TEST_ASSERT_TRUE(rt::ota::message(Refusal::kProjectMismatch)[0] != '\0');
   TEST_ASSERT_TRUE(rt::ota::message(Refusal::kEmptyImage)[0] != '\0');
+  TEST_ASSERT_TRUE(rt::ota::message(Refusal::kInvalidImage)[0] != '\0');
 }
 
 int main() {

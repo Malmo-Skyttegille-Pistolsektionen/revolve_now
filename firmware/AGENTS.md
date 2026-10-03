@@ -239,9 +239,10 @@ Load-bearing invariants:
   to sleep — at most `rt::kMaxSleepMs` (200 ms), so `stop` lands promptly.
 - **SSE sends go through `httpd_queue_work`, i.e. always on the httpd task.**
   That is the only task esp_http_server mutates the client list from, and it
-  keeps the blocking send off the run loop. `flush()` serializes *and* enqueues
-  under one lock so snapshot order equals send order. `broadcast_issue()` uses
-  the same path from any task, and is a no-op before the server exists.
+  keeps the send off the run loop. The send never waits on a client — see
+  `rt::SseClients`. `flush()` serializes *and* enqueues under one lock so
+  snapshot order equals send order. `broadcast_issue()` uses the same path from
+  any task, and is a no-op before the server exists.
 - **`readonly` is a property of the directory a file was loaded from, never of
   the document.** An uploader must not be able to claim its program is shipped.
 - **One task owns GPIO0** (`io/boot_button.cpp`), because two pollers would
@@ -258,13 +259,15 @@ Load-bearing invariants:
   BOOT button does the same to a real board. **Any new destructive gesture
   inherits this rule**: it must not be reachable by a pin that is simply
   broken.
-- **Shipped audio is IMA ADPCM, uploaded audio is PCM, and both reach the same
-  player** (#227). `tools/wav_to_adpcm.py` transcodes at build time; the file
-  is still a `.wav` and still named by id, so `audios.json` needs no idea it
-  happened. **The encoder and `rt::decode_ima_adpcm_block` must reconstruct
-  with the same expression** — `((2n+1)*step)>>3` in one multiply, not the
-  specification's four separately-shifted terms, which truncate differently
-  and drift over a block. `host_test/test_ima_adpcm` pins the decoder against
+- **Audio is IMA ADPCM or PCM, and both reach the same player** (#227).
+  Shipped clips and uploads the web app converted (D-43) are ADPCM; a PCM
+  upload is still accepted. `tools/wav_to_adpcm.py` transcodes at build time;
+  the file is still a `.wav` and still named by id, so `audios.json` needs no
+  idea it happened. **Both encoders (that tool and the web app's port) and
+  `rt::decode_ima_adpcm_block` must reconstruct with the same expression** —
+  `((2n+1)*step)>>3` in one multiply, not the specification's four
+  separately-shifted terms, which truncate differently and drift over a
+  block. `host_test/test_ima_adpcm` pins the decoder against
   a vector ffmpeg produced, which is what makes "the same" checkable.
 - **All shipped content is a read-only VFS at `/embedded`, not files on the
   flash filesystem** (#227): `tools/pack_assets.py` bakes the web app, the

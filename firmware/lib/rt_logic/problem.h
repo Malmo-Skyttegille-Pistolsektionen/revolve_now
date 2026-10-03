@@ -65,6 +65,7 @@ struct ProblemType {
   X(kWifiUnavailable, "wifi_unavailable", "This device has no WiFi radio", 409)                 \
   /* firmware update */                                                                         \
   X(kOtaImageRefused, "ota_image_refused", "Firmware image refused", 400)                       \
+  X(kRestartPending, "restart_pending", "The device is restarting", 409)                        \
   /* validation */                                                                              \
   X(kProgramInvalid, "program_invalid", "Invalid program", 400)                                 \
   X(kProgramIdMismatch, "program_id_mismatch", "Program id does not match the path", 400)       \
@@ -86,7 +87,8 @@ struct ProblemType {
   X(kProgramStoreFailed, "program_store_failed", "Could not store program", 500)                \
   X(kAudioStoreFailed, "audio_store_failed", "Could not store audio", 500)                      \
   X(kWifiStoreFailed, "wifi_store_failed", "Could not store WiFi credentials", 500)             \
-  X(kRestartFailed, "restart_failed", "Could not start the restart", 500)
+  X(kRestartFailed, "restart_failed", "Could not start the restart", 500)                       \
+  X(kOtaWriteFailed, "ota_write_failed", "Could not write the firmware", 500)
 
 namespace problem {
 #define RT_PROBLEM_DEFINE(name, slug, title, status) \

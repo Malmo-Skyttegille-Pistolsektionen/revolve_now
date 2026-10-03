@@ -641,6 +641,9 @@ std::string diagnostics_info_json() {
   out += ']';
   out += ",\"controlLockEnabled\":";
   out += s_control_lock.enabled() ? "true" : "false";
+  // Both callers are request handlers.
+  out += ",\"sseClients\":";
+  out += std::to_string(sse_hub::client_count());
   // The backend_issues raised before this server existed, which is the only
   // way they can reach a client at all - sse_hub had nowhere to send them.
   // Already-serialized payloads, joined into the array.
@@ -1611,7 +1614,7 @@ bool start() {
   // Lives in its own translation unit: the ESP-IDF OTA calls have a lifetime
   // discipline of their own (a handle that must be aborted, not ended, before
   // it is finalised) and do not belong mixed into the request handlers here.
-  ota::register_routes(s_server);
+  ota::register_routes(s_server, require_control_lock);
 
   sse_hub::attach(s_server, "/sse/v2");
 

@@ -83,6 +83,12 @@ info:
     (30 s idle, 10 s interval, 3 probes) catches a peer that vanished without
     a FIN.
 
+    A client that is connected but not reading — a backgrounded tab, a phone
+    walking out of range — is closed once its socket cannot take a whole frame,
+    rather than waited for. Run state survives that, because a reconnect starts
+    with a full `stateUpdate`; one-off events sent in between (`libraryChanged`,
+    `configWindow`, `backend_issue`) are not replayed, as after any reconnect.
+
     ## Sockets
 
     The server keeps at most 12 sockets open, and every connected client holds
@@ -517,6 +523,12 @@ components:
               a shipped one, the shipped clip is kept, and the uploaded entry
               is left unloaded.
 
+            - `ota_refused` — a firmware upload was refused: a program was
+              running, or the image was empty, not an image, incomplete, or
+              for another project. Sent to every open page, not only the
+              uploader's, since a refused update concerns whoever is at the
+              range.
+
             `program_invalid` is also a REST problem type,
             `/problems/program_invalid` in `openapi.yaml` — one failure, one
             word, whichever channel reports it (D-19). Rename it in one place
@@ -526,6 +538,7 @@ components:
             - program_invalid
             - program_id_collision
             - audio_id_collision
+            - ota_refused
         message:
           type: string
           description: >-

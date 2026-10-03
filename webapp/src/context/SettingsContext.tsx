@@ -1,10 +1,12 @@
 import { createContext, use, useState, useEffect } from 'react';
+import { DEFAULT_THEME, THEME_STORAGE_KEY, applyTheme, parseTheme, type ThemePreference } from '../lib/theme';
 
 const STORAGE_PREFIX = 'rt_settings_';
 const STORAGE_KEYS = {
   serverBaseUrl: `${STORAGE_PREFIX}server_base_url`,
   startDelaySeconds: `${STORAGE_PREFIX}start_delay_seconds`,
   controlLockToken: `${STORAGE_PREFIX}control_lock_token`,
+  theme: THEME_STORAGE_KEY,
 } as const;
 
 import { DEFAULT_BASE_URL } from '../api/base-url';
@@ -14,7 +16,8 @@ const DEFAULT_VALUES = {
   // set on the settings page, still wins.
   serverBaseUrl: DEFAULT_BASE_URL,
   startDelaySeconds: 10,
-} as const;
+  theme: DEFAULT_THEME,
+} as const satisfies Settings;
 
 /**
  * Seconds the run page counts down before it starts the program. `0` is a
@@ -58,6 +61,7 @@ function clampStartDelaySeconds(seconds: number): number {
 export interface Settings {
   serverBaseUrl: string;
   startDelaySeconds: number;
+  theme: ThemePreference;
 }
 
 export interface SettingsContextType {
@@ -65,6 +69,7 @@ export interface SettingsContextType {
   controlLockToken: string | null;
   setServerBaseUrl: (url: string) => void;
   setStartDelaySeconds: (seconds: number) => void;
+  setTheme: (theme: ThemePreference) => void;
   setControlLockToken: (token: string | null) => void;
   logoutControlLock: () => void;
 }
@@ -87,11 +92,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
 
     const storedUrl = localStorage.getItem(STORAGE_KEYS.serverBaseUrl);
     const storedDelay = localStorage.getItem(STORAGE_KEYS.startDelaySeconds);
+    const storedTheme = localStorage.getItem(STORAGE_KEYS.theme);
 
     return {
       serverBaseUrl: storedUrl ?? DEFAULT_VALUES.serverBaseUrl,
       startDelaySeconds:
         storedDelay === null ? DEFAULT_VALUES.startDelaySeconds : clampStartDelaySeconds(Number(storedDelay)),
+      theme: parseTheme(storedTheme),
     };
   });
 
@@ -114,6 +121,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     const validSeconds = clampStartDelaySeconds(seconds);
     localStorage.setItem(STORAGE_KEYS.startDelaySeconds, String(validSeconds));
     setSettings((prev) => ({ ...prev, startDelaySeconds: validSeconds }));
+  }
+
+  function setTheme(theme: ThemePreference): void {
+    localStorage.setItem(STORAGE_KEYS.theme, theme);
+    setSettings((prev) => ({ ...prev, theme }));
   }
 
   function setControlLockToken(token: string | null): void {
@@ -140,6 +152,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
         setSettings((prev) => ({ ...prev, serverBaseUrl: e.newValue! }));
       } else if (e.key === STORAGE_KEYS.startDelaySeconds && e.newValue) {
         setSettings((prev) => ({ ...prev, startDelaySeconds: clampStartDelaySeconds(Number(e.newValue)) }));
+      } else if (e.key === STORAGE_KEYS.theme) {
+        setSettings((prev) => ({ ...prev, theme: parseTheme(e.newValue) }));
       } else if (e.key === STORAGE_KEYS.controlLockToken) {
         setControlLockTokenState(e.newValue);
       }
@@ -149,11 +163,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    applyTheme(settings.theme);
+  }, [settings.theme]);
+
   const value: SettingsContextType = {
     settings,
     controlLockToken,
     setServerBaseUrl,
     setStartDelaySeconds,
+    setTheme,
     setControlLockToken,
     logoutControlLock,
   };

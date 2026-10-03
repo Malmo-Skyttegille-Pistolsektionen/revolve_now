@@ -49,8 +49,8 @@ export function FirmwareSection(): React.ReactNode {
 
       <p className={styles.explain}>
         Uploading firmware <strong>restarts the device</strong>. It writes to the slot that is not running, so a bad
-        image rolls itself back rather than needing a cable. The web app and the stored programs and audio are not part
-        of this update.
+        image rolls itself back rather than needing a cable. The web app and the shipped programs and audio update with
+        it; anything uploaded to the device is kept.
       </p>
 
       <input

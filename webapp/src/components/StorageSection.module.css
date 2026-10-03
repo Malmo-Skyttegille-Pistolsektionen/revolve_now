@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -11,7 +11,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
@@ -41,7 +41,7 @@
 .name {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9rem;
-  color: #111827;
+  color: var(--rt-ink);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -52,9 +52,9 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #4338ca;
-  background-color: #eef2ff;
-  border: 1px solid #c7d2fe;
+  color: var(--rt-accent-deep);
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
   border-radius: 4px;
   padding: 0.05rem 0.3rem;
 }
@@ -65,7 +65,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--rt-text-muted);
 }
 
 /* Darker than the byte figures beside it, because it is the one somebody is
@@ -73,26 +73,26 @@
    to would make the pair read as equally important. */
 .percent {
   margin-left: 0.5rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
 .track {
   height: 6px;
   border-radius: 3px;
-  background-color: #e5e7eb;
+  background-color: var(--rt-fill);
   overflow: hidden;
 }
 
 .fill {
   height: 100%;
-  background-color: #6366f1;
+  background-color: var(--rt-accent);
 }
 
 .unknown,
 .muted {
   margin: 0;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   font-style: italic;
 }
@@ -100,5 +100,5 @@
 .warning {
   margin: 0;
   font-size: 0.85rem;
-  color: #92400e;
+  color: var(--rt-warn);
 }

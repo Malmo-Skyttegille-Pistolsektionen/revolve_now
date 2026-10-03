@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,11 @@ void broadcast_state(const std::string &payload);
 // being dropped.
 void broadcast_issue(const char *code, const std::string &message,
                      const rt::IssueContext &context = {});
+
+// Connected /sse/v2 clients, including any dropped but not yet closed. Call
+// from the httpd task only - a request handler - which is the task that
+// mutates the list.
+size_t client_count();
 
 // The issues raised before the HTTP server existed, as the same serialized
 // `backend_issue` payloads a connected client would have received. At most
