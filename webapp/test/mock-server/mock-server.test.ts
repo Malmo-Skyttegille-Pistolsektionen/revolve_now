@@ -260,18 +260,18 @@ describe('program storage', () => {
     return api('/programs', { method: 'POST', body: JSON.stringify(body) });
   }
 
-  it("assigns the lowest free id from 100 up and ignores the document's", async () => {
+  it("assigns the lowest free id from 1000 up and ignores the document's", async () => {
     const res = await upload();
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: 100 });
+    expect(await res.json()).toEqual({ id: 1000 });
 
-    expect(await (await upload()).json()).toEqual({ id: 101 });
-    expect(await (await upload()).json()).toEqual({ id: 102 });
+    expect(await (await upload()).json()).toEqual({ id: 1001 });
+    expect(await (await upload()).json()).toEqual({ id: 1002 });
 
-    // A freed id is handed straight back out - the firmware scans up from 100
+    // A freed id is handed straight back out - the firmware scans up from 1000
     // rather than counting from the highest in use.
-    await api('/programs/101/delete', { method: 'DELETE' });
-    expect(await (await upload()).json()).toEqual({ id: 101 });
+    await api('/programs/1001/delete', { method: 'DELETE' });
+    expect(await (await upload()).json()).toEqual({ id: 1001 });
   });
 
   it('stores what it parsed: unknown fields dropped, duration clamped, never read-only', async () => {
@@ -589,7 +589,7 @@ describe('libraryChanged (D-24)', () => {
   /** A clip library, which the default seed deliberately does not have. */
   const SEED_AUDIOS: AudioFile[] = [
     { id: 3, title: 'Eld upphör', filename: '/embedded/audio/3.wav', readonly: true },
-    { id: 100, title: 'Klubbmästerskap', filename: '/userdata/audio/100.wav', readonly: false },
+    { id: 1000, title: 'Klubbmästerskap', filename: '/userdata/audio/1000.wav', readonly: false },
   ];
 
   const document = {
@@ -658,7 +658,7 @@ describe('libraryChanged (D-24)', () => {
     await flushIO();
     expect(kinds()).toEqual(['audio']);
 
-    expect((await call('/audios/100/delete', { method: 'DELETE' })).status).toBe(200);
+    expect((await call('/audios/1000/delete', { method: 'DELETE' })).status).toBe(200);
     await flushIO();
     expect(kinds()).toEqual(['audio', 'audio']);
   });
@@ -1927,7 +1927,7 @@ describe('target banks, program side', () => {
     const list = (await (await api('/programs')).json()) as { id: number; banksRequired: number }[];
 
     expect(list.find((program) => program.id === 40)?.banksRequired).toBe(1);
-    expect(list.find((program) => program.id === 100)?.banksRequired).toBe(4);
+    expect(list.find((program) => program.id === 1000)?.banksRequired).toBe(4);
   });
 
   it('replaces the overrides on a PUT', async () => {

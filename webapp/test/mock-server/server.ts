@@ -230,7 +230,7 @@ const APP_DESC_PROJECT_NAME_OFFSET = APP_DESC_OFFSET + 48;
 /** `project()` in firmware/CMakeLists.txt: what an uploaded image is checked against. */
 export const FIRMWARE_PROJECT_NAME = 'rotation_target_backend';
 /** `kFirstUploadId` in firmware/main/config.h - the floor for uploaded audio AND program ids. */
-const FIRST_UPLOAD_ID = 100;
+const FIRST_UPLOAD_ID = 1000;
 /**
  * How long a clip counts as playing, so `DELETE` can answer 409 the way the
  * device does. Under a fake clock nothing expires until a test advances it.
@@ -1733,11 +1733,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         return;
       }
 
-      // Lowest free id from 100 up, not highest+1: `firmware/main/repositories/
-      // programs.cpp` walks `id = kFirstUploadId; while (count(id)) id++`, so a
-      // deleted program's id is handed straight back out. Shipped programs
-      // occupy some of that range on the real device (100 and 101 today), and
-      // the two allocators disagree the moment anything is deleted.
+      // Lowest free id from FIRST_UPLOAD_ID up, not highest+1:
+      // `firmware/main/repositories/programs.cpp` walks
+      // `id = kFirstUploadId; while (count(id)) id++`, so a deleted program's
+      // id is handed straight back out, and the two allocators disagree the
+      // moment anything is deleted.
       let id = FIRST_UPLOAD_ID;
       while (programs[id] !== undefined) id++;
       const program = normalizeProgram(raw, id);

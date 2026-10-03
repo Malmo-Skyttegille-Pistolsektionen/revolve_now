@@ -30,7 +30,7 @@ const PORT = 18083;
 /** Shipped: read-only, so editing it can only mean editing a copy. */
 const SHIPPED: Program = { ...PROGRAM_FALT_TRANING, id: 40, readonly: true };
 /** Uploaded: the row that gets Edit, Replace and Delete. */
-const UPLOADED: Program = { ...PROGRAM_FALT_TRANING, id: 140, title: 'Klubbserie', readonly: false };
+const UPLOADED: Program = { ...PROGRAM_FALT_TRANING, id: 1040, title: 'Klubbserie', readonly: false };
 
 const AUDIOS: AudioFile[] = [
   { id: 26, title: 'Ladda!', filename: '/embedded/audio/26.wav', readonly: true },
@@ -187,11 +187,11 @@ describe('creating a program', () => {
 
     fireEvent.click(screen.getByTestId('editor-save'));
 
-    // POST assigns the lowest free id from 100 up, so it is 100 and not 141.
+    // POST assigns the lowest free id from 1000 up, so it is 1000 and not 1041.
     await waitFor(() =>
-      expect(screen.getByTestId('programs-notice').textContent).toContain('Saved "Klubbmästerskap" as program 100.'),
+      expect(screen.getByTestId('programs-notice').textContent).toContain('Saved "Klubbmästerskap" as program 1000.'),
     );
-    expect(await storedProgram(100)).toMatchObject({
+    expect(await storedProgram(1000)).toMatchObject({
       title: 'Klubbmästerskap',
       description: 'Två serier',
       series: [
@@ -221,8 +221,8 @@ describe('creating a program', () => {
     fireEvent.click(screen.getByTestId('editor-event-0-0-command-none'));
     fireEvent.click(screen.getByTestId('editor-save'));
 
-    await waitFor(() => expect(screen.getByTestId('programs-notice').textContent).toContain('as program 100'));
-    const stored = await storedProgram(100);
+    await waitFor(() => expect(screen.getByTestId('programs-notice').textContent).toContain('as program 1000'));
+    const stored = await storedProgram(1000);
     expect(Object.keys(stored.series[0].events[0])).toEqual(['duration']);
   });
 
@@ -247,8 +247,8 @@ describe('creating a program', () => {
     fireEvent.click(screen.getByTestId('editor-event-0-0-audio-26-earlier'));
     fireEvent.click(screen.getByTestId('editor-save'));
 
-    await waitFor(() => expect(screen.getByTestId('programs-notice').textContent).toContain('as program 100'));
-    expect((await storedProgram(100)).series[0].events[0].audio_ids).toEqual([26, 33]);
+    await waitFor(() => expect(screen.getByTestId('programs-notice').textContent).toContain('as program 1000'));
+    expect((await storedProgram(1000)).series[0].events[0].audio_ids).toEqual([26, 33]);
   });
 
   it('takes a shipped program as the starting point of a new one', async () => {
@@ -261,11 +261,11 @@ describe('creating a program', () => {
 
     fireEvent.click(screen.getByTestId('editor-save'));
 
-    await waitFor(() => expect(screen.getByTestId('programs-notice').textContent).toContain('as program 100'));
+    await waitFor(() => expect(screen.getByTestId('programs-notice').textContent).toContain('as program 1000'));
     // The copy is its own program: the shipped one is untouched and still shipped.
-    expect(await programIds()).toEqual([SHIPPED.id, 100, UPLOADED.id]);
+    expect(await programIds()).toEqual([SHIPPED.id, 1000, UPLOADED.id]);
     expect(await storedProgram(SHIPPED.id)).toMatchObject({ title: SHIPPED.title, readonly: true });
-    expect(await storedProgram(100)).toMatchObject({ readonly: false });
+    expect(await storedProgram(1000)).toMatchObject({ readonly: false });
   });
 });
 
@@ -367,10 +367,10 @@ describe('D-24: the program being edited changes on the device', () => {
     fireEvent.click(screen.getByTestId('editor-save'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('programs-notice').textContent).toContain('Saved "Inte sparad" as program 100.'),
+      expect(screen.getByTestId('programs-notice').textContent).toContain('Saved "Inte sparad" as program 1000.'),
     );
-    expect(await storedProgram(100)).toMatchObject({ title: 'Inte sparad' });
-    // And it landed as a new program: 140 is still gone.
+    expect(await storedProgram(1000)).toMatchObject({ title: 'Inte sparad' });
+    // And it landed as a new program: 1040 is still gone.
     expect(await programIds()).not.toContain(UPLOADED.id);
   });
 
@@ -707,7 +707,7 @@ describe('the target-bank controls', () => {
 describe('an override on a bank the stepper does not reach', () => {
   const ONLY_A: Program = {
     ...UPLOADED,
-    id: 142,
+    id: 1042,
     title: 'Only A',
     series: [{ name: 'S', optional: false, events: [{ duration: 4000, command: 'show', banks: { A: 'hide' } }] }],
   };
