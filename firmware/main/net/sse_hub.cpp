@@ -14,6 +14,7 @@
 #include "esp_timer.h"
 #include "issue_buffer.h"
 #include "program_executor.h"
+#include "sse_clients.h"
 
 namespace sse_hub {
 namespace {
@@ -41,29 +42,50 @@ uint32_t s_heartbeat_id = 0;
 // pre-server emitter on another task, means revisiting this.**
 rt::IssueBuffer s_startup_issues(kMaxStartupIssues);
 
+// Touched on the httpd task only, like the client list it filters.
+rt::SseClients s_clients;
+
 // One SSE frame to fan out.
 struct Work {
   const char *event;  // static string literal
   std::string payload;
 };
 
+// Never blocks: a socket that cannot take the whole frame at once belongs to a
+// client that has stopped reading, and it is closed instead of waited for.
+// Runs on the httpd task.
+void send_frame(const std::vector<int> &sockets, const char *event, const std::string &payload,
+                uint32_t reconnect_ms) {
+  const std::string frame = generateEventMessage(
+      payload.c_str(), event, static_cast<uint32_t>(esp_timer_get_time() / 1000), reconnect_ms);
+  const std::vector<int> stalled =
+      s_clients.send(sockets, frame, [](int sock, const char *data, size_t len) -> long {
+        return httpd_socket_send(s_server->server, sock, data, len, MSG_DONTWAIT);
+      });
+  for (const int sock : stalled) {
+    ESP_LOGW(TAG, "Dropping SSE client %d: it is not reading", sock);
+    httpd_sess_trigger_close(s_server->server, sock);
+  }
+}
+
 // Runs on the httpd task, always.
 //
-// This is the whole point of the indirection. PsychicEventSource::send() walks
-// PsychicHandler::_clients, and esp_http_server adds to and removes from that
-// same list on the httpd task when clients connect and disconnect - with no
-// lock anywhere in the vendored handler. Sending from the run loop or the timer
-// task raced that list. Sending from the httpd task cannot, because it is the
-// same task that mutates it.
+// This is the whole point of the indirection. PsychicHandler::_clients is
+// mutated by esp_http_server on the httpd task when clients connect and
+// disconnect - with no lock anywhere in the vendored handler. Sending from the
+// run loop or the timer task raced that list. Sending from the httpd task
+// cannot, because it is the same task that mutates it.
 //
-// It also gets the blocking send off the run loop:
-// PsychicEventSourceClient::sendEvent retries httpd_socket_send forever on
-// HTTPD_SOCK_ERR_TIMEOUT, so one client that has stopped reading used to stall
-// the run loop in 5-second multiples - freezing the targets mid-program.
+// PsychicEventSource::send() is deliberately not used: it retries a full
+// socket forever, which wedged the httpd task - REST included - for as long as
+// one client stayed connected without reading (#343).
 void send_on_httpd_task(void *arg) {
   auto *work = static_cast<Work *>(arg);
-  s_events.send(work->payload.c_str(), work->event,
-                static_cast<uint32_t>(esp_timer_get_time() / 1000));
+  std::vector<int> sockets;
+  for (PsychicClient *client : s_events.getClientList()) {
+    if (client != nullptr) sockets.push_back(client->socket());
+  }
+  send_frame(sockets, work->event, work->payload, 0);
   delete work;
 }
 
@@ -139,11 +161,10 @@ void attach(PsychicHttpServer &server, const char *uri) {
   s_server = &server;
 
   s_events.onOpen([](PsychicEventSourceClient *client) {
-    // Already on the httpd task, so this one send needs no detour. The full
-    // state on connect is what makes a /status endpoint unnecessary.
-    const std::string payload = executor::state_json();
-    client->send(payload.c_str(), "stateUpdate", static_cast<uint32_t>(esp_timer_get_time() / 1000),
-                 500);
+    // Already on the httpd task, so this one send needs no detour, and goes to
+    // this client alone. The full state on connect is what makes a /status
+    // endpoint unnecessary.
+    send_frame({client->socket()}, "stateUpdate", executor::state_json(), 500);
     // TCP keepalive as the backstop for a peer that vanishes without a FIN -
     // a phone going out of range or losing power. The peek test only catches a
     // clean close; without keepalive such a socket would linger indefinitely.
@@ -159,6 +180,7 @@ void attach(PsychicHttpServer &server, const char *uri) {
   });
 
   s_events.onClose([](PsychicEventSourceClient *client) {
+    s_clients.closed(client->socket());
     ESP_LOGI(TAG, "Client %d disconnected", client->socket());
   });
 
@@ -196,6 +218,10 @@ void broadcast_issue(const char *code, const std::string &message,
   }
 
   enqueue("backend_issue", std::move(payload));
+}
+
+size_t client_count() {
+  return s_events.getClientList().size();
 }
 
 const std::vector<std::string> &startup_issues() {

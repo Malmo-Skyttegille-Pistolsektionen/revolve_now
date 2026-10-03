@@ -69,6 +69,10 @@ only sets a flag; the payload is serialized under the lock and sent after
 releasing it. Fanning out to every connected client while holding the run-state
 lock would let one slow socket stall the run loop.
 
+**And the send itself never waits.** It runs on the httpd task, which serves
+REST too, so a client whose socket cannot take a whole frame is closed rather
+than waited for (`rt::SseClients`, #343).
+
 ## Storage
 
 Two filesystems, and the split is the point (#227, D-35/D-37).

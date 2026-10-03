@@ -239,7 +239,9 @@ Load-bearing invariants:
   to sleep — at most `rt::kMaxSleepMs` (200 ms), so `stop` lands promptly.
 - **SSE sends go through `httpd_queue_work`, i.e. always on the httpd task.**
   That is the only task esp_http_server mutates the client list from, and it
-  keeps the blocking send off the run loop. `flush()` serializes *and* enqueues
+  keeps the send off the run loop. The send is non-blocking, and a client that
+  cannot take a whole frame is closed: waiting there wedges REST too (#343).
+  `flush()` serializes *and* enqueues
   under one lock so snapshot order equals send order. `broadcast_issue()` uses
   the same path from any task, and is a no-op before the server exists.
 - **`readonly` is a property of the directory a file was loaded from, never of

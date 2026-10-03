@@ -722,6 +722,7 @@ describe('diagnostics (D-25)', () => {
     const info = (await (await api('/diagnostics/info')).json()) as DiagnosticsInfo;
     expect(info.startupIssues).toEqual([]);
     expect(info.programCount).toBe(1);
+    expect(info.sseClients).toBe(0);
   });
 
   it('serves what the boot scan could not read, bounded and oldest-dropped', async () => {
