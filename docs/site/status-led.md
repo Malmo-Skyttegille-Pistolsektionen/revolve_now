@@ -57,7 +57,7 @@ not work until the fault is fixed. The serial log says so in as many words.
 ## Three things worth saying, because none is guessable
 
 - **Blinking versus solid red is the important distinction.** Before
-  [#122](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target/issues/122)
+  [#122](https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/issues/122)
   both were solid, so "still coming up" and "never joined" looked identical —
   which is exactly the question you have at the range.
 - **Yellow is a fault indicator, not a stage.** It exists to be seen only when

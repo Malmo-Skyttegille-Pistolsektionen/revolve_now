@@ -1,4 +1,4 @@
-# Rotation Target
+# Revolve Now
 
 Software for running timed shooting programs on a rotating target system, built
 by and for Malmö Skyttegille Pistolsektionen.
@@ -61,7 +61,7 @@ front of you.
 
 ## Write a program without a device
 
-The **[program editor](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/editor/)** runs entirely in a browser tab, with no board
+The **[program editor](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/editor/)** runs entirely in a browser tab, with no board
 attached. Open a program from this repository, edit it, and either download the
 file or open a pull request with it. [Writing your own
 program](writing-a-program.md) walks through building one from nothing.
@@ -70,4 +70,4 @@ program](writing-a-program.md) walks through building one from nothing.
 
 Full technical documentation — hardware wiring, the API contract, and the
 firmware and web app internals — lives in the
-[repository](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target).
+[repository](https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now).

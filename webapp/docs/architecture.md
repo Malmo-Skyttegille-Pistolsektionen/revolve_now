@@ -2,7 +2,7 @@
 
 ## Overview
 
-Rotation Target is a system for controlling rotation targets at a shooting club. The system consists of:
+Revolve Now is a system for controlling rotation targets at a shooting club. The system consists of:
 
 1. **ESP32 Backend** - Hardware controller with REST API + SSE
 2. **Frontend SPA** - React app for tablets/mobile devices

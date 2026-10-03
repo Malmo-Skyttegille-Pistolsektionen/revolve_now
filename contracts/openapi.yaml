@@ -3,13 +3,13 @@
 openapi: 3.1.0
 
 info:
-  title: Rotation target REST API v2
+  title: Revolve Now REST API v2
   version: 1.0.0
   license:
     name: MIT
     identifier: MIT
   description: |
-    The REST API the rotation target firmware serves under `/api/v2`, together
+    The REST API the Revolve Now firmware serves under `/api/v2`, together
     with the SSE stream at `/sse/v2` (specified separately in
     `contracts/asyncapi.yaml`).
 
@@ -93,7 +93,7 @@ info:
     `Access-Control-Allow-Headers: Authorization, Content-Type`,
     `Access-Control-Max-Age: 600` and `Vary: Origin`, only when it is one of:
 
-    - `http(s)://<CONFIG_RT_HOSTNAME>.local` (default `rotation-target.local`)
+    - `http(s)://<CONFIG_RT_HOSTNAME>.local` (default `revolve-now.local`)
     - `http(s)://<the device's current IP>`
     - `CONFIG_RT_DEV_ORIGIN`, when that Kconfig value is non-empty
 
@@ -130,7 +130,7 @@ info:
       of them for `/sse/v2` on top of its REST traffic.
 
 servers:
-  - url: http://rotation-target.local/api/v2
+  - url: http://revolve-now.local/api/v2
     description: >-
       The device on the range network, by mDNS name. The hostname is
       `CONFIG_RT_HOSTNAME` and the port `CONFIG_RT_HTTP_PORT` (default 80).
@@ -1407,7 +1407,7 @@ paths:
       operationId: uploadFirmware
       description: |
         A `multipart/form-data` body with one file part: an ESP-IDF
-        application image (`rotation_target_backend.bin`).
+        application image (`revolve_now.bin`).
 
         The image is streamed into the **inactive** app slot, so the running
         firmware is never overwritten. Once it has landed the device compares
@@ -1725,7 +1725,7 @@ paths:
       summary: The run-state event stream
       operationId: streamEvents
       servers:
-        - url: http://rotation-target.local
+        - url: http://revolve-now.local
           description: >-
             The stream is at the server root, not under `/api/v2`.
         - url: http://localhost:8080

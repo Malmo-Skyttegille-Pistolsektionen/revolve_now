@@ -1,4 +1,4 @@
-# Rotation Target Frontend Webapp
+# Revolve Now web app
 
 This project is a frontend application for controlling rotating targets for Malmö Skyttegille shooting club. The system communicates with an ESP32 backend via REST API and Server-Sent Events (SSE).
 
@@ -127,7 +127,7 @@ it never grows this number — see the comment on `ProgramEditor`'s
 
 ```bash
 npm run dev:pages-editor          # http://localhost:8080, no mock API mounted
-npm run build:pages-editor        # -> dist-editor/, base /rotation_target/editor/
+npm run build:pages-editor        # -> dist-editor/, base /revolve_now/editor/
 ```
 
 `editor.html` / `src/editor-main.tsx` build the same `ProgramEditor` component

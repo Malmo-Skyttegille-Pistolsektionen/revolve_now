@@ -27,22 +27,28 @@ void test_a_running_program_refuses_the_upload() {
 // --- the image itself ------------------------------------------------------
 
 void test_a_matching_project_is_accepted() {
-  TEST_ASSERT_EQUAL(Refusal::kNone, rt::ota::check_image("rotation_target_backend",
-                                                         "rotation_target_backend", 900000));
+  TEST_ASSERT_EQUAL(Refusal::kNone, rt::ota::check_image("revolve_now", "revolve_now", 900000));
 }
 
 void test_a_foreign_image_is_refused() {
   // Secure boot is off, so this is the only thing between a held lock and
   // arbitrary firmware.
   TEST_ASSERT_EQUAL(Refusal::kProjectMismatch,
-                    rt::ota::check_image("AutoLee", "rotation_target_backend", 900000));
+                    rt::ota::check_image("AutoLee", "revolve_now", 900000));
 }
 
 void test_a_truncated_project_name_does_not_match_by_prefix() {
   // strncmp over the header's fixed width, not strcmp: a name that merely
   // starts the same is a different project.
   TEST_ASSERT_EQUAL(Refusal::kProjectMismatch,
-                    rt::ota::check_image("rotation_target", "rotation_target_backend", 900000));
+                    rt::ota::check_image("revolve", "revolve_now", 900000));
+}
+
+void test_an_image_from_before_the_rename_is_refused() {
+  // D-44: the project was rotation_target_backend. Neither name accepts the
+  // other, so crossing the rename takes a cable flash.
+  TEST_ASSERT_EQUAL(Refusal::kProjectMismatch,
+                    rt::ota::check_image("rotation_target_backend", "revolve_now", 900000));
 }
 
 void test_an_unterminated_name_is_read_within_the_header_width() {
@@ -58,20 +64,18 @@ void test_an_unterminated_name_is_read_within_the_header_width() {
 }
 
 void test_an_empty_upload_is_refused() {
-  TEST_ASSERT_EQUAL(Refusal::kEmptyImage,
-                    rt::ota::check_image("rotation_target_backend", "rotation_target_backend", 0));
+  TEST_ASSERT_EQUAL(Refusal::kEmptyImage, rt::ota::check_image("revolve_now", "revolve_now", 0));
 }
 
 void test_something_smaller_than_a_header_is_refused() {
   // An esp_app_desc_t alone is 256 bytes; anything at or under that cannot be
   // an image, whatever its header claims.
-  TEST_ASSERT_EQUAL(Refusal::kEmptyImage, rt::ota::check_image("rotation_target_backend",
-                                                               "rotation_target_backend", 256));
+  TEST_ASSERT_EQUAL(Refusal::kEmptyImage, rt::ota::check_image("revolve_now", "revolve_now", 256));
 }
 
 void test_a_null_description_is_refused_rather_than_dereferenced() {
   TEST_ASSERT_EQUAL(Refusal::kProjectMismatch,
-                    rt::ota::check_image(nullptr, "rotation_target_backend", 900000));
+                    rt::ota::check_image(nullptr, "revolve_now", 900000));
 }
 
 // --- what the client is told ----------------------------------------------
@@ -91,6 +95,7 @@ int main() {
   RUN_TEST(test_a_matching_project_is_accepted);
   RUN_TEST(test_a_foreign_image_is_refused);
   RUN_TEST(test_a_truncated_project_name_does_not_match_by_prefix);
+  RUN_TEST(test_an_image_from_before_the_rename_is_refused);
   RUN_TEST(test_an_unterminated_name_is_read_within_the_header_width);
   RUN_TEST(test_an_empty_upload_is_refused);
   RUN_TEST(test_something_smaller_than_a_header_is_refused);

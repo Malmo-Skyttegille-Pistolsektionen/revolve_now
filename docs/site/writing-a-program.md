@@ -136,7 +136,7 @@ anyone is downrange. What the device refuses is the **start**, because aiming
 page tags the row with the banks it needs, and the Run page says why Start is
 unavailable once the program is loaded.
 
-The shipped [`41.json`](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target/blob/main/resources/programs/files/41.json)
+The shipped [`41.json`](https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/blob/main/resources/programs/files/41.json)
 ("Fältträning, 4 mål") is a worked example: one target at a time, then in pairs.
 
 ## The whole file
@@ -159,7 +159,7 @@ An uploaded program is on **one device**. To put it on every device, and to
 keep it through a reflash, it has to go into the repository — see
 [getting a program into the shipped set](programs-and-audio.md#getting-a-program-into-the-shipped-set).
 
-The [program editor](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/editor/) does both halves of that for you: open the
+The [program editor](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/editor/) does both halves of that for you: open the
 program in it, press **Continue**, and it offers the file to download and a
 prefilled pull request against this repository.
 

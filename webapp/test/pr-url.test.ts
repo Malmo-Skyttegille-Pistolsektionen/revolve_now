@@ -21,20 +21,20 @@ describe('prDescription', () => {
 
 describe('buildNewFileUrl', () => {
   it('points at the new-file endpoint under resources/programs/files/', () => {
-    const { url } = buildNewFileUrl('acme', 'rotation_target', '{"title":"x"}', CTX);
-    expect(url.startsWith('https://github.com/acme/rotation_target/new/main?')).toBe(true);
+    const { url } = buildNewFileUrl('acme', 'revolve_now', '{"title":"x"}', CTX);
+    expect(url.startsWith('https://github.com/acme/revolve_now/new/main?')).toBe(true);
     expect(url).toContain('filename=resources%2Fprograms%2Ffiles%2F42.json');
   });
 
   it('is under budget for a small document', () => {
-    const { overBudget, byteLength } = buildNewFileUrl('acme', 'rotation_target', '{"title":"x"}', CTX);
+    const { overBudget, byteLength } = buildNewFileUrl('acme', 'revolve_now', '{"title":"x"}', CTX);
     expect(overBudget).toBe(false);
     expect(byteLength).toBeLessThan(NEW_FILE_URL_BUDGET_BYTES);
   });
 
   it('flags a large document as over budget rather than silently truncating it', () => {
     const largeJson = JSON.stringify({ series: 'x'.repeat(NEW_FILE_URL_BUDGET_BYTES) });
-    const { overBudget, url } = buildNewFileUrl('acme', 'rotation_target', largeJson, CTX);
+    const { overBudget, url } = buildNewFileUrl('acme', 'revolve_now', largeJson, CTX);
     expect(overBudget).toBe(true);
     // Nothing is dropped to fit - the full document round-trips out of the URL,
     // and the caller decides not to offer it as a link instead.

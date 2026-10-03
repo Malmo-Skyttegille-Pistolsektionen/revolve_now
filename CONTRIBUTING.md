@@ -90,7 +90,7 @@ python -m esptool --chip esp32s3 --port /dev/ttyACM0 \
   0x0 build/bootloader/bootloader.bin \
   0x8000 build/partition_table/partition-table.bin \
   0xf000 build/ota_data_initial.bin \
-  0x20000 build/rotation_target_backend.bin \
+  0x20000 build/revolve_now.bin \
   0x620000 build/storage.bin
 ```
 

@@ -3,12 +3,12 @@
 asyncapi: 3.1.0
 
 info:
-  title: Rotation target SSE v2
+  title: Revolve Now SSE v2
   version: 1.0.0
   license:
     name: MIT
   description: |
-    The Server-Sent Events stream the rotation target firmware serves at
+    The Server-Sent Events stream the Revolve Now firmware serves at
     `/sse/v2`, alongside the REST API specified in `contracts/openapi.yaml`.
 
     This document is **canonical** and is written from the implementation
@@ -99,7 +99,7 @@ info:
 
 servers:
   device:
-    host: rotation-target.local
+    host: revolve-now.local
     protocol: http
     description: >-
       The device on the range network, by mDNS name. Hostname from

@@ -44,7 +44,7 @@ void init_nvs() {
 
 extern "C" void app_main() {
   const esp_app_desc_t *desc = esp_app_get_description();
-  ESP_LOGI(TAG, "Rotation target backend %s (%s %s)", desc->version, desc->date, desc->time);
+  ESP_LOGI(TAG, "Revolve Now %s (%s %s)", desc->version, desc->date, desc->time);
 
   init_nvs();
 

@@ -170,7 +170,7 @@ function asPlainText(build: BuildInfo): string {
 }
 
 /**
- * The device is served over plain HTTP at `rotation-target.local`, and
+ * The device is served over plain HTTP at `revolve-now.local`, and
  * `navigator.clipboard` does not exist outside a secure context — so the modern
  * API is the *fallback* case here, not the normal one. `execCommand('copy')` is
  * deprecated and is the only thing that works on the device itself.

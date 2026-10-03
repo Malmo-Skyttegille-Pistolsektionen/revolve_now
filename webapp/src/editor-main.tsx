@@ -28,7 +28,7 @@ applyTheme(readStoredTheme());
  * on both builds), which needs a router in context. This page does no actual
  * routing — one screen, no navigation — so the router carries a single root
  * route on in-memory history rather than the browser's, which sidesteps
- * GitHub Pages' subpath (`/rotation_target/editor/`) entirely.
+ * GitHub Pages' subpath (`/revolve_now/editor/`) entirely.
  */
 const rootRoute = createRootRoute({ component: Outlet });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: StandaloneEditorApp });

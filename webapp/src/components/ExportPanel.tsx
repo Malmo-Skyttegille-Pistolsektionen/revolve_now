@@ -12,7 +12,7 @@ interface ExportPanelProps {
 }
 
 const DEFAULT_OWNER = 'Malmo-Skyttegille-Pistolsektionen';
-const DEFAULT_REPO = 'rotation_target';
+const DEFAULT_REPO = 'revolve_now';
 
 /**
  * Where a program authored without a device goes next (#140): download it,

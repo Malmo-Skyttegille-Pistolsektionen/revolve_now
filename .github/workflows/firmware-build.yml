@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           DESCRIBED="$(git describe --tags --match '[0-9]*.[0-9]*.[0-9]*' --always --dirty)"
-          BUILT="$(python3 scripts/app_desc.py build/rotation_target_backend.bin --field version)"
+          BUILT="$(python3 scripts/app_desc.py build/revolve_now.bin --field version)"
           if [ "$BUILT" != "$DESCRIBED" ]; then
             echo "::error::The image reports '$BUILT', not the workspace's '$DESCRIBED'."
             exit 1
@@ -162,14 +162,14 @@ jobs:
         run: |
           python3 scripts/check_image_budget.py \
             partitions.csv \
-            build/rotation_target_backend.bin \
+            build/revolve_now.bin \
             build/generated/embedded_index.generated.h
 
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: firmware
           path: |
-            firmware/build/rotation_target_backend.bin
+            firmware/build/revolve_now.bin
             firmware/build/bootloader/bootloader.bin
             firmware/build/partition_table/partition-table.bin
           if-no-files-found: error
