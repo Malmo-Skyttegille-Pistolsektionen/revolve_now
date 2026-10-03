@@ -133,7 +133,7 @@ describe('the troubleshooting bundle on Expert mode', () => {
     });
     // The device's half - hostname, version, why it restarted - kept verbatim,
     // with today's date inserted before the extension.
-    expect(saved[0].filename).toMatch(/^rotation-target-.+-poweron-\d{4}-\d{2}-\d{2}\.zip$/);
+    expect(saved[0].filename).toMatch(/^revolve-now-.+-poweron-\d{4}-\d{2}-\d{2}\.zip$/);
   });
 
   it('saves the bytes the device sent rather than a JSON parse of them', async () => {

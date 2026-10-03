@@ -61,8 +61,8 @@ describe('naming a file the device could not date', () => {
   const noon = new Date(2026, 7, 25, 12, 0, 0);
 
   it('inserts the date before the extension, not after it', () => {
-    expect(datedFilename('rotation-target-2.0.0-task_watchdog.zip', noon)).toBe(
-      'rotation-target-2.0.0-task_watchdog-2026-08-25.zip',
+    expect(datedFilename('revolve-now-2.0.0-task_watchdog.zip', noon)).toBe(
+      'revolve-now-2.0.0-task_watchdog-2026-08-25.zip',
     );
   });
 

@@ -3,7 +3,7 @@
 //  Board configuration, derived from Kconfig.
 //
 //  Nothing here is hardcoded: every pin, polarity and optional peripheral is a
-//  `menuconfig` setting under "Rotation target backend -> Hardware", so a
+//  `menuconfig` setting under "Revolve Now -> Hardware", so a
 //  different board is a different `sdkconfig`, not a source edit.
 //
 //  The defaults are the REVOLVENOW Rev 1 board (ESP32-S3-WROOM-1 N16R8), taken

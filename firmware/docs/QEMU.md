@@ -59,9 +59,9 @@ budget — exactly as the board has it.
   not from the pin — `diagnostics/info` shows `banks[].padLevel: 0` throughout.
 - **mDNS is not reachable from the host.** The responder runs and answers
   inside the guest, but SLIRP does not carry multicast to the host — use
-  `localhost:8080`, never `rotation-target.local`.
+  `localhost:8080`, never `revolve-now.local`.
 - **CORS by device IP does not match.** The allowlist knows
-  `rotation-target.local` and the guest's own 10.0.2.15; a browser on
+  `revolve-now.local` and the guest's own 10.0.2.15; a browser on
   `http://localhost:8080` sends that origin instead. Same-origin requests need
   no CORS headers, so the bundled webapp is unaffected; a Vite dev server
   against the emulator needs `CONFIG_RT_DEV_ORIGIN`.

@@ -203,7 +203,7 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
 export const HARDWARE_DEFAULTS: HardwareConfig = {
   // One bank, which is every device shipped so far (#207, D-41).
   banks: [{ gpio: 5, activeLow: true, name: '' }],
-  hostname: 'rotation-target',
+  hostname: 'revolve-now',
   displayName: '',
   targetsShownAtBoot: true,
   ledGpio: 48,
@@ -1355,7 +1355,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
       // The firmware builds this from the hostname, the version and why the
       // device last restarted, and puts no date in it - it has no clock.
-      const filename = `rotation-target-${seed.firmwareVersion ?? '2.0.0-mock'}-poweron.zip`;
+      const filename = `revolve-now-${seed.firmwareVersion ?? '2.0.0-mock'}-poweron.zip`;
       res.writeHead(200, {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,

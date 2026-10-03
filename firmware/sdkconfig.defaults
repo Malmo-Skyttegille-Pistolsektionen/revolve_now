@@ -1,4 +1,4 @@
-# Rotation target backend - ESP-IDF defaults.
+# Revolve Now - ESP-IDF defaults.
 #
 # Editing this file does nothing on its own: ESP-IDF seeds `sdkconfig` from it
 # only when `sdkconfig` does not exist, and `sdkconfig` is gitignored. In a

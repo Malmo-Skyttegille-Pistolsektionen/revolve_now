@@ -407,7 +407,7 @@ void handle(const std::string &line) {
 }
 
 void task(void *) {
-  say("\r\nrotation target console - type 'help'\r\nrt> ");
+  say("\r\nRevolve Now console - type 'help'\r\nrt> ");
 
   std::string line;
   for (;;) {

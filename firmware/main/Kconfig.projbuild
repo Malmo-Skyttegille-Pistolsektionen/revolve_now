@@ -1,4 +1,4 @@
-menu "Rotation target backend"
+menu "Revolve Now"
 
 menu "Hardware"
 
@@ -127,7 +127,7 @@ config RT_NET_OPENETH
 
 config RT_HOSTNAME
     string "Hostname advertised over DHCP and mDNS"
-    default "rotation-target"
+    default "revolve-now"
 
 config RT_HTTP_PORT
     int "HTTP port"
@@ -184,7 +184,7 @@ config RT_WIFI_MAX_RETRIES
 
 config RT_SETUP_AP_PASSWORD
     string "Setup access-point password"
-    default "rotationtarget"
+    default "revolvenow"
     depends on !RT_NET_OPENETH
     help
         Used only by the setup portal the device falls back to when it cannot

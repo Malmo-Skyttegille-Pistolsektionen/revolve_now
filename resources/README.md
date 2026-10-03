@@ -1,6 +1,6 @@
-# Malmö Skyttegille Pistolsektion - Rotation Target Backend Resources
+# Revolve Now — resources
 
-This repository contains resources and documentation for Malmö Skyttegille Pistolsektion's custom software for the Eigenbrod TP2 Rotation Target System.
+The programs and audio shipped with Revolve Now, Malmö Skyttegille Pistolsektion's software for the Eigenbrod TP2 rotation target system.
 
 ## Overview
 

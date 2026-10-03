@@ -20,7 +20,7 @@ loudly.
 ## Configuration
 
 **No pin is hardcoded.** Everything is a `menuconfig` option under
-**Rotation target backend → Hardware**, so a different board is a different
+**Revolve Now → Hardware**, so a different board is a different
 `sdkconfig`, not a source edit.
 
 | Option | Default | Meaning |

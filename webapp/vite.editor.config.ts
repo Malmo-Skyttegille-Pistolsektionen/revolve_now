@@ -15,8 +15,8 @@ import { resolveVersion } from './vite-plugins/resolve-version';
  *   would put `editor.html` and its chunks in `dist` too, growing exactly the
  *   bundle `size-budget` exists to bound - for a page the device never serves.
  * - **`base` differs.** The device serves the app from `/`; GitHub Pages
- *   serves this repo's site from `/rotation_target/`, so the editor needs
- *   `/rotation_target/editor/` here to resolve its own assets.
+ *   serves this repo's site from `/revolve_now/`, so the editor needs
+ *   `/revolve_now/editor/` here to resolve its own assets.
  * - No `tanstackRouter()` plugin: `editor-main.tsx` builds its router by hand
  *   (see the comment there) rather than from file-based routes, and no
  *   `mockServerV2Plugin()`: there is no device to mock against.
@@ -26,7 +26,7 @@ import { resolveVersion } from './vite-plugins/resolve-version';
  */
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
-  base: '/rotation_target/editor/',
+  base: '/revolve_now/editor/',
   define: {
     __APP_VERSION__: JSON.stringify(resolveVersion()),
   },

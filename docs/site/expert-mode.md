@@ -91,7 +91,7 @@ Wrong values here are the ones whose way back is a USB cable:
 - A **wrong pin** drives nothing, and one of the pins the device refuses would
   stop it booting at all — which is why it refuses them.
 - A **wrong hostname** changes the name the device answers to, so the web app
-  stops being reachable at `rotation-target.local`. Worse than a wrong pin,
+  stops being reachable at `revolve-now.local`. Worse than a wrong pin,
   which at least leaves the app up to fix it from.
 
 **Nothing here takes effect until the device restarts**, and the page says so

@@ -17,7 +17,7 @@ import { parseProgramDocument } from '../lib/program-document';
 import styles from './StandaloneEditorApp.module.css';
 
 const CANONICAL_OWNER = 'Malmo-Skyttegille-Pistolsektionen';
-const CANONICAL_REPO = 'rotation_target';
+const CANONICAL_REPO = 'revolve_now';
 
 /** A document picked but not yet handed to the editor — it still needs an id confirmed. */
 interface Opened {
@@ -43,7 +43,7 @@ export function StandaloneEditorApp(): React.ReactNode {
     <main className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headingRow}>
-          <h1 className={styles.heading}>Rotation Target — Program Editor</h1>
+          <h1 className={styles.heading}>Revolve Now — Program Editor</h1>
           <ThemePicker />
         </div>
         <p className={styles.hint}>

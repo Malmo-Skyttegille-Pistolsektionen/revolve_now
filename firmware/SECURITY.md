@@ -3,7 +3,7 @@
 ## Reporting
 
 Report anything security-relevant to the maintainers privately — open a
-[security advisory](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_backend_esp32_espidf/security/advisories/new)
+[security advisory](https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/security/advisories/new)
 rather than a public issue.
 
 **Never include WiFi credentials** in an issue, advisory, commit or any file

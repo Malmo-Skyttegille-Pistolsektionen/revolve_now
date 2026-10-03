@@ -23,8 +23,8 @@ export const DEFAULT_BASE_URL = typeof window === 'undefined' ? 'http://localhos
  * Trims trailing slashes so a base URL concatenates cleanly.
  *
  * `getApiBaseUrl()` appends `/api/v2`, and the settings page accepts whatever
- * the user types — `http://rotation-target.local/` is a natural thing to paste
- * and produced `http://rotation-target.local//api/v2`. `window.location.origin`
+ * the user types — `http://revolve-now.local/` is a natural thing to paste
+ * and produced `http://revolve-now.local//api/v2`. `window.location.origin`
  * never has one, so this only ever bites the override path.
  */
 export function normalizeBaseUrl(url: string): string {

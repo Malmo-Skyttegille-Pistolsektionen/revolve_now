@@ -1,5 +1,5 @@
 ---
-name: Rotation Target
+name: Revolve Now
 description: Range-side control for a rotating pistol target — equipment that happens to have a screen.
 colors:
   # The light theme, and the names of the CSS custom properties: `ink` is
@@ -197,7 +197,7 @@ components:
     height: '36px'
 ---
 
-# Design System: Rotation Target
+# Design System: Revolve Now
 
 ## Overview
 

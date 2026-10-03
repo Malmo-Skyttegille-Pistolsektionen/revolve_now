@@ -12,8 +12,8 @@ expensive bugs have actually lived.
 
 ## What this is
 
-An ESP32-S3 board drives a rotation target system for Malmö Skyttegille
-Pistolsektionen, and serves the web app that operates it. See
+Revolve Now: an ESP32-S3 board drives a rotation target system for Malmö
+Skyttegille Pistolsektionen, and serves the web app that operates it. See
 [`README.md`](README.md) for the layout and
 [`docs/DECISIONS.md`](docs/DECISIONS.md) for the decisions of record — cite
 D-numbers when a change touches one.

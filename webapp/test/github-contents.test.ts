@@ -51,11 +51,11 @@ describe('listRepoProgramFiles', () => {
       ),
     );
 
-    const files = await listRepoProgramFiles({ owner: 'acme', repo: 'rotation_target' });
+    const files = await listRepoProgramFiles({ owner: 'acme', repo: 'revolve_now' });
 
     expect(files.map((f) => f.name)).toEqual(['2.json', '20.json']);
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.github.com/repos/acme/rotation_target/contents/resources/programs/files',
+      'https://api.github.com/repos/acme/revolve_now/contents/resources/programs/files',
       expect.anything(),
     );
   });
@@ -67,7 +67,7 @@ describe('listRepoProgramFiles', () => {
 
   it('names rate limiting specifically, since unauthenticated requests are capped at 60/hour', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } }));
-    await expect(listRepoProgramFiles({ owner: 'acme', repo: 'rotation_target' })).rejects.toThrow(/rate limit/i);
+    await expect(listRepoProgramFiles({ owner: 'acme', repo: 'revolve_now' })).rejects.toThrow(/rate limit/i);
   });
 
   // #221: the path was hardcoded to *our* layout, which is a fact about this
@@ -196,7 +196,7 @@ describe('fetchRepoProgramFile', () => {
     const text = await fetchRepoProgramFile({
       name: '42.json',
       path: 'resources/programs/files/42.json',
-      downloadUrl: 'https://raw.githubusercontent.com/acme/rotation_target/main/resources/programs/files/42.json',
+      downloadUrl: 'https://raw.githubusercontent.com/acme/revolve_now/main/resources/programs/files/42.json',
     });
 
     expect(text).toBe('{"title":"x"}');

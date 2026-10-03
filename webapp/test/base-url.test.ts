@@ -25,8 +25,8 @@ async function importClient(): Promise<typeof import('../src/api/client')> {
 describe('DEFAULT_BASE_URL', () => {
   it('defaults to the origin the app was served from', async () => {
     // Served by the firmware on the range network.
-    vi.stubGlobal('window', { location: { origin: 'http://rotation-target.local' } });
-    expect((await importBaseUrl()).DEFAULT_BASE_URL).toBe('http://rotation-target.local');
+    vi.stubGlobal('window', { location: { origin: 'http://revolve-now.local' } });
+    expect((await importBaseUrl()).DEFAULT_BASE_URL).toBe('http://revolve-now.local');
   });
 
   it('follows a non-default port, rather than assuming 8080', async () => {
@@ -43,8 +43,8 @@ describe('DEFAULT_BASE_URL', () => {
 describe('normalizeBaseUrl', () => {
   it('strips trailing slashes so the API path concatenates cleanly', async () => {
     const { normalizeBaseUrl } = await importBaseUrl();
-    expect(normalizeBaseUrl('http://rotation-target.local/')).toBe('http://rotation-target.local');
-    expect(normalizeBaseUrl('http://rotation-target.local///')).toBe('http://rotation-target.local');
+    expect(normalizeBaseUrl('http://revolve-now.local/')).toBe('http://revolve-now.local');
+    expect(normalizeBaseUrl('http://revolve-now.local///')).toBe('http://revolve-now.local');
   });
 
   it('leaves a clean URL and a path prefix alone', async () => {
@@ -56,15 +56,15 @@ describe('normalizeBaseUrl', () => {
 
 describe('the client base URL', () => {
   it('starts same-origin', async () => {
-    vi.stubGlobal('window', { location: { origin: 'http://rotation-target.local' } });
+    vi.stubGlobal('window', { location: { origin: 'http://revolve-now.local' } });
     const { getApiBaseUrl, getSseBaseUrl } = await importClient();
 
-    expect(getApiBaseUrl()).toBe('http://rotation-target.local/api/v2');
-    expect(getSseBaseUrl()).toBe('http://rotation-target.local/sse/v2');
+    expect(getApiBaseUrl()).toBe('http://revolve-now.local/api/v2');
+    expect(getSseBaseUrl()).toBe('http://revolve-now.local/sse/v2');
   });
 
   it('takes an explicit override, and REST and SSE move together', async () => {
-    vi.stubGlobal('window', { location: { origin: 'http://rotation-target.local' } });
+    vi.stubGlobal('window', { location: { origin: 'http://revolve-now.local' } });
     const { updateBaseUrl, getApiBaseUrl, getSseBaseUrl } = await importClient();
 
     // The settings page saving a URL used to move only the REST calls; the SSE
@@ -75,7 +75,7 @@ describe('the client base URL', () => {
   });
 
   it('never emits a double slash from a pasted trailing slash', async () => {
-    vi.stubGlobal('window', { location: { origin: 'http://rotation-target.local' } });
+    vi.stubGlobal('window', { location: { origin: 'http://revolve-now.local' } });
     const { updateBaseUrl, getApiBaseUrl, getSseBaseUrl } = await importClient();
 
     updateBaseUrl('http://10.0.0.9:8080/');

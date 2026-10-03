@@ -105,7 +105,7 @@ describe('the picker', () => {
     expect((screen.getByTestId('picker-repo-owner') as HTMLInputElement).value).toBe(
       'Malmo-Skyttegille-Pistolsektionen',
     );
-    expect((screen.getByTestId('picker-repo-repo') as HTMLInputElement).value).toBe('rotation_target');
+    expect((screen.getByTestId('picker-repo-repo') as HTMLInputElement).value).toBe('revolve_now');
     expect((screen.getByTestId('picker-repo-path') as HTMLInputElement).value).toBe('resources/programs/files');
     // Empty means the default branch, which is what somebody wants unless they
     // say otherwise.
@@ -124,7 +124,7 @@ describe('the picker', () => {
     await screen.findByTestId('picker-repo-files');
     const listingCall = fetchMock.mock.calls.find((call) => String(call[0]).startsWith('https://api.github.com/'));
     expect(String(listingCall?.[0])).toBe(
-      'https://api.github.com/repos/Malmo-Skyttegille-Pistolsektionen/rotation_target/contents/other/programs?ref=v1.2.3',
+      'https://api.github.com/repos/Malmo-Skyttegille-Pistolsektionen/revolve_now/contents/other/programs?ref=v1.2.3',
     );
   });
 
@@ -186,7 +186,7 @@ describe('starting a new program', () => {
     const panel = await screen.findByTestId('export-panel');
     expect(within(panel).getByTestId('export-download').textContent).toBe('Download 42.json');
     const link = within(panel).getByTestId('export-pr-link') as HTMLAnchorElement;
-    expect(link.href).toContain('github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target/new/main');
+    expect(link.href).toContain('github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/new/main');
     expect(link.href).toContain('filename=resources%2Fprograms%2Ffiles%2F42.json');
   });
 

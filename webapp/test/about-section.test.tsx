@@ -191,7 +191,7 @@ describe('#228: the About disclosure', () => {
     expect(screen.queryByTestId('build-plain')).toBeNull();
   });
 
-  // The device is served over plain HTTP at `rotation-target.local`, where
+  // The device is served over plain HTTP at `revolve-now.local`, where
   // `navigator.clipboard` does not exist and `execCommand` is all there is. If
   // that fails too, the operator must be left with something they can select
   // rather than an error - the text is the whole point of the button.
