@@ -77,9 +77,9 @@ info:
     upload, say — frames wait for it rather than block the run loop. A newer
     `stateUpdate`, `configWindow` or `heartbeat` supersedes a waiting one of
     the same event, so a client may miss an intermediate state or beat but
-    always receives the latest once the task frees up. `backend_issue` and
-    `libraryChanged` each count, so they wait up to a bound, past which they
-    are **dropped**.
+    receives the latest within one heartbeat of the task freeing up.
+    `backend_issue` and `libraryChanged` each count, so they wait up to a
+    bound, past which they are **dropped**.
 
     Dead clients are reaped on the heartbeat cadence: a peer that closed
     cleanly is detected by a non-destructive peek, and TCP keepalive

@@ -99,6 +99,56 @@ void test_a_lost_drain_is_recovered_by_the_next_take() {
   TEST_ASSERT_TRUE(outbox.push("stateUpdate", "3", Delivery::kLatest) == Push::kPostDrain);
 }
 
+void test_a_beat_is_not_posted_while_one_waits() {
+  rt::SseOutbox outbox(4);
+  TEST_ASSERT_TRUE(outbox.beat());
+  for (int i = 1; i < rt::SseOutbox::kBeatRepostAfter; ++i) TEST_ASSERT_FALSE(outbox.beat());
+}
+
+void test_a_beat_that_ran_lets_the_next_one_post() {
+  rt::SseOutbox outbox(4);
+  outbox.beat();
+  TEST_ASSERT_TRUE(outbox.beat_ran());
+  TEST_ASSERT_TRUE(outbox.beat());
+}
+
+void test_a_beat_waiting_too_long_is_taken_as_lost_and_posted_again() {
+  rt::SseOutbox outbox(4);
+  outbox.beat();
+  for (int i = 1; i < rt::SseOutbox::kBeatRepostAfter; ++i) outbox.beat();
+  TEST_ASSERT_TRUE(outbox.beat());
+  TEST_ASSERT_FALSE(outbox.beat());
+}
+
+void test_only_the_first_of_a_reposted_pair_reaps() {
+  // The waiting beat was not lost after all: both run, back to back.
+  rt::SseOutbox outbox(4);
+  outbox.beat();
+  for (int i = 0; i < rt::SseOutbox::kBeatRepostAfter; ++i) outbox.beat();
+  TEST_ASSERT_TRUE(outbox.beat_ran());
+  TEST_ASSERT_FALSE(outbox.beat_ran());
+}
+
+void test_a_drain_that_could_not_be_posted_is_asked_for_again() {
+  rt::SseOutbox outbox(4);
+  outbox.push("stateUpdate", "1", Delivery::kLatest);
+  outbox.drain_not_posted();
+  TEST_ASSERT_TRUE(outbox.push("stateUpdate", "2", Delivery::kLatest) == Push::kPostDrain);
+}
+
+void test_a_beat_that_could_not_be_posted_lets_the_next_one_post() {
+  rt::SseOutbox outbox(4);
+  outbox.beat();
+  outbox.beat_not_posted();
+  TEST_ASSERT_TRUE(outbox.beat());
+}
+
+void test_a_capacity_of_zero_refuses_one_off_frames_but_not_state() {
+  rt::SseOutbox outbox(0);
+  TEST_ASSERT_TRUE(outbox.push("backend_issue", "a", Delivery::kEach) == Push::kDropped);
+  TEST_ASSERT_TRUE(outbox.push("stateUpdate", "1", Delivery::kLatest) == Push::kPostDrain);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_only_the_first_push_of_a_batch_posts_a_drain);
@@ -110,5 +160,12 @@ int main() {
   RUN_TEST(test_a_full_outbox_still_takes_the_state);
   RUN_TEST(test_latest_frames_do_not_count_against_the_capacity);
   RUN_TEST(test_a_lost_drain_is_recovered_by_the_next_take);
+  RUN_TEST(test_a_beat_is_not_posted_while_one_waits);
+  RUN_TEST(test_a_beat_that_ran_lets_the_next_one_post);
+  RUN_TEST(test_a_beat_waiting_too_long_is_taken_as_lost_and_posted_again);
+  RUN_TEST(test_only_the_first_of_a_reposted_pair_reaps);
+  RUN_TEST(test_a_drain_that_could_not_be_posted_is_asked_for_again);
+  RUN_TEST(test_a_beat_that_could_not_be_posted_lets_the_next_one_post);
+  RUN_TEST(test_a_capacity_of_zero_refuses_one_off_frames_but_not_state);
   return UNITY_END();
 }

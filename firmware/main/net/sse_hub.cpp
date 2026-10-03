@@ -6,14 +6,13 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include "config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "issue_buffer.h"
 #include "program_executor.h"
 #include "sse_clients.h"
@@ -48,15 +47,17 @@ rt::IssueBuffer s_startup_issues(kMaxStartupIssues);
 // Touched on the httpd task only, like the client list it filters.
 rt::SseClients s_clients;
 
-// Frames on their way to the httpd task, pushed from any task. Created in
-// attach() before `s_server` is set, so enqueue() never sees it missing.
+// Frames on their way to the httpd task, pushed from any task. A std::mutex
+// rather than a FreeRTOS one because it is ready before anything runs, so no
+// caller can reach it before attach() has created it.
 rt::SseOutbox s_outbox(kSseOutboxCapacity);
-SemaphoreHandle_t s_outbox_lock = nullptr;
+std::mutex s_outbox_lock;
 
-struct OutboxLock {
-  OutboxLock() { xSemaphoreTake(s_outbox_lock, portMAX_DELAY); }
-  ~OutboxLock() { xSemaphoreGive(s_outbox_lock); }
-};
+template <typename F>
+auto with_outbox(F &&f) {
+  std::lock_guard<std::mutex> lock(s_outbox_lock);
+  return f(s_outbox);
+}
 
 void request_close(int sock) {
   if (httpd_sess_trigger_close(s_server->server, sock) != ESP_OK) {
@@ -93,12 +94,9 @@ bool send_frame(const std::vector<int> &sockets, const char *event, const std::s
 // cannot, because it is the same task that mutates it.
 //
 // PsychicEventSource::send() is not used: it retries a full socket forever (#343).
-void drain_outbox() {
-  std::vector<rt::SseOutbox::Frame> frames;
-  {
-    OutboxLock lock;
-    frames = s_outbox.take();
-  }
+void drain_on_httpd_task(void *) {
+  const std::vector<rt::SseOutbox::Frame> frames =
+      with_outbox([](rt::SseOutbox &outbox) { return outbox.take(); });
   if (frames.empty()) return;
 
   std::vector<int> sockets;
@@ -109,16 +107,12 @@ void drain_outbox() {
     send_frame(sockets, frame.event, frame.payload, 0);
 }
 
-void drain_on_httpd_task(void *) {
-  drain_outbox();
-}
-
 // A full mailbox loses the message without an error (#427), so success here
-// does not mean it will run; the next heartbeat's drain covers both cases.
-void post(httpd_work_fn_t work) {
-  if (httpd_queue_work(s_server->server, work, nullptr) != ESP_OK) {
-    ESP_LOGW(TAG, "Could not post to the httpd task; the next heartbeat retries");
-  }
+// does not mean it will run; rt::SseOutbox says how each is recovered.
+bool post(httpd_work_fn_t work, const char *what) {
+  if (httpd_queue_work(s_server->server, work, nullptr) == ESP_OK) return true;
+  ESP_LOGW(TAG, "Could not post the %s to the httpd task", what);
+  return false;
 }
 
 // Non-blocking: leaves the frame in the outbox and wakes the httpd task. Safe
@@ -130,18 +124,15 @@ void enqueue(const char *event, std::string payload, rt::SseOutbox::Delivery del
   // files long before that. Nothing to send them to, so they are dropped.
   if (s_server == nullptr || s_server->server == nullptr) return;
 
-  rt::SseOutbox::Push pushed;
-  {
-    OutboxLock lock;
-    pushed = s_outbox.push(event, std::move(payload), delivery);
-  }
+  const rt::SseOutbox::Push pushed = with_outbox(
+      [&](rt::SseOutbox &outbox) { return outbox.push(event, std::move(payload), delivery); });
   if (pushed == rt::SseOutbox::Push::kDropped) {
     // The httpd task is wedged or badly behind. Dropping the frame beats
     // blocking the caller, which may be the run loop.
     ESP_LOGW(TAG, "Dropped a '%s' frame: %u already waiting for the httpd task", event,
              static_cast<unsigned>(kSseOutboxCapacity));
-  } else if (pushed == rt::SseOutbox::Push::kPostDrain) {
-    post(drain_on_httpd_task);
+  } else if (pushed == rt::SseOutbox::Push::kPostDrain && !post(drain_on_httpd_task, "drain")) {
+    with_outbox([](rt::SseOutbox &outbox) { outbox.drain_not_posted(); });
   }
 }
 
@@ -189,8 +180,8 @@ void reap_dead_clients() {
 // Same cadence as the heartbeat: a client that has gone is detected within
 // one beat rather than holding a socket until the device is rebooted.
 void beat_on_httpd_task(void *) {
-  reap_dead_clients();
-  drain_outbox();
+  if (with_outbox([](rt::SseOutbox &outbox) { return outbox.beat_ran(); })) reap_dead_clients();
+  drain_on_httpd_task(nullptr);
 }
 
 void send_heartbeat(void *) {
@@ -198,21 +189,21 @@ void send_heartbeat(void *) {
   if (s_server->server == nullptr) return;
 
   // Matches the MicroPython backend's shape: a monotonic id a client can use
-  // to spot a missed beat. Pushed without a drain of its own, since the beat
-  // posts one unconditionally - which is also what recovers a drain the
-  // mailbox lost.
-  {
-    OutboxLock lock;
-    s_outbox.push("heartbeat", "{\"id\":" + std::to_string(++s_heartbeat_id) + "}",
-                  rt::SseOutbox::Delivery::kLatest);
+  // to spot a missed beat. Pushed without a drain of its own: the beat message
+  // drains, and one already waiting will take this frame too.
+  std::string payload = "{\"id\":" + std::to_string(++s_heartbeat_id) + "}";
+  const bool post_beat = with_outbox([&](rt::SseOutbox &outbox) {
+    outbox.push("heartbeat", std::move(payload), rt::SseOutbox::Delivery::kLatest);
+    return outbox.beat();
+  });
+  if (post_beat && !post(beat_on_httpd_task, "heartbeat")) {
+    with_outbox([](rt::SseOutbox &outbox) { outbox.beat_not_posted(); });
   }
-  post(beat_on_httpd_task);
 }
 
 }  // namespace
 
 void attach(PsychicHttpServer &server, const char *uri) {
-  s_outbox_lock = xSemaphoreCreateMutex();
   s_server = &server;
 
   s_events.onOpen([](PsychicEventSourceClient *client) {
@@ -248,11 +239,10 @@ void attach(PsychicHttpServer &server, const char *uri) {
       .name = "sse_heartbeat",
       .skip_unhandled_events = true,
   };
-  if (esp_timer_create(&args, &s_heartbeat) == ESP_OK) {
-    esp_timer_start_periodic(s_heartbeat, kSseHeartbeatSeconds * 1000000ULL);
-  } else {
-    ESP_LOGE(TAG, "Could not start the heartbeat timer");
-  }
+  // Fatal, not logged: the beat is also what recovers a drain the mailbox
+  // lost, so without it one lost message silences the stream until reboot.
+  ESP_ERROR_CHECK(esp_timer_create(&args, &s_heartbeat));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(s_heartbeat, kSseHeartbeatSeconds * 1000000ULL));
 }
 
 void broadcast_state(const std::string &payload) {

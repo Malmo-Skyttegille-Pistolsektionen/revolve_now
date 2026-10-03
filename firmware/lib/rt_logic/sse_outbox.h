@@ -2,12 +2,9 @@
 //  rt_logic/sse_outbox.h
 //  The /sse/v2 frames waiting for the httpd task, and when to wake it.
 //
-//  The firmware reaches the httpd task through httpd_queue_work, whose queue is
-//  a loopback UDP mailbox of six datagrams. A full one drops a message without
-//  telling the sender (#427), so one message per frame lost frames silently
-//  whenever the task was busy - an OTA upload, say - and leaked each one. Here
-//  the frames wait in a buffer of our own instead, and the mailbox carries only
-//  a "drain" message: at most one per batch, plus one per heartbeat.
+//  httpd_queue_work's mailbox drops a message silently when full (#427), so the
+//  frames wait here and the mailbox carries only "drain" messages: at most one
+//  per batch, plus one beat at a time.
 // ============================================================================
 #pragma once
 
@@ -43,8 +40,8 @@ class SseOutbox {
     kDropped,    // refused: `capacity` kEach frames are already waiting
   };
 
-  // `capacity` bounds the kEach frames. kLatest frames are bounded by the
-  // number of distinct events that use it.
+  // `capacity` bounds the kEach frames, and 0 refuses them all. kLatest frames
+  // are bounded by the number of distinct events that use it.
   explicit SseOutbox(size_t capacity) : capacity_(capacity) {}
 
   Push push(const char *event, std::string payload, Delivery delivery) {
@@ -69,8 +66,8 @@ class SseOutbox {
   // push posts a fresh drain.
   //
   // A drain the mailbox lost leaves `drain_posted_` set, and nothing pushed
-  // after it would post another. The heartbeat is what recovers that: it posts
-  // a drain on every beat regardless, so a lost one costs at most one beat.
+  // after it would post another. The beat message is what recovers that: it
+  // drains too, so a lost drain costs at most one beat.
   std::vector<Frame> take() {
     std::vector<Frame> out;
     out.reserve(frames_.size());
@@ -79,6 +76,34 @@ class SseOutbox {
     drain_posted_ = false;
     return out;
   }
+
+  // The drain push() asked for could not be posted at all, so the next push
+  // asks again rather than waiting for a beat.
+  void drain_not_posted() { drain_posted_ = false; }
+
+  // Beats posted while one still waits only pile up in the mailbox, where they
+  // crowd out httpd's own close requests. After this many, the waiting one is
+  // taken to be lost and posted again.
+  static constexpr int kBeatRepostAfter = 6;
+
+  // The heartbeat timer fired: whether to post a beat message.
+  bool beat() {
+    if (beat_waiting_ && ++beat_waits_ < kBeatRepostAfter) return false;
+    beat_waiting_ = true;
+    beat_waits_ = 0;
+    return true;
+  }
+
+  // A beat message ran. False for a re-posted duplicate of one that already
+  // ran, which must drain but not reap: rt::SseClients::overdue() counts beats.
+  bool beat_ran() {
+    const bool first = beat_waiting_;
+    beat_waiting_ = false;
+    return first;
+  }
+
+  // The beat beat() asked for could not be posted at all: nothing waits.
+  void beat_not_posted() { beat_waiting_ = false; }
 
  private:
   struct Entry {
@@ -94,6 +119,8 @@ class SseOutbox {
   size_t capacity_;
   std::vector<Entry> frames_;
   bool drain_posted_ = false;
+  bool beat_waiting_ = false;
+  int beat_waits_ = 0;
 };
 
 }  // namespace rt
