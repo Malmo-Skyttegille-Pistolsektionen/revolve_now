@@ -7,14 +7,14 @@
   min-height: var(--rt-control-height);
   padding: 0.25rem 0.75rem;
   flex-wrap: wrap;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
-  background-color: #fff;
+  background-color: var(--rt-surface);
   box-sizing: border-box;
 }
 
 .label {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -30,27 +30,27 @@
   font-size: 1rem;
   font-weight: 700;
   font-family: monospace;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
-  background-color: #fff;
-  color: #333;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
   box-sizing: border-box;
 }
 
 .input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--rt-accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .input:disabled {
-  background-color: #f3f4f6;
-  color: #4b5563;
+  background-color: var(--rt-surface-muted);
+  color: var(--rt-text-subtle);
   cursor: not-allowed;
 }
 
 .unit {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   white-space: nowrap;
 }
@@ -58,12 +58,12 @@
 /* 0 = no countdown. Amber, matching the run board's notice, so the state is
    readable at a glance from behind the firing line. */
 .controlImmediate {
-  border-color: #fcd34d;
-  background-color: #fef3c7;
+  border-color: var(--rt-warn-border);
+  background-color: var(--rt-warn-tint);
 }
 
 .unitImmediate {
-  color: #92400e;
+  color: var(--rt-warn);
   font-weight: 600;
   white-space: normal;
 }

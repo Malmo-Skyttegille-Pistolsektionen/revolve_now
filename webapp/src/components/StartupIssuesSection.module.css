@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -19,23 +19,23 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
 .button {
   padding: 0.4rem 0.85rem;
   min-height: var(--rt-control-height);
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
-  background-color: #f9fafb;
-  color: #374151;
+  background-color: var(--rt-surface-sunken);
+  color: var(--rt-text-strong);
   font-size: 0.85rem;
   cursor: pointer;
 }
 
 .button:hover:not(:disabled) {
-  background-color: #f3f4f6;
+  background-color: var(--rt-surface-muted);
 }
 
 .button:disabled {
@@ -46,7 +46,7 @@
 .explanation {
   margin: 0;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   line-height: 1.5;
   max-width: 68ch;
 }
@@ -54,11 +54,11 @@
 .message {
   margin: 0;
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--rt-text-strong);
 }
 
 .messageClean {
-  color: #047857;
+  color: var(--rt-shown-ink);
 }
 
 .list {
@@ -78,33 +78,33 @@
   /* A full hairline in the same amber the rest of the app warns in
      (BackendIssueBanner, the no-delay note) rather than a thick accent stripe
      down one side. */
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--rt-warn-border);
   border-radius: 4px;
-  background-color: #fffbeb;
+  background-color: var(--rt-warn-tint-soft);
 }
 
 .code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.75rem;
-  color: #92400e;
+  color: var(--rt-warn);
   text-transform: none;
 }
 
 .issueMessage {
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--rt-text-strong);
 }
 
 .context {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   word-break: break-all;
 }
 
 .truncation {
   margin: 0;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   line-height: 1.5;
   max-width: 68ch;
 }

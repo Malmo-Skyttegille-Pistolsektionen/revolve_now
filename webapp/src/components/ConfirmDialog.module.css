@@ -2,7 +2,7 @@
   padding: 0;
   border: none;
   border-radius: 12px;
-  background-color: #fff;
+  background-color: var(--rt-surface);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 90vw;
   width: 420px;
@@ -25,7 +25,7 @@
 }
 
 .body {
-  color: #444;
+  color: var(--rt-text-strong);
   font-size: 0.95rem;
 }
 
@@ -39,33 +39,33 @@
 .button {
   padding: 0.5rem 1rem;
   min-height: var(--rt-control-height);
-  border: 1px solid #ccc;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--rt-surface);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .button:hover {
-  background: #f0f0f0;
+  background: var(--rt-surface-muted);
 }
 
 .buttonPrimary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #fff;
+  background: var(--rt-action);
+  border-color: var(--rt-action);
+  color: var(--rt-on-fill);
 }
 
 .buttonPrimary:hover {
-  background: #1d4ed8;
+  background: var(--rt-action-deep);
 }
 
 .buttonDestructive {
-  background: #dc2626;
-  border-color: #dc2626;
-  color: #fff;
+  background: var(--rt-stop);
+  border-color: var(--rt-stop);
+  color: var(--rt-on-fill);
 }
 
 .buttonDestructive:hover {
-  background: #b91c1c;
+  background: var(--rt-stop-deep);
 }

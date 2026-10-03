@@ -5,18 +5,18 @@
 }
 
 .notice.success {
-  border-color: #16a34a;
-  background: #f0fdf4;
+  border-color: var(--rt-shown);
+  background: var(--rt-shown-tint-soft);
 }
 
 .notice.warning {
-  border-color: #d97706;
-  background: #fffbeb;
+  border-color: var(--rt-warn-ink);
+  background: var(--rt-warn-tint-soft);
 }
 
 .notice.error {
-  border-color: #dc2626;
-  background: #fef2f2;
+  border-color: var(--rt-stop-ink);
+  background: var(--rt-stop-tint-soft);
 }
 
 .noticeMessage {
@@ -27,7 +27,7 @@
   margin: 0.5rem 0 0;
   padding-left: 1.25rem;
   font-size: 0.9rem;
-  color: #444;
+  color: var(--rt-text-strong);
 }
 
 .noticeActions {
@@ -39,19 +39,19 @@
 .button {
   padding: 0.4rem 0.75rem;
   min-height: var(--rt-control-height);
-  border: 1px solid #ccc;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--rt-surface);
   cursor: pointer;
   font-size: 0.9rem;
   white-space: nowrap;
 }
 
 .button:hover:not(:disabled) {
-  background: #f0f0f0;
+  background: var(--rt-surface-muted);
 }
 
 .button:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--rt-focus);
   outline-offset: 2px;
 }

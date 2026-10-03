@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { initializeBaseUrl } from '../api/client';
 import { ServerUrlSection } from '../components/ServerUrlSection';
+import { ThemeSection } from '../components/ThemeSection';
 import { ControlLockSection } from '../components/ControlLockSection';
 import { StartupIssuesSection } from '../components/StartupIssuesSection';
 import { StorageSection } from '../components/StorageSection';
@@ -38,6 +39,8 @@ function SettingsPage(): React.ReactNode {
       <RestartPendingNotice />
 
       <ServerUrlSection />
+
+      <ThemeSection />
 
       <ControlLockSection />
 
