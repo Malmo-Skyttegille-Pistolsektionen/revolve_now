@@ -71,6 +71,9 @@ function AudiosView(): React.ReactNode {
     backendIssue !== null && !CODES_HANDLED_ELSEWHERE.includes(backendIssue.code) ? backendIssue : null;
 
   function resetForm(): void {
+    // A conversion still running belongs to the form being cleared.
+    selectionRef.current++;
+    setConverting(false);
     setTitle('');
     setFile(null);
     if (fileInputRef.current) {
@@ -125,13 +128,24 @@ function AudiosView(): React.ReactNode {
     setTitle(titleFromFilename(selected.name));
     setConverting(true);
     setFeedback({ kind: 'info', text: `Converting "${selected.name}"…` });
+    // Sent unconverted: checked here so an oversized or misnamed file is named
+    // now, rather than refused by the device after a round trip.
+    const sendAsIs = (note: string): void => {
+      const rejection = fileRejectionReason(selected);
+      setFile(rejection === null ? selected : null);
+      setFeedback(rejection === null ? { kind: 'info', text: note } : { kind: 'error', text: rejection });
+    };
     try {
-      const converted = await convertToDeviceWav(selected, MAX_FILE_BYTES);
+      const prepared = await convertToDeviceWav(selected, MAX_FILE_BYTES);
       if (selection !== selectionRef.current) return;
-      setFile(converted.file);
+      if (!prepared.converted) {
+        sendAsIs(`"${selected.name}" is already in the device's format and is sent as it is.`);
+        return;
+      }
+      setFile(prepared.file);
       setFeedback({
         kind: 'info',
-        text: `Converted "${selected.name}": ${converted.seconds.toFixed(1)} s, ${converted.file.size} bytes.`,
+        text: `Converted "${selected.name}": ${prepared.seconds?.toFixed(1)} s, ${prepared.file.size} bytes.`,
       });
     } catch (conversionError) {
       if (selection !== selectionRef.current) return;
@@ -140,13 +154,8 @@ function AudiosView(): React.ReactNode {
         conversionError.undecodable &&
         isAcceptedFilename(selected.name)
       ) {
-        // A WAV the browser cannot read may still be one the device plays - an
-        // ADPCM clip, say - so it goes up as it is and the device decides.
-        // Checked here so an oversized one is named now, not refused as
-        // `No file uploaded` after a round trip.
-        const rejection = fileRejectionReason(selected);
-        setFile(rejection === null ? selected : null);
-        setFeedback(rejection === null ? null : { kind: 'error', text: rejection });
+        // A WAV this browser cannot read may still be one the device plays.
+        sendAsIs(`This browser could not convert "${selected.name}", so it is sent as it is for the device to check.`);
         return;
       }
       setFeedback({ kind: 'error', text: (conversionError as Error).message });

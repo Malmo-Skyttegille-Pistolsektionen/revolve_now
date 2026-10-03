@@ -2,12 +2,17 @@
 // Same-origin with the mock server, for the reason spelled out in
 // useControlLockStatus.test.tsx: the mock implements no CORS allowlist.
 // @vitest-environment-options { "url": "http://127.0.0.1:18081" }
+import { readFileSync } from 'fs';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MAX_FILE_BYTES, MAX_UPLOAD_BYTES } from '../src/api/audios';
+import { MAX_COMPRESSED_SOURCE_BYTES } from '../src/lib/audio-convert';
+import { encodeImaAdpcmWav } from '../src/lib/ima-adpcm';
 import type { AudioFile, BackendIssuePayload } from '../src/api/types';
 import { SettingsProvider } from '../src/context/SettingsContext';
 import { Route } from '../src/routes/audios';
@@ -38,22 +43,61 @@ function wavFile(name = 'signal.wav', byteLength = 64): File {
 }
 
 /**
- * happy-dom has no Web Audio. Only `decodeAudioData` is used, so that is all
- * the stand-in offers; the real thing is exercised in a browser.
+ * happy-dom has no Web Audio, so any pick not stubbed here takes the
+ * undecodable-WAV path. Only `decodeAudioData` is used, so that is all the
+ * stand-in offers; the real thing is exercised in a browser.
+ *
+ * Also stands in for the duration probe on files over 1 MiB: happy-dom's
+ * `Audio` never loads, so the probe would sit out its timeout. `probedSeconds`
+ * null is a browser that cannot tell.
  */
-function stubDecoder(decode: () => Promise<AudioBuffer>): void {
+function stubDecoder(
+  decode: () => Promise<AudioBuffer>,
+  probedSeconds: number | null = null,
+): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(decode);
   vi.stubGlobal(
     'OfflineAudioContext',
     class {
-      decodeAudioData = decode;
+      decodeAudioData = spy;
     },
   );
+  vi.stubGlobal(
+    'Audio',
+    class {
+      duration = probedSeconds ?? NaN;
+      onloadedmetadata: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      preload = '';
+      removeAttribute(): void {}
+      set src(_url: string) {
+        queueMicrotask(() => (probedSeconds === null ? this.onerror?.() : this.onloadedmetadata?.()));
+      }
+    },
+  );
+  return spy;
 }
 
-/** A decoded clip at the converter's own rate: a quiet ramp on every channel. */
-function fakeAudioBuffer(length: number, numberOfChannels: number): AudioBuffer {
-  const data = Float32Array.from({ length }, (_, i) => ((i % 200) - 100) / 400);
-  return { length, numberOfChannels, sampleRate: 24_000, getChannelData: () => data } as unknown as AudioBuffer;
+/** A quiet ramp, the same on every channel unless `channels` says otherwise. */
+function ramp(length: number): Float32Array {
+  return Float32Array.from({ length }, (_, i) => ((i % 200) - 100) / 400);
+}
+
+/** A decoded clip at the converter's own rate. */
+function fakeAudioBuffer(length: number, numberOfChannels: number, channels?: Float32Array[]): AudioBuffer {
+  const data = ramp(length);
+  return {
+    length,
+    numberOfChannels,
+    sampleRate: 24_000,
+    getChannelData: (channel: number) => channels?.[channel] ?? data,
+  } as unknown as AudioBuffer;
+}
+
+/** The tool-generated ADPCM fixture: already in the device's format. */
+function adpcmFile(name: string): File {
+  const bytes = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data/adpcm/chirp-adpcm.wav'));
+  return new File([bytes], name, { type: 'audio/wav' });
 }
 
 /** See useControlLockStatus.test.tsx: a request from another client, so no cookie lands in this page's jar. */
@@ -249,7 +293,7 @@ describe('upload', () => {
     expect(uploadCalls(fetchSpy)).toHaveLength(0);
   });
 
-  it('refuses a file of exactly 1 MiB — the multipart envelope pushes it over', async () => {
+  it('refuses a WAV of exactly 1 MiB the browser cannot convert — the envelope pushes it over', async () => {
     // The device checks Content-Length, not the file's length, so a file at
     // the nominal ceiling is always refused on the wire. Caught here instead.
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
@@ -266,8 +310,8 @@ describe('upload', () => {
   });
 
   it('refuses a file that is not a .wav when the browser cannot convert it, naming it', async () => {
-    // The two failures that must not reach the device: there the extension
-    // check fails inside the streaming callback and surfaces as `No file uploaded`.
+    // Neither convertible nor named .wav, so it must not reach the device,
+    // where the extension check surfaces as `No file uploaded`.
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     stubDecoder(() => Promise.reject(new DOMException('Unable to decode', 'EncodingError')));
 
@@ -283,8 +327,10 @@ describe('upload', () => {
 
   it('converts an M4A to an IMA ADPCM WAV and uploads that (#273)', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    // Stereo, so the mixdown is exercised as well as the encode.
-    stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000, 2)));
+    // Stereo with a silent right channel, so a mixdown that dropped a channel
+    // or forgot to average would send different bytes.
+    const left = ramp(24_000);
+    stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000, 2, [left, new Float32Array(24_000)])));
 
     renderAudios();
     await waitForClips();
@@ -298,12 +344,90 @@ describe('upload', () => {
 
     const [, init] = uploadCalls(fetchSpy)[0] as [string, RequestInit];
     const sent = (init.body as FormData).get('file') as File;
-    // The device takes its early reject from the extension, so the name has to change too.
-    expect(sent.name).toBe('Eld upphör.wav');
-    const header = new DataView(await sent.arrayBuffer());
-    expect(header.getUint16(20, true)).toBe(0x11);
-    expect(header.getUint16(22, true)).toBe(1);
-    expect(header.getUint32(24, true)).toBe(24_000);
+    // The device reads only the extension, and a short name leaves the
+    // multipart envelope room under the cap.
+    expect(sent.name).toBe('upload.wav');
+    const expected = encodeImaAdpcmWav(
+      Int16Array.from(left, (v) => Math.round((v / 2) * 32768)),
+      24_000,
+    );
+    expect(new Uint8Array(await sent.arrayBuffer())).toEqual(expected);
+  });
+
+  it('keeps the newer pick when an older conversion finishes after it', async () => {
+    let finishFirst!: (buffer: AudioBuffer) => void;
+    const decode = stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000 * 2, 1)));
+    decode.mockImplementationOnce(() => new Promise<AudioBuffer>((resolve) => (finishFirst = resolve)));
+
+    renderAudios();
+    await waitForClips();
+
+    fireEvent.change(screen.getByTestId('audios-upload-file'), {
+      target: { files: [new File([new Uint8Array(32)], 'forsta.m4a')] },
+    });
+    await selectFile(new File([new Uint8Array(32)], 'andra.m4a'));
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(/Converted "andra.m4a": 2.0 s/);
+
+    await act(async () => finishFirst(fakeAudioBuffer(24_000 * 5, 1)));
+
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(/Converted "andra.m4a": 2.0 s/);
+    expect((screen.getByTestId('audios-upload-title') as HTMLInputElement).value).toBe('andra');
+  });
+
+  it('refuses a compressed file too big to decode safely, before decoding it', async () => {
+    const decode = stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000, 1)));
+
+    renderAudios();
+    await waitForClips();
+
+    await selectFile(new File([new Uint8Array(MAX_COMPRESSED_SOURCE_BYTES + 1)], 'podcast.mp3'));
+
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(
+      new RegExp(`"podcast.mp3" is \\d+ bytes. Files to convert can be at most ${MAX_COMPRESSED_SOURCE_BYTES} bytes`),
+    );
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('refuses a long recording from its metadata, before decoding it', async () => {
+    // A 2 MiB voice memo of ten minutes: decoding it first is what would
+    // exhaust a phone's memory.
+    const decode = stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000, 1)), 600);
+
+    renderAudios();
+    await waitForClips();
+
+    await selectFile(new File([new Uint8Array(2 * 1024 * 1024)], 'hela-passet.m4a'));
+
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(/"hela-passet.m4a" is 600.0 s long/);
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('says a WAV is needed when the browser has no Web Audio at all', async () => {
+    renderAudios();
+    await waitForClips();
+
+    await selectFile(new File([new Uint8Array(32)], 'fanfar.m4a'));
+
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(/cannot convert audio. Upload a WAV instead/);
+  });
+
+  it('sends a clip already in the device format as it is, even where the browser could decode it', async () => {
+    // Converting it again would only lose quality.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const decode = stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000, 1)));
+
+    renderAudios();
+    await waitForClips();
+
+    const original = adpcmFile('redan-adpcm.wav');
+    await selectFile(original);
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(/already in the device's format/);
+    fireEvent.click(screen.getByTestId('audios-upload-submit'));
+    await screen.findByTestId('audios-row-1001');
+
+    expect(decode).not.toHaveBeenCalled();
+    const [, init] = uploadCalls(fetchSpy)[0] as [string, RequestInit];
+    expect((init.body as FormData).get('file')).toBe(original);
   });
 
   it('converts a WAV too, so one too big to send as PCM fits once converted', async () => {
@@ -327,15 +451,17 @@ describe('upload', () => {
   });
 
   it('sends a WAV the browser cannot decode as it is, and lets the device decide', async () => {
-    // An IMA ADPCM WAV - the device's own format - is the case this is for.
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     stubDecoder(() => Promise.reject(new DOMException('Unable to decode', 'EncodingError')));
 
     renderAudios();
     await waitForClips();
 
-    const original = wavFile('redan-adpcm.wav');
+    const original = wavFile('oklar.wav');
     await selectFile(original);
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(
+      /could not convert "oklar.wav", so it is sent as it is/,
+    );
     fireEvent.click(screen.getByTestId('audios-upload-submit'));
     await screen.findByTestId('audios-row-1001');
 

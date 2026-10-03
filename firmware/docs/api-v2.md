@@ -487,8 +487,9 @@ program that is genuinely not there. There is nothing to hide behind the `404`:
 `GET /api/v2/programs` lists every shipped program, ids included.
 
 `POST /api/v2/audios` takes a multipart body with a file part and a `title`
-field. The clip is streamed to a staging file, validated as PCM 16-bit
-mono/stereo WAV, and only then renamed to `<id>.wav`. Two details fall out of
+field. The clip is streamed to a staging file, validated as a WAV in one of
+the encodings `contracts/openapi.yaml` lists (PCM 16-bit or mono IMA ADPCM),
+and only then renamed to `<id>.wav`. Two details fall out of
 the vendored HTTP layer rather than being designed: the name of the file part
 is not inspected, and `title` is looked up as a non-`POST` parameter, so a
 `?title=` query parameter works just as well as the form field.

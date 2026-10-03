@@ -1542,7 +1542,7 @@ paths:
         Accepted audio is RIFF/WAVE with a non-zero sample rate and a
         non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
         16-bit, mono or stereo; or IMA ADPCM (format tag `0x11`), 4-bit, mono,
-        with a block of at most 512 bytes - the encoding of the shipped clips,
+        with a block of 5 to 512 bytes - the encoding of the shipped clips,
         and what the web app converts other formats to before uploading.
         Chunks are walked rather than assumed, so a `LIST`/`INFO` chunk before
         `data` is fine.

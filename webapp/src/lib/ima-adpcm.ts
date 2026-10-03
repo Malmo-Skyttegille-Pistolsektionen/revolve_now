@@ -5,6 +5,7 @@
  * the shipped clips, and byte-identical to it (`test/ima-adpcm.test.ts`). An
  * upload converted here is therefore the same kind of file as a shipped clip,
  * and reaches the same `parse_wav_header` and `decode_ima_adpcm_block`.
+ * Change both, then regenerate the fixture as the test describes.
  */
 
 // The IMA/DVI tables. They are the format, so they are copied, not derived.
@@ -20,7 +21,7 @@ export const BLOCK_ALIGN = 256;
 export const SAMPLES_PER_BLOCK = 1 + (BLOCK_ALIGN - 4) * 2;
 
 /** RIFF + `fmt ` (20) + `fact` + `data` headers: everything that is not a block. */
-export const WAV_HEADER_BYTES = 12 + 8 + 20 + 12 + 8;
+const WAV_HEADER_BYTES = 12 + 8 + 20 + 12 + 8;
 
 export function encodedWavBytes(sampleCount: number): number {
   return WAV_HEADER_BYTES + Math.ceil(sampleCount / SAMPLES_PER_BLOCK) * BLOCK_ALIGN;
@@ -114,4 +115,34 @@ export function encodeImaAdpcmWav(samples: Int16Array, sampleRate: number): Uint
   }
 
   return out;
+}
+
+/**
+ * Whether `header` - the start of a file - is a WAV the device would take as
+ * IMA ADPCM, by the rules of `rt::parse_wav_header`: tag 0x11, 4-bit, mono, a
+ * non-zero rate, and a block larger than its 4-byte header and at most 512.
+ */
+export function isDeviceAdpcmWav(header: Uint8Array): boolean {
+  const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+  const tag = (offset: number): string => String.fromCharCode(...header.subarray(offset, offset + 4));
+  if (header.length < 12 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return false;
+
+  // Walks the chunks as the firmware does: `fmt ` need not come first.
+  for (let cursor = 12; cursor + 8 + 16 <= header.length;) {
+    const size = view.getUint32(cursor + 4, true);
+    if (tag(cursor) === 'fmt ') {
+      const body = cursor + 8;
+      const blockAlign = view.getUint16(body + 12, true);
+      return (
+        view.getUint16(body, true) === 0x11 &&
+        view.getUint16(body + 2, true) === 1 &&
+        view.getUint32(body + 4, true) !== 0 &&
+        view.getUint16(body + 14, true) === 4 &&
+        blockAlign > 4 &&
+        blockAlign <= 512
+      );
+    }
+    cursor += 8 + size + (size & 1);
+  }
+  return false;
 }
