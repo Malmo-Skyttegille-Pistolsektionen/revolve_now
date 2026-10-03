@@ -92,6 +92,8 @@
   border: 1px solid var(--rt-border-strong);
   border-radius: 6px;
   max-width: 22rem;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
 }
 
 .input:disabled {

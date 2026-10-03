@@ -74,6 +74,8 @@
   border-radius: 6px;
   max-width: 22rem;
   box-sizing: border-box;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
 }
 
 .input:disabled {

@@ -387,6 +387,8 @@
   border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
   resize: vertical;
+  background-color: var(--rt-surface);
+  color: var(--rt-text);
 }
 
 .issues {
