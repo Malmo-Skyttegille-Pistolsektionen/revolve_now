@@ -37,6 +37,25 @@ function wavFile(name = 'signal.wav', byteLength = 64): File {
   return new File([bytes], name, { type: 'audio/wav' });
 }
 
+/**
+ * happy-dom has no Web Audio. Only `decodeAudioData` is used, so that is all
+ * the stand-in offers; the real thing is exercised in a browser.
+ */
+function stubDecoder(decode: () => Promise<AudioBuffer>): void {
+  vi.stubGlobal(
+    'OfflineAudioContext',
+    class {
+      decodeAudioData = decode;
+    },
+  );
+}
+
+/** A decoded clip at the converter's own rate: a quiet ramp on every channel. */
+function fakeAudioBuffer(length: number, numberOfChannels: number): AudioBuffer {
+  const data = Float32Array.from({ length }, (_, i) => ((i % 200) - 100) / 400);
+  return { length, numberOfChannels, sampleRate: 24_000, getChannelData: () => data } as unknown as AudioBuffer;
+}
+
 /** See useControlLockStatus.test.tsx: a request from another client, so no cookie lands in this page's jar. */
 function enableControlLockElsewhere(password: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -244,18 +263,60 @@ describe('upload', () => {
     expect(uploadCalls(fetchSpy)).toHaveLength(0);
   });
 
-  it('refuses a file that is not a .wav, naming it', async () => {
-    // `accept='.wav'` is only a picker hint. Left to the device this surfaces
-    // as `No file uploaded`, because the extension check fails inside the
-    // streaming callback and MultipartProcessor drops the reason.
+  it('refuses a file that is not a .wav when the browser cannot convert it, naming it', async () => {
+    // The two failures that must not reach the device: there the extension
+    // check fails inside the streaming callback and surfaces as `No file uploaded`.
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    stubDecoder(() => Promise.reject(new DOMException('Unable to decode', 'EncodingError')));
 
     renderAudios();
     await waitForClips();
 
-    selectFile(new File([new Uint8Array(32)], 'fanfar.mp3', { type: 'audio/mpeg' }));
+    selectFile(new File([new Uint8Array(32)], 'fanfar.ogg', { type: 'audio/ogg' }));
 
-    expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/"fanfar.mp3" is not a .wav file/);
+    expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/could not read "fanfar.ogg" as audio/);
+    expect((screen.getByTestId('audios-upload-submit') as HTMLButtonElement).disabled).toBe(true);
+    expect(uploadCalls(fetchSpy)).toHaveLength(0);
+  });
+
+  it('converts an M4A to an IMA ADPCM WAV and uploads that (#273)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    // Stereo, so the mixdown is exercised as well as the encode.
+    stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000, 2)));
+
+    renderAudios();
+    await waitForClips();
+
+    selectFile(new File([new Uint8Array(32)], 'Eld upphör.m4a', { type: 'audio/mp4' }));
+    expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/Converted "Eld upphör.m4a": 1.0 s/);
+    expect((screen.getByTestId('audios-upload-title') as HTMLInputElement).value).toBe('Eld upphör');
+
+    fireEvent.click(screen.getByTestId('audios-upload-submit'));
+    await screen.findByTestId('audios-row-1001');
+
+    const [, init] = uploadCalls(fetchSpy)[0] as [string, RequestInit];
+    const sent = (init.body as FormData).get('file') as File;
+    // The device takes its early reject from the extension, so the name has to change too.
+    expect(sent.name).toBe('Eld upphör.wav');
+    const header = new DataView(await sent.arrayBuffer());
+    expect(header.getUint16(20, true)).toBe(0x11);
+    expect(header.getUint16(22, true)).toBe(1);
+    expect(header.getUint32(24, true)).toBe(24_000);
+  });
+
+  it('refuses a clip too long to fit once converted, saying how long is allowed', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000 * 90, 1)));
+
+    renderAudios();
+    await waitForClips();
+
+    selectFile(new File([new Uint8Array(32)], 'lang.mp3', { type: 'audio/mpeg' }));
+
+    expect(text(await screen.findByTestId('audios-feedback'))).toMatch(
+      /"lang.mp3" is 90.0 s long. A converted clip can be at most 86.\d s/,
+    );
+    expect((screen.getByTestId('audios-upload-submit') as HTMLButtonElement).disabled).toBe(true);
     expect(uploadCalls(fetchSpy)).toHaveLength(0);
   });
 

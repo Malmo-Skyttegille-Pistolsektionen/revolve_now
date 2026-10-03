@@ -53,6 +53,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-40 | "Admin mode" is renamed `control-lock`, everywhere | Decided | 2026-08-26 |
 | D-41 | Target banks: letters, baseline plus overrides, refuse rather than clamp | Decided | 2026-09-08 |
 | D-42 | A save never restarts; one restart applies everything, from the page | Decided | 2026-09-09 |
+| D-43 | Non-WAV uploads are converted to IMA ADPCM in the browser | Decided | 2026-10-03 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -1506,7 +1507,8 @@ that sentence as part of this.
 `rt::decode_ima_adpcm_block` on the way to the DAC. Measured on the real corpus:
 77 clips, 158.8 s, **7.63 MB → 1.96 MB, 3.9×**. Uploaded clips stay PCM;
 transcoding somebody's upload is out of scope, so both formats reach the same
-player and which one a file is comes out of its header.
+player and which one a file is comes out of its header. (Narrowed by D-43: a
+non-WAV upload is transcoded, in the browser.)
 
 **Why ADPCM, given it is the *least* compressed of the options measured.** FLAC
 4.46 MB (lossless), IMA ADPCM 1.96 MB, MP3@64k 1.33 MB, Opus@48k 0.92 MB,
@@ -1834,6 +1836,33 @@ one. *Driving the button from unsaved form edits* — that is what Save is for,
 and a button that lights up because a field has focus says nothing about the
 device. *Putting the restart behind the window* — see above; it is the change
 that would have made the whole feature not worth having.
+
+## D-43 — Non-WAV uploads are converted to IMA ADPCM in the browser *(Decided 2026-10-03)*
+
+**Decision:** the web app decodes any non-WAV file the user picks - M4A from a
+phone, MP3 - with the browser's own decoder, resamples it to 24 kHz mono, and
+encodes it to IMA ADPCM with `src/lib/ima-adpcm.ts`, a byte-identical port of
+`firmware/tools/wav_to_adpcm.py`. The device receives a WAV like any shipped
+clip. A WAV is still sent untouched. No firmware change: `parse_wav_header`
+already accepted a mono ADPCM upload (#273).
+
+**Why:** the decode has to happen somewhere, and the device is the most
+expensive place. Linking AAC + MP3 + the M4A demuxer from `esp_audio_codec`
+measured **182 KB per app slot, 363 KB across both**, taking the image to
+94.9% of `APP_CEILING`. The browser already ships those decoders. Converting
+to ADPCM rather than PCM also stretches the 1 MiB upload cap from about 21 s to
+86 s at 24 kHz, and keeps `userdata` usage at a quarter of PCM.
+
+Checked in Chromium and Firefox on a real M4A (AAC) and MP3: the device's own
+parser and decoder accept the result, sample-exact in length, and against the
+decoded source it measures the same 22 dB as the build tool's ADPCM of the
+shipped clips. D-36's latency argument is untouched: nothing new is on the
+playback path.
+
+**Rejected:** *decoding on the device* (above). *Storing the upload as PCM* -
+four times the room and a quarter of the duration for no gain at the speaker.
+*Converting WAV uploads too* - would rescue an oversized WAV, but changes what
+an existing upload does; left until somebody needs it.
 
 ## Open questions
 

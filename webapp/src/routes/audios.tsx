@@ -2,11 +2,12 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import clsx from 'clsx';
-import { fileRejectionReason, MAX_FILE_BYTES, useAudiosApi } from '../api/audios';
+import { fileRejectionReason, isAcceptedFilename, MAX_FILE_BYTES, useAudiosApi } from '../api/audios';
 import type { AudioFile, BackendIssuePayload } from '../api/types';
 import { BackendIssueBanner } from '../components/BackendIssueBanner';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { convertToDeviceWav, maxConvertedSeconds } from '../lib/audio-convert';
 import styles from './audios.module.css';
 
 export const Route = createFileRoute('/audios')({
@@ -34,9 +35,13 @@ function AudiosView(): React.ReactNode {
 
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [converting, setConverting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Bumped on every selection, so a conversion that finishes after the user
+  // picked another file is dropped rather than replacing the newer choice.
+  const selectionRef = useRef(0);
 
   // Same rule as the run view: the lock on without a token means spectator.
   const canControl = !controlLockEnabled || controlLockToken !== null;
@@ -105,12 +110,37 @@ function AudiosView(): React.ReactNode {
     onError: (mutationError: Error) => setFeedback({ kind: 'error', text: `Upload failed: ${mutationError.message}` }),
   });
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): void {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const selected = event.target.files?.[0] ?? null;
+    const selection = ++selectionRef.current;
+    setConverting(false);
 
-    // `accept='.wav'` is a hint to the file picker and nothing more. Checked
-    // on selection so the answer is immediate and names the file, rather than
-    // arriving as the device's `No file uploaded` after a round trip.
+    if (selected && !isAcceptedFilename(selected.name)) {
+      // Anything but a WAV is converted here (#273): the device decodes WAV only.
+      setFile(null);
+      setTitle(titleFromFilename(selected.name));
+      setConverting(true);
+      setFeedback({ kind: 'info', text: `Converting "${selected.name}"…` });
+      try {
+        const converted = await convertToDeviceWav(selected, MAX_FILE_BYTES);
+        if (selection !== selectionRef.current) return;
+        setFile(converted.file);
+        setFeedback({
+          kind: 'info',
+          text: `Converted "${selected.name}": ${converted.seconds.toFixed(1)} s, ${converted.file.size} bytes.`,
+        });
+      } catch (conversionError) {
+        if (selection !== selectionRef.current) return;
+        setFeedback({ kind: 'error', text: (conversionError as Error).message });
+      } finally {
+        if (selection === selectionRef.current) setConverting(false);
+      }
+      return;
+    }
+
+    // A WAV goes up as it is. Checked on selection so the answer is immediate
+    // and names the file, rather than arriving as the device's `No file
+    // uploaded` after a round trip.
     const rejection = selected ? fileRejectionReason(selected) : null;
     if (rejection !== null) {
       setFile(null);
@@ -173,13 +203,13 @@ function AudiosView(): React.ReactNode {
         {canControl ? (
           <form className={styles.uploadForm} onSubmit={handleSubmit} data-testid='audios-upload-form'>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>WAV file</span>
+              <span className={styles.fieldLabel}>Audio file</span>
               <input
                 ref={fileInputRef}
                 className={styles.input}
                 type='file'
-                accept='.wav'
-                onChange={handleFileChange}
+                accept='.wav,.m4a,.mp3,.aac,audio/*'
+                onChange={(event) => void handleFileChange(event)}
                 data-testid='audios-upload-file'
               />
             </label>
@@ -197,12 +227,16 @@ function AudiosView(): React.ReactNode {
             <button
               className={clsx(styles.button, styles.buttonPrimary)}
               type='submit'
-              disabled={!file || title.trim().length === 0 || uploadMutation.isPending}
+              disabled={!file || converting || title.trim().length === 0 || uploadMutation.isPending}
               data-testid='audios-upload-submit'
             >
-              {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+              {converting ? 'Converting…' : uploadMutation.isPending ? 'Uploading…' : 'Upload'}
             </button>
-            <p className={styles.hint}>16-bit PCM WAV, mono or stereo, up to {MAX_FILE_BYTES} bytes.</p>
+            <p className={styles.hint}>
+              A 16-bit PCM WAV, mono or stereo, is uploaded as it is, up to {MAX_FILE_BYTES} bytes. M4A, MP3 and
+              anything else this browser can play is converted here first, up to{' '}
+              {Math.floor(maxConvertedSeconds(MAX_FILE_BYTES))} s.
+            </p>
           </form>
         ) : (
           <div className={styles.viewOnlyBadge} data-testid='audios-view-only'>
