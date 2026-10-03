@@ -83,6 +83,12 @@ info:
     (30 s idle, 10 s interval, 3 probes) catches a peer that vanished without
     a FIN.
 
+    A client that is connected but not reading — a backgrounded tab, a phone
+    walking out of range — is closed once its socket cannot take a whole frame,
+    rather than waited for. Run state survives that, because a reconnect starts
+    with a full `stateUpdate`; one-off events sent in between (`libraryChanged`,
+    `configWindow`, `backend_issue`) are not replayed, as after any reconnect.
+
     ## Sockets
 
     The server keeps at most 12 sockets open, and every connected client holds

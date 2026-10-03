@@ -1315,6 +1315,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           name: bank.name,
         })),
         controlLockEnabled: isControlLockOn(),
+        sseClients: clients.length,
         // Already bounded at construction: an array of exactly 8 may be a
         // truncated one, which is what the contract says and what the app warns
         // about.

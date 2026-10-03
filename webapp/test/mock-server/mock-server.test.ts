@@ -735,6 +735,19 @@ describe('diagnostics (D-25)', () => {
     expect(info.programCount).toBe(1);
   });
 
+  it('counts the open event streams', async () => {
+    const sseClients = async (): Promise<number | undefined> =>
+      ((await (await api('/diagnostics/info')).json()) as DiagnosticsInfo).sseClients;
+    expect(await sseClients()).toBe(0);
+
+    const sse = await openSSE(server.port);
+    expect(await sseClients()).toBe(1);
+
+    sse.close();
+    await flushIO();
+    expect(await sseClients()).toBe(0);
+  });
+
   it('serves what the boot scan could not read, bounded and oldest-dropped', async () => {
     const issues = Array.from({ length: 10 }, (_, index) => ({
       code: 'program_invalid',

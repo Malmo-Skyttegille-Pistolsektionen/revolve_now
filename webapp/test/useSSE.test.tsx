@@ -94,6 +94,26 @@ describe('connection', () => {
     ]);
   });
 
+  it('refetches the library as well when the stream reopens', () => {
+    // A libraryChanged sent while it was down reached nobody (#343).
+    vi.useFakeTimers();
+    renderSSE();
+    act(() => FakeEventSource.latest.open());
+    act(() => FakeEventSource.latest.error());
+    act(() => vi.advanceTimersByTime(5000));
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    act(() => FakeEventSource.latest.open());
+
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
+      ['hardware-config'],
+      ['wifi'],
+      ['programs'],
+      ['program'],
+      ['audios'],
+    ]);
+  });
+
   it('reconnects five seconds after an error, having closed the dead stream', () => {
     vi.useFakeTimers();
     renderSSE();

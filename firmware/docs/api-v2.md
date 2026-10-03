@@ -356,6 +356,7 @@ incident is diagnosable without a USB cable:
     { "id": "A", "gpio": 5, "padLevel": 1, "name": "Vänster" }
   ],
   "controlLockEnabled": false,
+  "sseClients": 1,                  // connected /sse/v2 streams
   "startupIssues": [                // empty on a clean boot
     {
       "code": "program_invalid",

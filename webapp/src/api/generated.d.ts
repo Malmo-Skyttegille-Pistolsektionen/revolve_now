@@ -1512,6 +1512,8 @@ export interface components {
                 name: string;
             }[];
             controlLockEnabled: boolean;
+            /** @description Clients connected to `/sse/v2` right now. Each holds one of the device's sockets, so a figure well above the browsers actually open points at abandoned streams. Optional: firmware from before this field existed omits it. */
+            sseClients?: number;
             /**
              * @description The `backend_issue` events raised during boot, before the HTTP
              *     server was listening — today that is `program_invalid` from the

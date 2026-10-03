@@ -45,6 +45,7 @@ export function useSSE(): void {
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
+    let opened = false;
 
     const sseUrl = getSseBaseUrl();
 
@@ -64,6 +65,15 @@ export function useSSE(): void {
         // was down across a restart is exactly when `restartRequired` changed.
         void queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
         void queryClient.invalidateQueries({ queryKey: ['wifi'] });
+        // The library too, but only on a reopen: a `libraryChanged` sent while
+        // the stream was down was lost, and the device drops a client that
+        // stops reading (#343). On the first open the queries are fresh anyway.
+        if (opened) {
+          for (const queryKey of Object.values(LIBRARY_QUERY_KEYS).flat()) {
+            void queryClient.invalidateQueries({ queryKey });
+          }
+        }
+        opened = true;
       };
 
       eventSource.onerror = (err): void => {
