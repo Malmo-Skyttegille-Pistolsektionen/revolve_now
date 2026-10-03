@@ -110,9 +110,11 @@ async function waitForClips(): Promise<void> {
   await screen.findByTestId('audios-row-1');
 }
 
-function selectFile(file: File): void {
+/** Picks a file and waits out the conversion every pick now goes through. */
+async function selectFile(file: File): Promise<void> {
   const input = screen.getByTestId('audios-upload-file');
   fireEvent.change(input, { target: { files: [file] } });
+  await waitFor(() => expect(text(screen.getByTestId('audios-upload-submit'))).not.toBe('Converting…'));
 }
 
 beforeAll(async () => {
@@ -224,20 +226,20 @@ describe('upload', () => {
     renderAudios();
     await waitForClips();
 
-    selectFile(wavFile('eld-upphor.wav'));
+    await selectFile(wavFile('eld-upphor.wav'));
 
     await waitFor(() =>
       expect((screen.getByTestId('audios-upload-title') as HTMLInputElement).value).toBe('eld-upphor'),
     );
   });
 
-  it('refuses an oversized file on selection, without troubling the device', async () => {
+  it('refuses an oversized WAV the browser cannot convert, without troubling the device', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     renderAudios();
     await waitForClips();
 
-    selectFile(wavFile('too-big.wav', MAX_UPLOAD_BYTES + 1));
+    await selectFile(wavFile('too-big.wav', MAX_UPLOAD_BYTES + 1));
 
     const feedback = await screen.findByTestId('audios-feedback');
     expect(text(feedback)).toMatch(/"too-big.wav" is \d+ bytes/);
@@ -255,7 +257,7 @@ describe('upload', () => {
     renderAudios();
     await waitForClips();
 
-    selectFile(wavFile('exactly-one-mib.wav', MAX_UPLOAD_BYTES));
+    await selectFile(wavFile('exactly-one-mib.wav', MAX_UPLOAD_BYTES));
 
     expect(text(await screen.findByTestId('audios-feedback'))).toMatch(
       new RegExp(`at most ${MAX_FILE_BYTES} bytes per clip`),
@@ -272,7 +274,7 @@ describe('upload', () => {
     renderAudios();
     await waitForClips();
 
-    selectFile(new File([new Uint8Array(32)], 'fanfar.ogg', { type: 'audio/ogg' }));
+    await selectFile(new File([new Uint8Array(32)], 'fanfar.ogg', { type: 'audio/ogg' }));
 
     expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/could not read "fanfar.ogg" as audio/);
     expect((screen.getByTestId('audios-upload-submit') as HTMLButtonElement).disabled).toBe(true);
@@ -287,7 +289,7 @@ describe('upload', () => {
     renderAudios();
     await waitForClips();
 
-    selectFile(new File([new Uint8Array(32)], 'Eld upphör.m4a', { type: 'audio/mp4' }));
+    await selectFile(new File([new Uint8Array(32)], 'Eld upphör.m4a', { type: 'audio/mp4' }));
     expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/Converted "Eld upphör.m4a": 1.0 s/);
     expect((screen.getByTestId('audios-upload-title') as HTMLInputElement).value).toBe('Eld upphör');
 
@@ -304,6 +306,43 @@ describe('upload', () => {
     expect(header.getUint32(24, true)).toBe(24_000);
   });
 
+  it('converts a WAV too, so one too big to send as PCM fits once converted', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000 * 30, 2)));
+
+    renderAudios();
+    await waitForClips();
+
+    // 30 s of 44.1 kHz stereo PCM is over 5 MB; as 24 kHz ADPCM it is ~365 KB.
+    await selectFile(wavFile('Fältskjutning.wav', MAX_UPLOAD_BYTES + 1));
+    expect(text(screen.getByTestId('audios-feedback'))).toMatch(/Converted "Fältskjutning.wav": 30.0 s/);
+
+    fireEvent.click(screen.getByTestId('audios-upload-submit'));
+    await screen.findByTestId('audios-row-1001');
+
+    const [, init] = uploadCalls(fetchSpy)[0] as [string, RequestInit];
+    const sent = (init.body as FormData).get('file') as File;
+    expect(sent.size).toBeLessThan(MAX_FILE_BYTES);
+    expect(new DataView(await sent.arrayBuffer()).getUint16(20, true)).toBe(0x11);
+  });
+
+  it('sends a WAV the browser cannot decode as it is, and lets the device decide', async () => {
+    // An IMA ADPCM WAV - the device's own format - is the case this is for.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    stubDecoder(() => Promise.reject(new DOMException('Unable to decode', 'EncodingError')));
+
+    renderAudios();
+    await waitForClips();
+
+    const original = wavFile('redan-adpcm.wav');
+    await selectFile(original);
+    fireEvent.click(screen.getByTestId('audios-upload-submit'));
+    await screen.findByTestId('audios-row-1001');
+
+    const [, init] = uploadCalls(fetchSpy)[0] as [string, RequestInit];
+    expect((init.body as FormData).get('file')).toBe(original);
+  });
+
   it('refuses a clip too long to fit once converted, saying how long is allowed', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     stubDecoder(() => Promise.resolve(fakeAudioBuffer(24_000 * 90, 1)));
@@ -311,7 +350,7 @@ describe('upload', () => {
     renderAudios();
     await waitForClips();
 
-    selectFile(new File([new Uint8Array(32)], 'lang.mp3', { type: 'audio/mpeg' }));
+    await selectFile(new File([new Uint8Array(32)], 'lang.mp3', { type: 'audio/mpeg' }));
 
     expect(text(await screen.findByTestId('audios-feedback'))).toMatch(
       /"lang.mp3" is 90.0 s long. A converted clip can be at most 86.\d s/,
@@ -326,7 +365,7 @@ describe('upload', () => {
 
     // A .wav name over something that is not RIFF/WAVE — exactly what the
     // firmware's `probe_wav` refuses after the file has landed.
-    selectFile(new File([new Uint8Array(32)], 'not-really.wav', { type: 'audio/wav' }));
+    await selectFile(new File([new Uint8Array(32)], 'not-really.wav', { type: 'audio/wav' }));
     fireEvent.click(screen.getByTestId('audios-upload-submit'));
 
     const feedback = await screen.findByTestId('audios-feedback');
@@ -343,7 +382,7 @@ describe('upload', () => {
     // Non-ASCII on purpose: the title crosses the wire as a multipart text
     // field, and decoding it as anything but UTF-8 mojibakes half the club's
     // clip names.
-    selectFile(wavFile('Färdiga-två.wav'));
+    await selectFile(wavFile('Färdiga-två.wav'));
     fireEvent.click(screen.getByTestId('audios-upload-submit'));
 
     // 1000 is taken by the seed, so the first free slot at or above
@@ -362,7 +401,7 @@ describe('upload', () => {
     fireEvent.click(screen.getByTestId('audios-delete-confirm-1000'));
     await waitFor(() => expect(screen.queryByTestId('audios-row-1000')).toBeNull());
 
-    selectFile(wavFile('ersattning.wav'));
+    await selectFile(wavFile('ersattning.wav'));
     fireEvent.click(screen.getByTestId('audios-upload-submit'));
 
     // `audios::add_uploaded` walks up from `kFirstUploadId` to the first free

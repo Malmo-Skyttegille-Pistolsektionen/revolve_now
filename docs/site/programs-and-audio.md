@@ -50,12 +50,12 @@ the device answer with an error after the fact.
 
 ![The Audios page](img/audios.png)
 
-You can upload a recording straight from your phone: **M4A, MP3**, or anything
-else your browser can play. The browser converts it to the device's compressed
-format before it is sent, which takes a moment and caps a clip at just under a
-minute and a half. A **16-bit PCM WAV** (mono or stereo) is sent as it is, up to
-the size the upload form states. Anything the device cannot play is refused at
-upload rather than failing silently mid-exercise.
+You can upload a recording straight from your phone: **M4A, MP3, WAV**, or
+anything else your browser can play. The browser converts it to the device's
+compressed format before it is sent, which takes a moment, caps a clip at just
+under a minute and a half, and leaves room for about four times as many clips as
+uncompressed WAV would. Anything the device cannot play is refused at upload
+rather than failing silently mid-exercise.
 
 The clips that come *with* the device are compressed, which is why they take
 about a quarter of the room they used to and why there is more space for yours

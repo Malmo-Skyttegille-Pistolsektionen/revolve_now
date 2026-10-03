@@ -7,7 +7,7 @@ import type { AudioFile, BackendIssuePayload } from '../api/types';
 import { BackendIssueBanner } from '../components/BackendIssueBanner';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
-import { convertToDeviceWav, maxConvertedSeconds } from '../lib/audio-convert';
+import { ConversionError, convertToDeviceWav, maxConvertedSeconds } from '../lib/audio-convert';
 import styles from './audios.module.css';
 
 export const Route = createFileRoute('/audios')({
@@ -113,45 +113,45 @@ function AudiosView(): React.ReactNode {
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const selected = event.target.files?.[0] ?? null;
     const selection = ++selectionRef.current;
+    setFile(null);
     setConverting(false);
+    if (!selected) {
+      setFeedback(null);
+      return;
+    }
 
-    if (selected && !isAcceptedFilename(selected.name)) {
-      // Anything but a WAV is converted here (#273): the device decodes WAV only.
-      setFile(null);
-      setTitle(titleFromFilename(selected.name));
-      setConverting(true);
-      setFeedback({ kind: 'info', text: `Converting "${selected.name}"…` });
-      try {
-        const converted = await convertToDeviceWav(selected, MAX_FILE_BYTES);
-        if (selection !== selectionRef.current) return;
-        setFile(converted.file);
-        setFeedback({
-          kind: 'info',
-          text: `Converted "${selected.name}": ${converted.seconds.toFixed(1)} s, ${converted.file.size} bytes.`,
-        });
-      } catch (conversionError) {
-        if (selection !== selectionRef.current) return;
-        setFeedback({ kind: 'error', text: (conversionError as Error).message });
-      } finally {
-        if (selection === selectionRef.current) setConverting(false);
+    // Everything is converted, WAV included (#273): ADPCM is a quarter of PCM
+    // on `userdata`, and the upload cap holds four times the duration.
+    setTitle(titleFromFilename(selected.name));
+    setConverting(true);
+    setFeedback({ kind: 'info', text: `Converting "${selected.name}"…` });
+    try {
+      const converted = await convertToDeviceWav(selected, MAX_FILE_BYTES);
+      if (selection !== selectionRef.current) return;
+      setFile(converted.file);
+      setFeedback({
+        kind: 'info',
+        text: `Converted "${selected.name}": ${converted.seconds.toFixed(1)} s, ${converted.file.size} bytes.`,
+      });
+    } catch (conversionError) {
+      if (selection !== selectionRef.current) return;
+      if (
+        conversionError instanceof ConversionError &&
+        conversionError.undecodable &&
+        isAcceptedFilename(selected.name)
+      ) {
+        // A WAV the browser cannot read may still be one the device plays - an
+        // ADPCM clip, say - so it goes up as it is and the device decides.
+        // Checked here so an oversized one is named now, not refused as
+        // `No file uploaded` after a round trip.
+        const rejection = fileRejectionReason(selected);
+        setFile(rejection === null ? selected : null);
+        setFeedback(rejection === null ? null : { kind: 'error', text: rejection });
+        return;
       }
-      return;
-    }
-
-    // A WAV goes up as it is. Checked on selection so the answer is immediate
-    // and names the file, rather than arriving as the device's `No file
-    // uploaded` after a round trip.
-    const rejection = selected ? fileRejectionReason(selected) : null;
-    if (rejection !== null) {
-      setFile(null);
-      setFeedback({ kind: 'error', text: rejection });
-      return;
-    }
-
-    setFeedback(null);
-    setFile(selected);
-    if (selected) {
-      setTitle(titleFromFilename(selected.name));
+      setFeedback({ kind: 'error', text: (conversionError as Error).message });
+    } finally {
+      if (selection === selectionRef.current) setConverting(false);
     }
   }
 
@@ -233,9 +233,8 @@ function AudiosView(): React.ReactNode {
               {converting ? 'Converting…' : uploadMutation.isPending ? 'Uploading…' : 'Upload'}
             </button>
             <p className={styles.hint}>
-              A 16-bit PCM WAV, mono or stereo, is uploaded as it is, up to {MAX_FILE_BYTES} bytes. M4A, MP3 and
-              anything else this browser can play is converted here first, up to{' '}
-              {Math.floor(maxConvertedSeconds(MAX_FILE_BYTES))} s.
+              WAV, M4A, MP3 or anything else this browser can play. It is converted here to the device's compressed
+              format before upload, up to {Math.floor(maxConvertedSeconds(MAX_FILE_BYTES))} s.
             </p>
           </form>
         ) : (

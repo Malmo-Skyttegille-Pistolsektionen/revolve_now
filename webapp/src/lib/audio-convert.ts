@@ -1,6 +1,7 @@
 /**
- * Turns whatever audio the browser can decode - M4A from a phone, MP3 - into
- * an IMA ADPCM WAV the device already plays (#273).
+ * Turns whatever audio the browser can decode - M4A from a phone, MP3, a PCM
+ * WAV - into an IMA ADPCM WAV the device already plays (#273), a quarter the
+ * size of PCM.
  *
  * The decoding is the browser's own, so it costs the bundle nothing and the
  * device no flash; an on-device decoder measured 182 KB per app slot.
@@ -12,15 +13,19 @@ export const CONVERTED_SAMPLE_RATE = 24_000;
 
 /**
  * Refused before decoding. Decoded audio is held as 32-bit float per channel,
- * so a long recording costs a phone far more memory than its file size; this
- * is generous for anything that fits the upload cap once converted.
+ * so a long recording costs a phone far more memory than its file size. This
+ * still covers a 24-bit 48 kHz stereo WAV as long as the cap allows converted.
  */
-export const MAX_SOURCE_BYTES = 16 * 1024 * 1024;
+export const MAX_SOURCE_BYTES = 32 * 1024 * 1024;
 
 export class ConversionError extends Error {
-  constructor(message: string) {
+  /** True when the browser could not decode the file at all, as opposed to it being refused. */
+  readonly undecodable: boolean;
+
+  constructor(message: string, undecodable = false) {
     super(message);
     this.name = 'ConversionError';
+    this.undecodable = undecodable;
   }
 }
 
@@ -61,7 +66,7 @@ export async function convertToDeviceWav(source: File, maxBytes: number): Promis
     );
   }
   if (typeof OfflineAudioContext === 'undefined') {
-    throw new ConversionError('This browser cannot convert audio. Upload a 16-bit PCM WAV instead.');
+    throw new ConversionError('This browser cannot convert audio. Upload a 16-bit PCM WAV instead.', true);
   }
 
   // An offline context decodes straight to its own rate, so this is the
@@ -71,7 +76,10 @@ export async function convertToDeviceWav(source: File, maxBytes: number): Promis
   try {
     decoded = await context.decodeAudioData(await source.arrayBuffer());
   } catch {
-    throw new ConversionError(`This browser could not read "${source.name}" as audio. Try a WAV, M4A or MP3 file.`);
+    throw new ConversionError(
+      `This browser could not read "${source.name}" as audio. Try a WAV, M4A or MP3 file.`,
+      true,
+    );
   }
 
   const seconds = decoded.length / CONVERTED_SAMPLE_RATE;
