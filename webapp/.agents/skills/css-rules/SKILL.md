@@ -14,3 +14,4 @@ import clsx from 'clsx';
 import styles from './Component.module.css';
 
 <div className={clsx(styles.container, isActive && styles.active)} />
+```

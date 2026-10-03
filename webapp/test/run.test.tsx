@@ -455,7 +455,7 @@ describe('#95: the device refuses a start for a program it no longer holds', () 
     expect(startNotice()).toContain(`not program ${FALT.id}`);
   });
 
-  it('and nothing runs: the refusal is the device\'s, not the browser\'s', async () => {
+  it("and nothing runs: the refusal is the device's, not the browser's", async () => {
     localStorage.setItem('rt_settings_start_delay_seconds', '0');
     await ready();
     await selectProgram(FALT.id);

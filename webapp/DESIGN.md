@@ -4,57 +4,57 @@ description: Range-side control for a rotating pistol target — equipment that 
 colors:
   # The light theme, and the names of the CSS custom properties: `ink` is
   # `--rt-ink` in src/theme.css. Dark values are in the Colors section below.
-  page: "#ffffff"
-  surface: "#ffffff"
-  surface-sunken: "#fafafa"
-  surface-muted: "#f3f4f6"
-  fill: "#e5e7eb"
-  fill-hover: "#d1d5db"
-  border: "#e5e7eb"
-  border-strong: "#d1d5db"
-  border-hover: "#9ca3af"
-  ink: "#111827"
-  text: "#213547"
-  text-strong: "#374151"
-  text-subtle: "#4b5563"
-  text-muted: "#6b7280"
-  on-fill: "#ffffff"
-  focus: "#2563eb"
-  action: "#2563eb"
-  action-deep: "#1d4ed8"
-  action-text: "#1d4ed8"
-  action-tint: "#eff6ff"
-  action-tint-strong: "#dbeafe"
-  accent: "#6366f1"
-  accent-deep: "#4338ca"
-  accent-ink: "#312e81"
-  accent-tint: "#eef2ff"
-  accent-border: "#c7d2fe"
-  accent-fill: "#4338ca"
-  accent-fill-deep: "#3730a3"
-  shown: "#16a34a"
-  shown-ink: "#15803d"
-  shown-text: "#14532d"
-  shown-tint: "#dcfce7"
-  shown-tint-soft: "#f0fdf4"
-  go: "#15803d"
-  go-deep: "#166534"
-  stop: "#dc2626"
-  stop-deep: "#b91c1c"
-  stop-ink: "#dc2626"
-  stop-ink-deep: "#b91c1c"
-  stop-text: "#7f1d1d"
-  stop-tint: "#fee2e2"
-  stop-tint-soft: "#fef2f2"
-  stop-border: "#fca5a5"
-  warn: "#92400e"
-  warn-ink: "#b45309"
-  warn-fill: "#b45309"
-  warn-fill-deep: "#92400e"
-  warn-tint: "#fef3c7"
-  warn-tint-strong: "#fde68a"
-  warn-tint-soft: "#fffbeb"
-  warn-border: "#fcd34d"
+  page: '#ffffff'
+  surface: '#ffffff'
+  surface-sunken: '#fafafa'
+  surface-muted: '#f3f4f6'
+  fill: '#e5e7eb'
+  fill-hover: '#d1d5db'
+  border: '#e5e7eb'
+  border-strong: '#d1d5db'
+  border-hover: '#9ca3af'
+  ink: '#111827'
+  text: '#213547'
+  text-strong: '#374151'
+  text-subtle: '#4b5563'
+  text-muted: '#6b7280'
+  on-fill: '#ffffff'
+  focus: '#2563eb'
+  action: '#2563eb'
+  action-deep: '#1d4ed8'
+  action-text: '#1d4ed8'
+  action-tint: '#eff6ff'
+  action-tint-strong: '#dbeafe'
+  accent: '#6366f1'
+  accent-deep: '#4338ca'
+  accent-ink: '#312e81'
+  accent-tint: '#eef2ff'
+  accent-border: '#c7d2fe'
+  accent-fill: '#4338ca'
+  accent-fill-deep: '#3730a3'
+  shown: '#16a34a'
+  shown-ink: '#15803d'
+  shown-text: '#14532d'
+  shown-tint: '#dcfce7'
+  shown-tint-soft: '#f0fdf4'
+  go: '#15803d'
+  go-deep: '#166534'
+  stop: '#dc2626'
+  stop-deep: '#b91c1c'
+  stop-ink: '#dc2626'
+  stop-ink-deep: '#b91c1c'
+  stop-text: '#7f1d1d'
+  stop-tint: '#fee2e2'
+  stop-tint-soft: '#fef2f2'
+  stop-border: '#fca5a5'
+  warn: '#92400e'
+  warn-ink: '#b45309'
+  warn-fill: '#b45309'
+  warn-fill-deep: '#92400e'
+  warn-tint: '#fef3c7'
+  warn-tint-strong: '#fde68a'
+  warn-tint-soft: '#fffbeb'
+  warn-border: '#fcd34d'
 typography:
   # Eight steps, and every font-size in src/ is one of them. The ramp was
   # derived from what the app already shipped rather than imposed on it: the
@@ -67,134 +67,134 @@ typography:
   # own `.title` size (1.05, 1.2, 1.25). Nothing moved by more than 0.15rem.
   display:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "clamp(4.5rem, 24vw, 7rem)"
+    fontSize: 'clamp(4.5rem, 24vw, 7rem)'
     fontWeight: 700
     lineHeight: 1
-    fontVariation: "tabular-nums"
+    fontVariation: 'tabular-nums'
     usage: "The run screen's countdown, and nothing else."
   timer:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "clamp(1.5rem, 5vw, 2rem)"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: 'clamp(1.5rem, 5vw, 2rem)'
     fontWeight: 600
     lineHeight: 1.2
     usage: "The sticky timer that follows a run. Fluid on purpose - it has to stay readable on a phone held at arm's length and not dominate a laptop."
   headline:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "1.5rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '1.5rem'
     fontWeight: 600
     lineHeight: 1.3
     usage: "Page headings, and the timeline's duration readout."
   title:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "1.1rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '1.1rem'
     fontWeight: 600
     lineHeight: 1.4
-    usage: "Section and card titles. The one step three components had each guessed differently."
+    usage: 'Section and card titles. The one step three components had each guessed differently.'
   lead:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "1rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '1rem'
     fontWeight: 500
     lineHeight: 1.5
-    usage: "Controls that need to outweigh body text - a primary button, a card title in a dense list."
+    usage: 'Controls that need to outweigh body text - a primary button, a card title in a dense list.'
   bodyLarge:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.95rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.95rem'
     fontWeight: 400
     lineHeight: 1.5
-    usage: "Text the operator reads off a device at the range: table cells, form inputs, read-only values."
+    usage: 'Text the operator reads off a device at the range: table cells, form inputs, read-only values.'
   body:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.9rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.9rem'
     fontWeight: 400
     lineHeight: 1.5
-    usage: "The default. Buttons, labels, most prose."
+    usage: 'The default. Buttons, labels, most prose.'
   small:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.85rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.85rem'
     fontWeight: 400
     lineHeight: 1.5
-    usage: "Supporting text under a control - hints, metadata, error detail. The most-used size in the app."
+    usage: 'Supporting text under a control - hints, metadata, error detail. The most-used size in the app.'
   label:
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif"
-    fontSize: "0.75rem"
+    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+    fontSize: '0.75rem'
     fontWeight: 600
     lineHeight: 1
-    letterSpacing: "0.05em"
-    usage: "Badges, group headings, tick labels. Anything set in caps."
+    letterSpacing: '0.05em'
+    usage: 'Badges, group headings, tick labels. Anything set in caps.'
 rounded:
-  sm: "4px"
-  md: "6px"
-  lg: "8px"
-  xl: "12px"
-  pill: "999px"
+  sm: '4px'
+  md: '6px'
+  lg: '8px'
+  xl: '12px'
+  pill: '999px'
 spacing:
-  xs: "0.25rem"
-  sm: "0.5rem"
-  md: "0.75rem"
-  lg: "1rem"
-  xl: "1.5rem"
-  xxl: "2rem"
+  xs: '0.25rem'
+  sm: '0.5rem'
+  md: '0.75rem'
+  lg: '1rem'
+  xl: '1.5rem'
+  xxl: '2rem'
 components:
   button-default:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text}"
-    rounded: "{rounded.sm}"
-    padding: "0.4rem 0.75rem"
-    height: "var(--rt-control-height)"
-    typography: "{typography.body}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.sm}'
+    padding: '0.4rem 0.75rem'
+    height: 'var(--rt-control-height)'
+    typography: '{typography.body}'
   button-primary:
-    backgroundColor: "{colors.action}"
-    textColor: "{colors.on-fill}"
-    rounded: "{rounded.sm}"
-    padding: "0.4rem 0.75rem"
-    height: "var(--rt-control-height)"
+    backgroundColor: '{colors.action}'
+    textColor: '{colors.on-fill}'
+    rounded: '{rounded.sm}'
+    padding: '0.4rem 0.75rem'
+    height: 'var(--rt-control-height)'
   button-primary-hover:
-    backgroundColor: "{colors.action-deep}"
-    textColor: "{colors.on-fill}"
+    backgroundColor: '{colors.action-deep}'
+    textColor: '{colors.on-fill}'
   button-destructive:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.stop-ink}"
-    rounded: "{rounded.sm}"
-    padding: "0.4rem 0.75rem"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.stop-ink}'
+    rounded: '{rounded.sm}'
+    padding: '0.4rem 0.75rem'
   button-destructive-hover:
-    backgroundColor: "{colors.stop-tint}"
-    textColor: "{colors.stop-ink}"
+    backgroundColor: '{colors.stop-tint}'
+    textColor: '{colors.stop-ink}'
   button-go:
-    backgroundColor: "{colors.go}"
-    textColor: "{colors.on-fill}"
-    rounded: "{rounded.lg}"
-    padding: "0.75rem 1.5rem"
-    height: "48px"
+    backgroundColor: '{colors.go}'
+    textColor: '{colors.on-fill}'
+    rounded: '{rounded.lg}'
+    padding: '0.75rem 1.5rem'
+    height: '48px'
   button-stop:
-    backgroundColor: "{colors.stop}"
-    textColor: "{colors.on-fill}"
-    rounded: "{rounded.lg}"
-    padding: "0.75rem 1.5rem"
-    height: "48px"
+    backgroundColor: '{colors.stop}'
+    textColor: '{colors.on-fill}'
+    rounded: '{rounded.lg}'
+    padding: '0.75rem 1.5rem'
+    height: '48px'
   input:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text}"
-    rounded: "{rounded.sm}"
-    padding: "0.35rem 0.5rem"
-    typography: "{typography.body}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.sm}'
+    padding: '0.35rem 0.5rem'
+    typography: '{typography.body}'
   badge-shown:
-    backgroundColor: "{colors.shown-tint}"
-    textColor: "{colors.shown-text}"
-    rounded: "{rounded.md}"
-    padding: "0 0.75rem"
-    height: "36px"
+    backgroundColor: '{colors.shown-tint}'
+    textColor: '{colors.shown-text}'
+    rounded: '{rounded.md}'
+    padding: '0 0.75rem'
+    height: '36px'
   badge-hidden:
-    backgroundColor: "{colors.stop-tint}"
-    textColor: "{colors.stop-text}"
-    rounded: "{rounded.md}"
-    padding: "0 0.75rem"
-    height: "36px"
+    backgroundColor: '{colors.stop-tint}'
+    textColor: '{colors.stop-text}'
+    rounded: '{rounded.md}'
+    padding: '0 0.75rem'
+    height: '36px'
   badge-neutral:
-    backgroundColor: "{colors.surface-muted}"
-    textColor: "{colors.text-strong}"
-    rounded: "{rounded.md}"
-    padding: "0 0.75rem"
-    height: "36px"
+    backgroundColor: '{colors.surface-muted}'
+    textColor: '{colors.text-strong}'
+    rounded: '{rounded.md}'
+    padding: '0 0.75rem'
+    height: '36px'
 ---
 
 # Design System: Rotation Target
@@ -275,7 +275,7 @@ range at night: a phone at arm's length under floodlights, where a white page
 is the brightest thing in view.
 
 It is composed, not inverted. Elevation runs the other way — the page is the
-darkest ground (gray-900) and a card steps *up* to gray-800, because a shadow
+darkest ground (gray-900) and a card steps _up_ to gray-800, because a shadow
 cannot be seen on a dark page. Text steps up the gray scale to stay above
 4.5:1 on every ground it sits on, including `surface-muted`.
 
@@ -291,59 +291,59 @@ the dark ground by re-deriving each hue for contrast, not by flipping it.
 `warn-tint-soft` (the Expert-mode ground) is stone-900 in the dark theme: amber
 has no step dark enough to sit under a whole region without glowing.
 
-| Token | Light | Dark |
-|---|---|---|
-| `page` | `#ffffff` | `#111827` |
-| `surface` | `#ffffff` | `#1f2937` |
-| `surface-sunken` | `#fafafa` | `#111827` |
-| `surface-muted` | `#f3f4f6` | `#374151` |
-| `fill` | `#e5e7eb` | `#374151` |
-| `fill-hover` | `#d1d5db` | `#4b5563` |
-| `border` | `#e5e7eb` | `#374151` |
-| `border-strong` | `#d1d5db` | `#4b5563` |
-| `border-hover` | `#9ca3af` | `#6b7280` |
-| `ink` | `#111827` | `#f9fafb` |
-| `text` | `#213547` | `#e5e7eb` |
-| `text-strong` | `#374151` | `#d1d5db` |
-| `text-subtle` | `#4b5563` | `#d1d5db` |
-| `text-muted` | `#6b7280` | `#9ca3af` |
-| `on-fill` | `#ffffff` | `#ffffff` |
-| `focus` | `#2563eb` | `#60a5fa` |
-| `action` | `#2563eb` | `#2563eb` |
-| `action-deep` | `#1d4ed8` | `#1d4ed8` |
-| `action-text` | `#1d4ed8` | `#93c5fd` |
-| `action-tint` | `#eff6ff` | `#172554` |
+| Token                | Light     | Dark      |
+| -------------------- | --------- | --------- |
+| `page`               | `#ffffff` | `#111827` |
+| `surface`            | `#ffffff` | `#1f2937` |
+| `surface-sunken`     | `#fafafa` | `#111827` |
+| `surface-muted`      | `#f3f4f6` | `#374151` |
+| `fill`               | `#e5e7eb` | `#374151` |
+| `fill-hover`         | `#d1d5db` | `#4b5563` |
+| `border`             | `#e5e7eb` | `#374151` |
+| `border-strong`      | `#d1d5db` | `#4b5563` |
+| `border-hover`       | `#9ca3af` | `#6b7280` |
+| `ink`                | `#111827` | `#f9fafb` |
+| `text`               | `#213547` | `#e5e7eb` |
+| `text-strong`        | `#374151` | `#d1d5db` |
+| `text-subtle`        | `#4b5563` | `#d1d5db` |
+| `text-muted`         | `#6b7280` | `#9ca3af` |
+| `on-fill`            | `#ffffff` | `#ffffff` |
+| `focus`              | `#2563eb` | `#60a5fa` |
+| `action`             | `#2563eb` | `#2563eb` |
+| `action-deep`        | `#1d4ed8` | `#1d4ed8` |
+| `action-text`        | `#1d4ed8` | `#93c5fd` |
+| `action-tint`        | `#eff6ff` | `#172554` |
 | `action-tint-strong` | `#dbeafe` | `#1e3a8a` |
-| `accent` | `#6366f1` | `#818cf8` |
-| `accent-deep` | `#4338ca` | `#a5b4fc` |
-| `accent-ink` | `#312e81` | `#c7d2fe` |
-| `accent-tint` | `#eef2ff` | `#1e1b4b` |
-| `accent-border` | `#c7d2fe` | `#3730a3` |
-| `accent-fill` | `#4338ca` | `#4338ca` |
-| `accent-fill-deep` | `#3730a3` | `#4f46e5` |
-| `shown` | `#16a34a` | `#22c55e` |
-| `shown-ink` | `#15803d` | `#4ade80` |
-| `shown-text` | `#14532d` | `#bbf7d0` |
-| `shown-tint` | `#dcfce7` | `#052e16` |
-| `shown-tint-soft` | `#f0fdf4` | `#052e16` |
-| `go` | `#15803d` | `#15803d` |
-| `go-deep` | `#166534` | `#166534` |
-| `stop` | `#dc2626` | `#dc2626` |
-| `stop-deep` | `#b91c1c` | `#b91c1c` |
-| `stop-ink` | `#dc2626` | `#f87171` |
-| `stop-ink-deep` | `#b91c1c` | `#fca5a5` |
-| `stop-text` | `#7f1d1d` | `#fecaca` |
-| `stop-tint` | `#fee2e2` | `#450a0a` |
-| `stop-tint-soft` | `#fef2f2` | `#450a0a` |
-| `stop-border` | `#fca5a5` | `#991b1b` |
-| `warn` | `#92400e` | `#fcd34d` |
-| `warn-ink` | `#b45309` | `#fbbf24` |
-| `warn-fill` | `#b45309` | `#b45309` |
-| `warn-fill-deep` | `#92400e` | `#92400e` |
-| `warn-tint` | `#fef3c7` | `#451a03` |
-| `warn-tint-strong` | `#fde68a` | `#78350f` |
-| `warn-tint-soft` | `#fffbeb` | `#1c1917` |
-| `warn-border` | `#fcd34d` | `#b45309` |
+| `accent`             | `#6366f1` | `#818cf8` |
+| `accent-deep`        | `#4338ca` | `#a5b4fc` |
+| `accent-ink`         | `#312e81` | `#c7d2fe` |
+| `accent-tint`        | `#eef2ff` | `#1e1b4b` |
+| `accent-border`      | `#c7d2fe` | `#3730a3` |
+| `accent-fill`        | `#4338ca` | `#4338ca` |
+| `accent-fill-deep`   | `#3730a3` | `#4f46e5` |
+| `shown`              | `#16a34a` | `#22c55e` |
+| `shown-ink`          | `#15803d` | `#4ade80` |
+| `shown-text`         | `#14532d` | `#bbf7d0` |
+| `shown-tint`         | `#dcfce7` | `#052e16` |
+| `shown-tint-soft`    | `#f0fdf4` | `#052e16` |
+| `go`                 | `#15803d` | `#15803d` |
+| `go-deep`            | `#166534` | `#166534` |
+| `stop`               | `#dc2626` | `#dc2626` |
+| `stop-deep`          | `#b91c1c` | `#b91c1c` |
+| `stop-ink`           | `#dc2626` | `#f87171` |
+| `stop-ink-deep`      | `#b91c1c` | `#fca5a5` |
+| `stop-text`          | `#7f1d1d` | `#fecaca` |
+| `stop-tint`          | `#fee2e2` | `#450a0a` |
+| `stop-tint-soft`     | `#fef2f2` | `#450a0a` |
+| `stop-border`        | `#fca5a5` | `#991b1b` |
+| `warn`               | `#92400e` | `#fcd34d` |
+| `warn-ink`           | `#b45309` | `#fbbf24` |
+| `warn-fill`          | `#b45309` | `#b45309` |
+| `warn-fill-deep`     | `#92400e` | `#92400e` |
+| `warn-tint`          | `#fef3c7` | `#451a03` |
+| `warn-tint-strong`   | `#fde68a` | `#78350f` |
+| `warn-tint-soft`     | `#fffbeb` | `#1c1917` |
+| `warn-border`        | `#fcd34d` | `#b45309` |
 
 ### Named Rules
 
@@ -380,7 +380,7 @@ only three weights in the whole system.
 ### Hierarchy
 
 - **Display** (700, `clamp(4.5rem, 24vw, 7rem)`, line-height 1): the countdown
-  digits alone. Scales *up* with the viewport rather than down, and uses
+  digits alone. Scales _up_ with the viewport rather than down, and uses
   tabular numerals so the box does not resize as 10 becomes 9.
 - **Headline** (600, 1.5rem): page titles.
 - **Title** (600, 1.1rem–1.25rem): card and section headings, series titles.

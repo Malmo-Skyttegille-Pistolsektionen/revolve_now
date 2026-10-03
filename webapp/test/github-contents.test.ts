@@ -73,7 +73,7 @@ describe('listRepoProgramFiles', () => {
   // #221: the path was hardcoded to *our* layout, which is a fact about this
   // repository and a guess about anybody else's - and a wrong guess 404s in a
   // way that reads as "the repo is empty" rather than "the path is wrong".
-  it('lists the path it is given, and this repo\'s layout when it is given none', async () => {
+  it("lists the path it is given, and this repo's layout when it is given none", async () => {
     // A fresh Response per call: a body can only be read once, and this test
     // lists twice.
     fetchMock.mockImplementation(() => Promise.resolve(new Response('[]', { status: 200 })));

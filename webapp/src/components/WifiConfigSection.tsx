@@ -99,8 +99,8 @@ export function WifiConfigSection(): React.ReactNode {
 
       <p className={styles.explain}>
         Which network this device joins. Saving stores the credentials; the device stays on the network it is on until
-        it restarts, so a network, a hostname and a pin can all be corrected before <strong>Restart to apply</strong>{' '}
-        at the top of this page.
+        it restarts, so a network, a hostname and a pin can all be corrected before <strong>Restart to apply</strong> at
+        the top of this page.
       </p>
 
       {status?.restartRequired === true && (
@@ -129,11 +129,7 @@ export function WifiConfigSection(): React.ReactNode {
             }}
           >
             <option value=''>
-              {scanning
-                ? '— scanning… —'
-                : networks.length === 0
-                  ? '— no networks found —'
-                  : '— choose a network —'}
+              {scanning ? '— scanning… —' : networks.length === 0 ? '— no networks found —' : '— choose a network —'}
             </option>
             {networks.map((network) => (
               <option key={network.ssid} value={network.ssid}>

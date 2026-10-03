@@ -112,8 +112,8 @@ export function RestartToApply(): React.ReactNode {
           title='Restart the device?'
           body={
             <p>
-              Restart the device to apply the saved configuration? This page will lose contact with
-              it for as long as it takes to come back.
+              Restart the device to apply the saved configuration? This page will lose contact with it for as long as it
+              takes to come back.
             </p>
           }
           confirmLabel='Restart'

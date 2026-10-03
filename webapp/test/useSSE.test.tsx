@@ -88,10 +88,7 @@ describe('connection', () => {
 
     act(() => FakeEventSource.latest.open());
 
-    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
-      ['hardware-config'],
-      ['wifi'],
-    ]);
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([['hardware-config'], ['wifi']]);
   });
 
   it('refetches the library as well when the stream reopens', () => {

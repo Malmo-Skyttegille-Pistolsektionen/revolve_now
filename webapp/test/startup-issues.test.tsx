@@ -90,9 +90,7 @@ describe('D-25: boot-time issues, served rather than streamed', () => {
     // The store is bounded at 8 with the oldest dropped, so exactly 8 cannot be
     // told apart from "there were more". The contract says so rather than
     // papering over it with a count field, and so does the page.
-    await deviceReporting(
-      Array.from({ length: 8 }, (_, index) => malformed(`/userdata/programs/${index}.json`)),
-    );
+    await deviceReporting(Array.from({ length: 8 }, (_, index) => malformed(`/userdata/programs/${index}.json`)));
     renderSection();
 
     await screen.findByTestId('startup-issue-7');
