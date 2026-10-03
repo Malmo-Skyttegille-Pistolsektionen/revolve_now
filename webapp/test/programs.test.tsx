@@ -21,7 +21,7 @@ const PORT = 18082;
 /** Shipped: read-only, no file behind it, so it can only be loaded. */
 const SHIPPED: Program = { ...PROGRAM_FALT_TRANING, id: 40, readonly: true };
 /** Uploaded: the row that gets the Replace and Delete buttons. */
-const UPLOADED: Program = { ...PROGRAM_FALT_TRANING, id: 140, title: 'Klubbserie', readonly: false };
+const UPLOADED: Program = { ...PROGRAM_FALT_TRANING, id: 1040, title: 'Klubbserie', readonly: false };
 
 let server: MockServer;
 let queryClient: QueryClient;
@@ -95,7 +95,7 @@ describe('the list', () => {
     await ready();
 
     const rows = within(screen.getByTestId('programs-table')).getAllByRole('row').slice(1);
-    expect(rows.map((row) => within(row).getAllByRole('cell')[0].textContent)).toEqual(['40', '140']);
+    expect(rows.map((row) => within(row).getAllByRole('cell')[0].textContent)).toEqual(['40', '1040']);
 
     expect(within(rows[0]).getByText('Shipped')).toBeTruthy();
     expect(within(rows[1]).getByText('Uploaded')).toBeTruthy();
@@ -286,10 +286,10 @@ describe('uploading a new program', () => {
     fireEvent.click(screen.getByTestId('programs-upload'));
     await pickFile({ ...UPLOADED, id: 7, title: 'Nyuppladdad' });
 
-    // POST always assigns, and it assigns the lowest free id from 100 up - so
-    // the seeded 140 does not push the new one to 141.
-    await waitFor(() => expect(notice().textContent).toContain('Uploaded "Nyuppladdad" as program 100.'));
-    expect((await programsOnDevice()).map((p) => p.id)).toEqual([SHIPPED.id, 100, UPLOADED.id]);
+    // POST always assigns, and it assigns the lowest free id from 1000 up - so
+    // the seeded 1040 does not push the new one to 1041.
+    await waitFor(() => expect(notice().textContent).toContain('Uploaded "Nyuppladdad" as program 1000.'));
+    expect((await programsOnDevice()).map((p) => p.id)).toEqual([SHIPPED.id, 1000, UPLOADED.id]);
   });
 
   it('says what the device will change before it changes it, and only then writes', async () => {
@@ -311,7 +311,7 @@ describe('uploading a new program', () => {
     expect((await programsOnDevice()).map((p) => p.id)).toEqual([SHIPPED.id, UPLOADED.id]);
 
     fireEvent.click(within(dialog).getByText('Upload anyway'));
-    await waitFor(() => expect(notice().textContent).toContain('as program 100'));
+    await waitFor(() => expect(notice().textContent).toContain('as program 1000'));
   });
 
   it('sends nothing when the warnings are declined', async () => {
@@ -409,14 +409,14 @@ describe('replacing a program', () => {
     expect(await programsOnDevice()).toContainEqual(expect.objectContaining({ id: UPLOADED.id, title: 'Klubbserie' }));
 
     fireEvent.click(screen.getByTestId('programs-notice-action'));
-    await waitFor(() => expect(notice().textContent).toContain('Uploaded "Fel id" as program 100.'));
+    await waitFor(() => expect(notice().textContent).toContain('Uploaded "Fel id" as program 1000.'));
   });
 });
 
 describe('a program that needs banks', () => {
   /** Two events, the second naming bank D, so the device derives banksRequired 4. */
   const FOUR_BANK: Program = {
-    id: 141,
+    id: 1041,
     title: 'Fältträning, 4 mål',
     description: 'Ett mål i taget',
     readonly: false,
@@ -451,7 +451,7 @@ describe('a program that needs banks', () => {
   it('says what the program needs on a device that cannot run it, and still offers Load', async () => {
     await listWith({ A: 'shown' });
 
-    const id = 100; // the mock assigns from 100 up
+    const id = 1000; // the mock assigns from 1000 up
     expect(screen.getByTestId(`program-banks-${String(id)}`).textContent).toBe('A–D');
     // Letters, not counts: the same sentence the device and the run page use.
     expect(screen.getByTestId(`program-banks-refusal-${String(id)}`).textContent).toContain(
@@ -463,7 +463,7 @@ describe('a program that needs banks', () => {
   it('tags it and says nothing more on a device that has the banks', async () => {
     await listWith({ A: 'shown', B: 'shown', C: 'shown', D: 'shown' });
 
-    const id = 100;
+    const id = 1000;
     expect(screen.getByTestId(`program-banks-${String(id)}`).textContent).toBe('A–D');
     expect(screen.queryByTestId(`program-banks-refusal-${String(id)}`)).toBeNull();
   });
@@ -474,7 +474,7 @@ describe('a program that needs banks', () => {
   it('claims nothing before the first SSE frame', async () => {
     await listWith(undefined);
 
-    const id = 100;
+    const id = 1000;
     expect(screen.getByTestId(`program-banks-${String(id)}`).textContent).toBe('A–D');
     expect(screen.queryByTestId(`program-banks-refusal-${String(id)}`)).toBeNull();
     expect(screen.getByTestId(`program-load-${String(id)}`).hasAttribute('disabled')).toBe(false);

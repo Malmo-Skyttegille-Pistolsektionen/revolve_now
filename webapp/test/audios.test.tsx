@@ -26,7 +26,7 @@ const AudiosView = Route.options.component!;
 const SEED_AUDIOS: AudioFile[] = [
   { id: 3, title: 'Eld upphör', filename: '/embedded/audio/3.wav', readonly: true },
   { id: 1, title: 'Färdiga', filename: '/embedded/audio/1.wav', readonly: true },
-  { id: 100, title: 'Klubbmästerskap 2026', filename: '/userdata/audio/100.wav', readonly: false },
+  { id: 1000, title: 'Klubbmästerskap 2026', filename: '/userdata/audio/1000.wav', readonly: false },
 ];
 
 /** A minimal RIFF/WAVE header — enough for the mock's format check. */
@@ -125,13 +125,13 @@ describe('the audio library', () => {
     await waitForClips();
 
     const ids = screen.getAllByTestId(/^audios-row-/).map((row) => row.getAttribute('data-testid'));
-    expect(ids).toEqual(['audios-row-1', 'audios-row-3', 'audios-row-100']);
+    expect(ids).toEqual(['audios-row-1', 'audios-row-3', 'audios-row-1000']);
 
     expect(text(screen.getByTestId('audios-source-1'))).toBe('Shipped');
     expect(text(screen.getByTestId('audios-source-3'))).toBe('Shipped');
-    expect(text(screen.getByTestId('audios-source-100'))).toBe('Uploaded');
+    expect(text(screen.getByTestId('audios-source-1000'))).toBe('Uploaded');
 
-    expect(within(screen.getByTestId('audios-row-100')).getByText('Klubbmästerskap 2026')).toBeTruthy();
+    expect(within(screen.getByTestId('audios-row-1000')).getByText('Klubbmästerskap 2026')).toBeTruthy();
   });
 
   it('offers Delete on uploaded clips only — a shipped one is refused with 409', async () => {
@@ -140,11 +140,11 @@ describe('the audio library', () => {
 
     expect(screen.queryByTestId('audios-delete-1')).toBeNull();
     expect(screen.queryByTestId('audios-delete-3')).toBeNull();
-    expect(screen.getByTestId('audios-delete-100')).toBeTruthy();
+    expect(screen.getByTestId('audios-delete-1000')).toBeTruthy();
 
     // Play is offered for both.
     expect(screen.getByTestId('audios-play-1')).toBeTruthy();
-    expect(screen.getByTestId('audios-play-100')).toBeTruthy();
+    expect(screen.getByTestId('audios-play-1000')).toBeTruthy();
   });
 });
 
@@ -158,7 +158,7 @@ describe('the control lock gates the mutating controls', () => {
     await screen.findByTestId('audios-view-only');
     expect(screen.queryByTestId('audios-upload-form')).toBeNull();
     expect(screen.queryByTestId('audios-play-1')).toBeNull();
-    expect(screen.queryByTestId('audios-delete-100')).toBeNull();
+    expect(screen.queryByTestId('audios-delete-1000')).toBeNull();
   });
 
   it('lock ON with a token: the controls come back', async () => {
@@ -272,7 +272,7 @@ describe('upload', () => {
     expect(text(feedback)).toMatch(/Upload failed: Unsupported audio format/);
 
     // The form keeps what was typed, so the user can retry with another file.
-    expect(screen.queryByTestId('audios-row-101')).toBeNull();
+    expect(screen.queryByTestId('audios-row-1001')).toBeNull();
   });
 
   it('adds the accepted clip to the list, id and title intact', async () => {
@@ -285,29 +285,29 @@ describe('upload', () => {
     selectFile(wavFile('Färdiga-två.wav'));
     fireEvent.click(screen.getByTestId('audios-upload-submit'));
 
-    // 100 is taken by the seed, so the first free slot at or above
-    // `kFirstUploadId` is 101 — the id the firmware would assign.
-    const row = await screen.findByTestId('audios-row-101');
+    // 1000 is taken by the seed, so the first free slot at or above
+    // `kFirstUploadId` is 1001 — the id the firmware would assign.
+    const row = await screen.findByTestId('audios-row-1001');
     expect(within(row).getByText('Färdiga-två')).toBeTruthy();
-    expect(text(screen.getByTestId('audios-source-101'))).toBe('Uploaded');
-    expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/Uploaded "Färdiga-två" as clip 101/);
+    expect(text(screen.getByTestId('audios-source-1001'))).toBe('Uploaded');
+    expect(text(await screen.findByTestId('audios-feedback'))).toMatch(/Uploaded "Färdiga-två" as clip 1001/);
   });
 
   it('reuses the id of a deleted clip, as the device does', async () => {
     renderAudios();
     await waitForClips();
 
-    fireEvent.click(screen.getByTestId('audios-delete-100'));
-    fireEvent.click(screen.getByTestId('audios-delete-confirm-100'));
-    await waitFor(() => expect(screen.queryByTestId('audios-row-100')).toBeNull());
+    fireEvent.click(screen.getByTestId('audios-delete-1000'));
+    fireEvent.click(screen.getByTestId('audios-delete-confirm-1000'));
+    await waitFor(() => expect(screen.queryByTestId('audios-row-1000')).toBeNull());
 
     selectFile(wavFile('ersattning.wav'));
     fireEvent.click(screen.getByTestId('audios-upload-submit'));
 
     // `audios::add_uploaded` walks up from `kFirstUploadId` to the first free
-    // slot, so 100 comes back rather than the count going up.
-    await screen.findByTestId('audios-row-100');
-    expect(screen.queryByTestId('audios-row-101')).toBeNull();
+    // slot, so 1000 comes back rather than the count going up.
+    await screen.findByTestId('audios-row-1000');
+    expect(screen.queryByTestId('audios-row-1001')).toBeNull();
   });
 });
 
@@ -316,23 +316,23 @@ describe('play and delete', () => {
     renderAudios();
     await waitForClips();
 
-    fireEvent.click(screen.getByTestId('audios-delete-100'));
+    fireEvent.click(screen.getByTestId('audios-delete-1000'));
     // Nothing has left yet — the row is still there, now asking.
-    expect(screen.getByTestId('audios-row-100')).toBeTruthy();
+    expect(screen.getByTestId('audios-row-1000')).toBeTruthy();
 
     // Cancel comes first, so a second tap on Delete's coordinates hits it and
     // not Confirm. The row is left-aligned below 768px and right-aligned above
     // it, and Confirm is the wider of the two.
-    const actions = within(screen.getByTestId('audios-row-100')).getAllByRole('button');
+    const actions = within(screen.getByTestId('audios-row-1000')).getAllByRole('button');
     expect(actions.map((button) => button.getAttribute('data-testid'))).toEqual([
-      'audios-play-100',
-      'audios-delete-cancel-100',
-      'audios-delete-confirm-100',
+      'audios-play-1000',
+      'audios-delete-cancel-1000',
+      'audios-delete-confirm-1000',
     ]);
 
-    fireEvent.click(screen.getByTestId('audios-delete-confirm-100'));
+    fireEvent.click(screen.getByTestId('audios-delete-confirm-1000'));
 
-    await waitFor(() => expect(screen.queryByTestId('audios-row-100')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('audios-row-1000')).toBeNull());
     expect(text(screen.getByTestId('audios-feedback'))).toMatch(/Deleted "Klubbmästerskap 2026"/);
   });
 
@@ -340,37 +340,37 @@ describe('play and delete', () => {
     renderAudios();
     await waitForClips();
 
-    fireEvent.click(screen.getByTestId('audios-delete-100'));
-    fireEvent.click(screen.getByTestId('audios-delete-cancel-100'));
+    fireEvent.click(screen.getByTestId('audios-delete-1000'));
+    fireEvent.click(screen.getByTestId('audios-delete-cancel-1000'));
 
-    expect(screen.getByTestId('audios-delete-100')).toBeTruthy();
-    expect(screen.getByTestId('audios-row-100')).toBeTruthy();
+    expect(screen.getByTestId('audios-delete-1000')).toBeTruthy();
+    expect(screen.getByTestId('audios-row-1000')).toBeTruthy();
   });
 
   it('relays the 409 when the clip is playing, rather than swallowing it', async () => {
     renderAudios();
     await waitForClips();
 
-    fireEvent.click(screen.getByTestId('audios-play-100'));
+    fireEvent.click(screen.getByTestId('audios-play-1000'));
     await waitFor(() => expect(text(screen.getByTestId('audios-feedback'))).toMatch(/Playing "Klubbmästerskap/));
 
-    fireEvent.click(screen.getByTestId('audios-delete-100'));
-    fireEvent.click(screen.getByTestId('audios-delete-confirm-100'));
+    fireEvent.click(screen.getByTestId('audios-delete-1000'));
+    fireEvent.click(screen.getByTestId('audios-delete-confirm-1000'));
 
     await waitFor(() =>
       expect(text(screen.getByTestId('audios-feedback'))).toMatch(
         /Could not delete "Klubbmästerskap 2026": Audio is currently playing/,
       ),
     );
-    expect(screen.getByTestId('audios-row-100')).toBeTruthy();
+    expect(screen.getByTestId('audios-row-1000')).toBeTruthy();
   });
 });
 
 describe('backend_issue', () => {
   const playbackFailed: BackendIssuePayload = {
     code: 'audio_playback_failed',
-    message: 'Could not open /userdata/audio/100.wav',
-    context: { clip: '/userdata/audio/100.wav' },
+    message: 'Could not open /userdata/audio/1000.wav',
+    context: { clip: '/userdata/audio/1000.wav' },
   };
 
   it('shows what useSSE parked in the cache, and a dismissal outlives the mount', async () => {
@@ -382,8 +382,8 @@ describe('backend_issue', () => {
     queryClient.setQueryData(['backend-issue'], playbackFailed);
 
     const banner = await screen.findByTestId('backend-issue-banner');
-    expect(text(banner)).toContain('Could not open /userdata/audio/100.wav');
-    expect(text(banner)).toContain('clip: /userdata/audio/100.wav');
+    expect(text(banner)).toContain('Could not open /userdata/audio/1000.wav');
+    expect(text(banner)).toContain('clip: /userdata/audio/1000.wav');
 
     fireEvent.click(within(banner).getByLabelText('Dismiss'));
     await waitFor(() => expect(screen.queryByTestId('backend-issue-banner')).toBeNull());
@@ -475,14 +475,14 @@ describe('D-24: the library changes under an open page', () => {
     await uploadElsewhere('Nytt klipp');
     // Still stale, exactly as #71 shipped it: the list is fetched over REST and
     // published nowhere else.
-    expect(screen.queryByTestId('audios-row-101')).toBeNull();
+    expect(screen.queryByTestId('audios-row-1001')).toBeNull();
 
     act(() => {
       expect(FakeEventSource.latest.emit('libraryChanged', { kind: 'audio' })).toBe(true);
     });
 
-    await waitFor(() => expect(screen.getByTestId('audios-row-101')).toBeTruthy());
-    expect(text(screen.getByTestId('audios-row-101'))).toContain('Nytt klipp');
+    await waitFor(() => expect(screen.getByTestId('audios-row-1001')).toBeTruthy());
+    expect(text(screen.getByTestId('audios-row-1001'))).toContain('Nytt klipp');
   });
 
   it('leaves the clip list alone when it is the program library that changed', async () => {
