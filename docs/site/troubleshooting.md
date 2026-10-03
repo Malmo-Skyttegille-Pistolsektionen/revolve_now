@@ -14,7 +14,7 @@ from "never connected" at a glance. Most of what follows starts by reading it.
 | Yellow, and staying that way | On the network, but the web server has not come up | The network side is fine; this is a device fault, not a connection one |
 | Green | Serving | The device is reachable — if the browser still cannot reach it, see below |
 
-If the LED is green but `http://rotation-target.local` will not load, the
+If the LED is green but `http://revolve-now.local` will not load, the
 network is not resolving the mDNS name for you — try the device's IP address
 directly instead (see [Connecting](connecting.md#finding-the-device)). Confirm
 the browser is actually on the same network as the device, not still on

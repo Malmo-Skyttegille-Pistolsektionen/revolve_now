@@ -1142,7 +1142,7 @@ describe('restarting the device', () => {
 describe('firmware upload', () => {
   const upload = async (image: Buffer | null, init?: RequestInit, target = base): Promise<Response> => {
     const body = new FormData();
-    if (image !== null) body.append('file', new Blob([new Uint8Array(image)]), 'rotation_target_backend.bin');
+    if (image !== null) body.append('file', new Blob([new Uint8Array(image)]), 'revolve_now.bin');
     return fetch(`${target}/ota`, { method: 'POST', body, ...init });
   };
   const emptyImage = {
@@ -1214,7 +1214,7 @@ describe('firmware upload', () => {
   });
 
   it('refuses a name that only starts the same', async () => {
-    expect((await upload(fakeFirmwareImage('rotation_target'))).status).toBe(400);
+    expect((await upload(fakeFirmwareImage('rotation_target_backend'))).status).toBe(400);
   });
 
   it('refuses something that is not an image at all on its first byte', async () => {

@@ -52,7 +52,7 @@ export function TroubleshootingSection(): React.ReactNode {
       const file = await diagnosticsApi.bundle();
       // The device names it; this side adds the date, which is the one part of
       // the name a device with no clock cannot know.
-      downloadBlob(datedFilename(file.filename ?? 'rotation-target-diagnostics.zip', new Date()), file.blob);
+      downloadBlob(datedFilename(file.filename ?? 'revolve-now-diagnostics.zip', new Date()), file.blob);
       setNotice('Downloaded.');
     } catch (error) {
       // RFC 9457 (D-19): the device's `detail` is the sentence written for

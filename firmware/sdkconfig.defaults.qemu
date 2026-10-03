@@ -1,4 +1,4 @@
-# Rotation target backend - the QEMU simulator profile.
+# Revolve Now - the QEMU simulator profile.
 #
 # Layered *on top of* sdkconfig.defaults, never instead of it:
 #

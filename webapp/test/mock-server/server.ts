@@ -203,7 +203,7 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
 export const HARDWARE_DEFAULTS: HardwareConfig = {
   // One bank, which is every device shipped so far (#207, D-41).
   banks: [{ gpio: 5, activeLow: true, name: '' }],
-  hostname: 'rotation-target',
+  hostname: 'revolve-now',
   displayName: '',
   targetsShownAtBoot: true,
   ledGpio: 48,
@@ -231,7 +231,7 @@ const APP_DESC_MAGIC_WORD = 0xabcd5432;
 /** After `magic_word`, `secure_version`, `reserv1[2]` and `version[32]`. */
 const APP_DESC_PROJECT_NAME_OFFSET = APP_DESC_OFFSET + 48;
 /** `project()` in firmware/CMakeLists.txt: what an uploaded image is checked against. */
-const FIRMWARE_PROJECT_NAME = 'rotation_target_backend';
+const FIRMWARE_PROJECT_NAME = 'revolve_now';
 /** `kFirstUploadId` in firmware/main/config.h - the floor for uploaded audio AND program ids. */
 const FIRST_UPLOAD_ID = 1000;
 /**
@@ -1355,7 +1355,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
       // The firmware builds this from the hostname, the version and why the
       // device last restarted, and puts no date in it - it has no clock.
-      const filename = `rotation-target-${seed.firmwareVersion ?? '2.0.0-mock'}-poweron.zip`;
+      const filename = `revolve-now-${seed.firmwareVersion ?? '2.0.0-mock'}-poweron.zip`;
       res.writeHead(200, {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,

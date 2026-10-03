@@ -1,4 +1,4 @@
-# Rotation Target Backend — ESP32 (ESP-IDF)
+# Revolve Now firmware — ESP32 (ESP-IDF)
 
 Native ESP-IDF firmware for Malmö Skyttegille Pistolsektionen's
 [Eigenbrod TP2 rotation target system](https://eigenbrod-schiessanlagen.de/en/products?tx_produkt_produkte%5Baction%5D=show&tx_produkt_produkte%5BL%5D=2&tx_produkt_produkte%5Bprodukt%5D=319&cHash=942340d5971be0a0ac3d26ff3c257c0b).
@@ -27,11 +27,11 @@ flashing these boards.
 ## Build, flash, test
 
 ```bash
-git clone https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target.git
-cd rotation_target/firmware
+git clone https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now.git
+cd revolve_now/firmware
 
 idf.py set-target esp32s3          # FIRST clone only - see the warning below
-idf.py menuconfig                  # optional: seed WiFi under "Rotation target backend"
+idf.py menuconfig                  # optional: seed WiFi under "Revolve Now"
 idf.py build
 idf.py -p /dev/ttyACM0 flash monitor
 ```
@@ -74,8 +74,8 @@ If the device cannot join a network — out of the box, or because the range's
 WiFi password changed — it brings up a **setup access point** and a captive
 portal instead of sitting there unreachable:
 
-1. Join `rotation-target-setup-XXXX` (password: `CONFIG_RT_SETUP_AP_PASSWORD`,
-   default `rotationtarget`).
+1. Join `revolve-now-setup-XXXX` (password: `CONFIG_RT_SETUP_AP_PASSWORD`,
+   default `revolvenow`).
 2. A setup page should open automatically; if not, browse to
    `http://192.168.4.1`.
 3. Enter the network details. The device saves them and restarts.
@@ -85,7 +85,7 @@ seed — leave them at the defaults and use the portal, or set them to skip it.
 `sdkconfig` is gitignored either way, the same way the MicroPython backend kept
 `wifi_credentials.py` out of git.
 
-Once up, the device is at `http://rotation-target.local` (mDNS) or whatever
+Once up, the device is at `http://revolve-now.local` (mDNS) or whatever
 address it logs on boot.
 
 ### Host tests

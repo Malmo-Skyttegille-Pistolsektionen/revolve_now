@@ -138,14 +138,14 @@ Two of them are what somebody actually reaches for:
 
 | Asset | What it is for |
 |---|---|
-| `rotation_target-<version>-factory.bin` | A new board, or one being put back to a known state. Everything at its offset in one file, written at `0x0`. **Wipes NVS**, so the device comes back up in the setup portal — but **keeps uploaded programs and audio**, because nothing is built for the `userdata` partition (#227). Erasing those is a separate `esptool erase-region`. |
-| `rotation_target-<version>-ota.bin` | An already-configured device. The app slot — **firmware, web app, shipped audio and programs together** since #227 — and this is what `POST /api/v2/ota` accepts. It leaves NVS and the uploaded files alone. |
+| `revolve_now-<version>-factory.bin` | A new board, or one being put back to a known state. Everything at its offset in one file, written at `0x0`. **Wipes NVS**, so the device comes back up in the setup portal — but **keeps uploaded programs and audio**, because nothing is built for the `userdata` partition (#227). Erasing those is a separate `esptool erase-region`. |
+| `revolve_now-<version>-ota.bin` | An already-configured device. The app slot — **firmware, web app, shipped audio and programs together** since #227 — and this is what `POST /api/v2/ota` accepts. It leaves NVS and the uploaded files alone. |
 
 Flashing the factory image needs no offsets:
 
 ```bash
 python -m esptool --chip esp32s3 --port /dev/ttyACM0 --no-stub \
-  write-flash 0x0 rotation_target-<version>-factory.bin
+  write-flash 0x0 revolve_now-<version>-factory.bin
 ```
 
 The individual images are published beneath them, for a partial flash:
@@ -155,7 +155,7 @@ The individual images are published beneath them, for a partial flash:
 | `bootloader.bin` | `0x0` |
 | `partition-table.bin` | `0x8000` |
 | `ota_data_initial.bin` | `0x1d000` |
-| `rotation_target_backend.bin` | `0x20000` |
+| `revolve_now.bin` | `0x20000` |
 
 They are kept because they are the only way to update the app over a cable
 without also erasing the club's files — `app-flash` territory.
@@ -163,7 +163,7 @@ without also erasing the club's files — `app-flash` territory.
 `SHA256SUMS.txt` covers everything.
 
 **There is no `storage.bin` any more** (#227). The web app and the shipped
-audio and programs are inside `rotation_target_backend.bin`, and the
+audio and programs are inside `revolve_now.bin`, and the
 `userdata` partition holding uploads has no image at all — it is formatted on
 first mount. That is what makes a factory flash keep the club's uploads and an
 OTA a complete update.

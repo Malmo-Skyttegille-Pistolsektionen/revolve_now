@@ -37,7 +37,7 @@ httpd_handle_t s_httpd = nullptr;
 
 const char kPageHead[] = R"HTML(<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rotation Target Setup</title><style>
+<title>Revolve Now Setup</title><style>
 body{font-family:system-ui,sans-serif;margin:0;padding:1.5rem;background:#111;color:#eee}
 h1{font-size:1.25rem}form{max-width:22rem}label{display:block;margin:1rem 0 .25rem}
 input,select{width:100%;padding:.6rem;font-size:1rem;border:1px solid #444;border-radius:.3rem;
@@ -53,7 +53,7 @@ margin:0;padding:.35rem .55rem;font-size:.8rem;background:#333;color:#eee;font-w
 .step{color:#eee;background:#1c1c1c;border-left:.2rem solid #2d7;padding:.6rem .7rem;
 margin-top:1.25rem}
 </style></head><body>
-<h1>Rotation Target Setup</h1>
+<h1>Revolve Now Setup</h1>
 <p>This device could not join a network. Choose the WiFi it should use.
 It will save the details and restart.</p>
 <form method="POST" action="/save">

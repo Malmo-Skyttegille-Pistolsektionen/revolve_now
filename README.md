@@ -1,4 +1,4 @@
-# Rotation Target
+# Revolve Now
 
 Software for running timed shooting programs on a rotating target system, built
 by and for Malmö Skyttegille Pistolsektionen.
@@ -34,7 +34,7 @@ The targets rest **shown** at boot, deliberately: a target that turns of its own
 accord when a board is powered is the failure this project is most concerned
 with. That resting state can be changed to suit a target system wired the other
 way round, but only over a USB cable, never from the web app — see
-[Settings](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/settings/).
+[Settings](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/settings/).
 
 **Do not rely on this software to protect anyone.** It is a convenience for
 running programs, not a safety device, and it has no interlock, no sensor, and
@@ -51,14 +51,14 @@ operating this system. You build and use it entirely at your own risk.
 
 Everything an operator needs is on the documentation site:
 
-- **[Operator documentation](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/)**
+- **[Operator documentation](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/)**
   — wiring, connecting, running a program, settings, and what the status LED is
   telling you. This is the one to send a club member.
-- **[Program editor](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/editor/)**
+- **[Program editor](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/editor/)**
   — write and edit programs in a browser with **no device attached**, then
   download the file or open a pull request against this repository. Also useful
   for reading a shipped program without a board in front of you.
-- **[Hardware and wiring](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/hardware/)**
+- **[Hardware and wiring](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/hardware/)**
   — what a target system has to do to work, the DB9 pinout, and the transistor
   that does the switching.
 
@@ -66,9 +66,9 @@ Everything an operator needs is on the documentation site:
 
 Releases ship a pre-built firmware image; you do not need a toolchain to put it
 on a board. See
-[Connecting](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/connecting/)
+[Connecting](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/connecting/)
 for getting the device onto your network afterwards, and
-[Settings](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/settings/)
+[Settings](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/settings/)
 for adapting a stock image to your own board — the target pin, its polarity,
 the audio and LED pins and the device's name are all configurable on the
 device, without rebuilding it.

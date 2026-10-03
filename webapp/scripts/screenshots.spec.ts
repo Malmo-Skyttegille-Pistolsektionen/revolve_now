@@ -179,7 +179,7 @@ test('library pages', async ({ page }) => {
 
 test('settings and expert mode', async ({ page }) => {
   // Settings shows the page's own origin as the server URL; give it the device's.
-  const device = 'http://rotation-target.local';
+  const device = 'http://revolve-now.local';
   await page.route(`${device}/**`, (route) => route.continue({ url: route.request().url().replace(device, base) }));
   await open(page, '/settings', page.getByRole('heading', { name: 'Settings' }), device);
   await shoot(page, 'settings.png', true);

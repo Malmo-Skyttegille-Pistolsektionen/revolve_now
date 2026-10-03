@@ -45,7 +45,7 @@ in that MicroPython file are wrong; `RGG_LED_PIN = 48` is the clue that fits.
 
 ```bash
 idf.py set-target esp32s3   # ONCE, on a fresh clone only - see the warning below
-idf.py menuconfig           # optional WiFi seed, under "Rotation target backend"
+idf.py menuconfig           # optional WiFi seed, under "Revolve Now"
 idf.py build
 ```
 

@@ -1,7 +1,7 @@
-# Rotation Target — Decision Log
+# Revolve Now — Decision Log
 
-Decisions of record for the rotation target system (Malmö Skyttegille
-Pistolsektionen, Eigenbrod TP2). Maintained by Jimisola + agents; every new
+Decisions of record for Revolve Now, the rotation target system of Malmö
+Skyttegille Pistolsektionen (Eigenbrod TP2). Maintained by Jimisola + agents; every new
 decision of record gets an entry. This file is the canonical copy.
 
 Statuses: **Decided** · **Deferred** (intentionally postponed) · **Open**
@@ -54,6 +54,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-41 | Target banks: letters, baseline plus overrides, refuse rather than clamp | Decided | 2026-09-08 |
 | D-42 | A save never restarts; one restart applies everything, from the page | Decided | 2026-09-09 |
 | D-43 | Uploads are converted to IMA ADPCM in the browser | Decided | 2026-10-03 |
+| D-44 | The product is Revolve Now, down to the firmware project name | Decided | 2026-10-03 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -1869,6 +1870,40 @@ PCM* - four times the room and a quarter of the duration, for no gain the
 shipped clips' by-ear check did not already settle. *Converting a clip already
 in the device's format* - a second generation of loss for nothing; it is
 recognised by its header and sent as it is.
+
+## D-44 — The product is Revolve Now, down to the firmware project name *(Decided 2026-10-03)*
+
+**Decision:** the product is called **Revolve Now**, the name the club's PCB
+already carries (#435). It replaces "Rotation Target" in every name a person
+reads: titles, the docs site, the setup portal, the console, mDNS. The device's
+default hostname becomes `revolve-now`, so the setup AP becomes
+`revolve-now-setup-XXXX` and its default password `revolvenow`. The repository
+becomes `revolve_now`, and the Pages site moves with it. "Rotation target"
+stays as the generic noun for the Eigenbrod hardware the system drives.
+
+**Firmware project name:** the ESP-IDF project becomes `revolve_now`, and the
+release files `revolve_now-<version>-{factory,ota}.bin`. `rt::ota::check_image`
+refuses an image whose project name differs from the running firmware's, and
+that check runs on the code already on the board, so **every board running
+`rotation_target_backend` needs one cable flash** to cross the rename. Accepted:
+the fleet is three boards, all in hand.
+
+**Consequence:** a board whose hostname was never saved in Expert mode answers
+at `revolve-now.local` after its next update. `rotation-target.local` stops
+working, and so do bookmarks to it. A board whose hostname was set explicitly
+keeps that name. GitHub redirects the repository's URLs after a rename, but
+Pages does not, so the old `…github.io/rotation_target/` links break.
+
+**Contract:** the default host moves in both specs' `servers`, which the
+AsyncAPI diff reports as breaking. No payload, path or status code changes, so
+`/api/v2` and `/sse/v2` stay. Taken as a further exception on
+D-16/D-23/D-27's grounds: the webapp ships inside the firmware image and no
+release has been cut. The commit is marked `!`.
+
+**Rejected:** *keeping `rotation_target_backend`* to spare the cable flash,
+which would leave the old name in every build and release artifact.
+*Accepting both names in OTA*: the old firmware runs the check, so it would
+not spare a single flash.
 
 ## Open questions
 

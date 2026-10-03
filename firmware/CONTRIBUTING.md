@@ -27,8 +27,8 @@ project — please read the safety note before changing run or target behaviour.
 ## Getting set up
 
 ```bash
-git clone https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target.git
-cd rotation_target/firmware
+git clone https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now.git
+cd revolve_now/firmware
 idf.py set-target esp32s3          # FIRST clone only - see the warning below
 idf.py build
 ```
@@ -213,10 +213,10 @@ inside the NVS the flash is about to erase.
    [`docs/HARDWARE.md`](docs/HARDWARE.md).
 3. **Flash the factory image**, which writes the new table:
    ```bash
-   python -m esptool --chip esp32s3 --port /dev/ttyACM0 --no-stub      write-flash 0x0 rotation_target-<version>-factory.bin
+   python -m esptool --chip esp32s3 --port /dev/ttyACM0 --no-stub      write-flash 0x0 revolve_now-<version>-factory.bin
    ```
 4. **The board comes up in the setup portal**, blue LED, because NVS is gone.
-   Join `rotation-target-setup-XXXX` and give it the network again — pressing
+   Join `revolve-now-setup-XXXX` and give it the network again — pressing
    BOOT to authorise, as usual.
 5. **Put the hardware configuration back** from step 1, and restart.
 
@@ -227,7 +227,7 @@ layout has its uploads in the old `storage` partition, which the new table
 overlaps. Those do not survive; get them off the device first
 (`GET /api/v2/programs`, and the audio files) if anyone wants them.
 
-[#227]: https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target/issues/227
+[#227]: https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/issues/227
 
 ## Reporting a problem
 

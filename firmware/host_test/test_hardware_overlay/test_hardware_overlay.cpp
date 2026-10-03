@@ -59,7 +59,7 @@ HardwareConfig compiled_defaults() {
   config.banks.assign(1, rt::TargetBank{});
   config.banks[0].gpio = 5;
   config.banks[0].active_low = true;
-  config.hostname = "rotation-target";
+  config.hostname = "revolve-now";
   config.led_gpio = 48;
   config.i2s_port = 0;
   config.i2s_bck_gpio = 10;
@@ -175,7 +175,7 @@ void test_keys_a_device_has_never_seen_keep_their_compiled_default() {
   TEST_ASSERT_EQUAL_INT32(9, config.banks[0].gpio);
   TEST_ASSERT_EQUAL_INT32(48, config.led_gpio);
   TEST_ASSERT_EQUAL_INT32(80, config.http_port);
-  TEST_ASSERT_EQUAL_STRING("rotation-target", config.hostname.c_str());
+  TEST_ASSERT_EQUAL_STRING("revolve-now", config.hostname.c_str());
 }
 
 // The keys are 15 characters at most, which is what NVS accepts. A longer one

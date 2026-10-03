@@ -81,7 +81,7 @@ else()
         "a release, to get a real version.")
 endif()
 
-project(rotation_target_backend)
+project(revolve_now)
 
 # --- what produced this image (#228) ---------------------------------------
 #

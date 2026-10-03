@@ -1,6 +1,6 @@
 # Contracts
 
-The canonical API contract for the rotation target. Everything here describes
+The canonical API contract for Revolve Now. Everything here describes
 **what the firmware in `firmware/` actually does** — these files are written
 from the implementation, and where prose documentation disagreed with the code,
 the code won.

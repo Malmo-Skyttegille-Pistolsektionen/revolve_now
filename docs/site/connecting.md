@@ -23,7 +23,7 @@ network it should join does not exist from its point of view.
 ## The setup portal
 
 A **blue** LED means the device is running a small access point of its own. Its
-name follows the pattern `rotation-target-setup-XXXX`, where `XXXX` is unique to
+name follows the pattern `revolve-now-setup-XXXX`, where `XXXX` is unique to
 that device, so two boards on the same site can be told apart.
 
 Join that network from a phone or tablet. It is normally password-protected —
@@ -96,7 +96,7 @@ has never been configured.
     - **Every network it knows**, including the one built into its firmware —
       which is the point, otherwise it would simply rejoin ours.
     - **Its hardware settings**: pin numbers, hostname and display name go back
-      to the defaults, so it will answer to `rotation-target.local` again.
+      to the defaults, so it will answer to `revolve-now.local` again.
 
     **Your programs and audio clips are kept.** Anything uploaded to the device
     stays on it, including through a change of owner — that is a separate thing
@@ -113,8 +113,17 @@ It advertises itself over mDNS, so on most phones, tablets and laptops the
 address is just its hostname:
 
 ```
-http://rotation-target.local
+http://revolve-now.local
 ```
+
+!!! note "Used to be `rotation-target.local`"
+
+    The system was called Rotation Target before it became Revolve Now. A
+    device still running firmware from then answers at
+    `http://rotation-target.local`, and its setup network is
+    `rotation-target-setup-XXXX`. It changes to the new name with its next
+    firmware update, unless somebody gave it a hostname of its own in Expert
+    mode.
 
 If that name does not resolve — some routers and most guest networks block
 mDNS — find the device's IP address instead, for example from the router's
@@ -129,5 +138,5 @@ The app opens on the Run page:
 ## Editing programs without a device
 
 Programs can also be written on a laptop with no board involved at all, using
-the [program editor on the web](https://malmo-skyttegille-pistolsektionen.github.io/rotation_target/editor/)
+the [program editor on the web](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/editor/)
 — see [Writing your own program](writing-a-program.md).

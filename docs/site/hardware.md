@@ -90,7 +90,7 @@ Which level shows the targets, and the rest of the pin assignment, is a
 configuration setting rather than a build setting now — but it is still decided
 when a device is set up, not per range day. Full wiring detail, including the
 supported boards and their `menuconfig` options, is in
-[`firmware/docs/HARDWARE.md`](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target/blob/main/firmware/docs/HARDWARE.md)
+[`firmware/docs/HARDWARE.md`](https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/blob/main/firmware/docs/HARDWARE.md)
 in the repository.
 
 **Optional peripherals**, each independently switchable off at build time: the

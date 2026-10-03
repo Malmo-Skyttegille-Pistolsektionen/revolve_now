@@ -1,7 +1,7 @@
-site_name: Rotation Target
-site_description: Documentation for the Rotation Target shooting-range system
-repo_url: https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target
-repo_name: rotation_target
+site_name: Revolve Now
+site_description: Documentation for Revolve Now, the shooting-range target system
+repo_url: https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now
+repo_name: revolve_now
 docs_dir: docs/site
 
 theme:

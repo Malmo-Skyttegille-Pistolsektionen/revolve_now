@@ -29,7 +29,7 @@ HardwareConfig good() {
   config.banks.assign(1, rt::TargetBank{});
   config.banks[0].gpio = 5;
   config.banks[0].active_low = true;
-  config.hostname = "rotation-target";
+  config.hostname = "revolve-now";
   config.display_name = "Bana 1";
   config.led_gpio = 48;
   config.i2s_port = 0;
@@ -215,8 +215,7 @@ void test_a_hostname_longer_than_the_ssid_suffix_allows_is_refused() {
 // Upper case is the one that looks fine and is not: mDNS lower-cases, so the
 // name the operator typed is not the name the device answers to.
 void test_a_hostname_with_anything_but_lowercase_digits_and_hyphens_is_refused() {
-  for (const char *bad :
-       {"Rotation", "rotation target", "rotation_target", "rotation.target", "räv"}) {
+  for (const char *bad : {"Revolve", "revolve now", "revolve_now", "revolve.now", "räv"}) {
     HardwareConfig config = good();
     config.hostname = bad;
     TEST_ASSERT_EQUAL(ConfigRefusal::kHostnameCharset, rt::validate(config));
@@ -232,7 +231,7 @@ void test_a_hostname_cannot_start_or_end_with_a_hyphen() {
   TEST_ASSERT_EQUAL(ConfigRefusal::kHostnameHyphen, rt::validate(config));
 
   // A hyphen in the middle is the ordinary case and must stay legal.
-  config.hostname = "rotation-target-2";
+  config.hostname = "revolve-now-2";
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 }
 
