@@ -13,6 +13,8 @@ next to the USB sockets and may be marked `FLASH`. An **Expert mode** tab
 appears in the web app and stays for five minutes; press three times again for
 a fresh five.
 
+![The Expert mode page, with the configuration window open](img/expert-mode.png)
+
 Three presses rather than one so it cannot happen by accident, and a button
 rather than a password because the thing being established is that **somebody
 is standing at the device**. That is not something anyone can do from across

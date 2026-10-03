@@ -20,6 +20,7 @@
     "format": "prettier --write .",
     "e2e": "playwright test",
     "e2e:local": "e2e/run-local.sh",
+    "screenshots": "playwright test -c scripts/screenshots.config.ts",
     "zip": "ts-node --esm scripts/zip-dist.ts"
   },
   "dependencies": {
