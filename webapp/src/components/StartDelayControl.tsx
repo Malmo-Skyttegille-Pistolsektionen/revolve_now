@@ -3,7 +3,7 @@ import { START_DELAY_OPTIONS, useSettings } from '../context/SettingsContext';
 import styles from './StartDelayControl.module.css';
 
 const HINT =
-  'Seconds counted down before the program starts; 0 starts it at once. ' +
+  'Seconds counted down before the program starts; No delay starts it at once. ' +
   'Saved in this browser only - another phone or tablet keeps its own.';
 
 interface StartDelayControlProps {
