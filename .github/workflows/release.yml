@@ -8,7 +8,7 @@ name: release
 #                                        -> promote to latest
 #
 # One release, one version. The webapp bundle and the shipped resources are
-# baked into the same LittleFS image the firmware boots from, so they are one
+# baked into the application image with the firmware (#227), so they are one
 # artifact and they carry one bare-semver tag - see docs/DECISIONS.md D-29.
 #
 # A prerelease is the load-bearing part of the shape. It is publicly readable by
@@ -368,6 +368,10 @@ jobs:
     # espressif/idf:v6.0.2 is Ubuntu 24.04 and setup-node installs into it
     # happily, which is exactly what webapp-e2e.yml already does.
     container: espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c
+    # Inside a container a step's default shell is `sh`, which rejects `pipefail`.
+    defaults:
+      run:
+        shell: bash
     outputs:
       sha256: ${{ steps.package.outputs.sha256 }}
     steps:
@@ -414,16 +418,16 @@ jobs:
           npm run build
 
       - name: Build the firmware
-        shell: bash
         working-directory: firmware
         run: |
           . "$IDF_PATH/export.sh"
           # RT_WEBAPP_DIR defaults to ../webapp/dist, so the bundle built above
-          # is what lands in the LittleFS image.
+          # is what lands in the application image (#227).
           idf.py set-target esp32s3
           idf.py build
-          test -d build/littlefs_stage/webapp || {
-            echo "::error::the LittleFS image carries no webapp - check RT_WEBAPP_DIR"
+          # The packer's own index of what it embedded, as webapp-e2e.yml checks.
+          grep -q '"/webapp/index.html' build/generated/embedded_index.generated.h || {
+            echo "::error::the app image carries no webapp - check RT_WEBAPP_DIR"
             exit 1
           }
 
@@ -432,7 +436,6 @@ jobs:
       # the image comes from `git describe` at configure time. Read it back out
       # of the image rather than trusting that they agree.
       - name: Assert the image carries the version
-        shell: bash
         working-directory: firmware
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -447,7 +450,6 @@ jobs:
 
       - name: Stage and checksum the images
         id: package
-        shell: bash
         working-directory: firmware
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
