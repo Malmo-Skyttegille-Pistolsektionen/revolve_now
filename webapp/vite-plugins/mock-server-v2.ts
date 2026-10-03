@@ -6,13 +6,15 @@
  * timers. See that module for what the mock actually implements.
  */
 import type { Plugin, ViteDevServer } from 'vite';
+import type { MockServer } from '../test/mock-server/server';
 import { createMockServer } from '../test/mock-server/server';
 
-export function mockServerV2Plugin(): Plugin {
+/** `create` lets a caller seed the mock and keep a handle on it (see scripts/screenshots.spec.ts). */
+export function mockServerV2Plugin(create: () => MockServer = createMockServer): Plugin {
   return {
     name: 'mock-server-v2',
     configureServer(server: ViteDevServer) {
-      const mock = createMockServer();
+      const mock = create();
 
       server.middlewares.use((req, res, next) => mock.middleware(req, res, next));
       server.httpServer?.on('close', () => void mock.close());
