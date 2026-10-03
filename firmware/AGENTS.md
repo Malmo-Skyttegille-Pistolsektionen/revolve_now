@@ -237,9 +237,11 @@ Load-bearing invariants:
 
 - `rt::Executor::tick()` is one iteration of the run loop and returns how long
   to sleep — at most `rt::kMaxSleepMs` (200 ms), so `stop` lands promptly.
-- **SSE sends go through `httpd_queue_work`, i.e. always on the httpd task.**
-  That is the only task esp_http_server mutates the client list from, and it
-  keeps the send off the run loop. The send never waits on a client — see
+- **SSE sends happen on the httpd task, always.** That is the only task
+  esp_http_server mutates the client list from, and it keeps the send off the
+  run loop. Frames wait in `rt::SseOutbox` and a drain message wakes the task:
+  `httpd_queue_work`'s mailbox drops messages silently when full (#427), so it
+  never carries a frame itself. The send never waits on a client — see
   `rt::SseClients`. `flush()` serializes *and* enqueues under one lock so
   snapshot order equals send order. `broadcast_issue()` uses the same path from
   any task, and is a no-op before the server exists.

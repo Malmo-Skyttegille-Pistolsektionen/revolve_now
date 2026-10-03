@@ -65,11 +65,12 @@ both an event's `command` and the `/targets/*` endpoints use. `targetBanks` on
 the wire is one key per bank and the only thing the wire says about them.
 
 **SSE never waits on a client.** `rt::Effects::state_changed()` only sets a
-flag; `flush()` serializes the state and hands it to the httpd work queue under
-the lock, so snapshot order is send order, and the run loop never touches a
-socket. The httpd task then sends it, and since that task serves REST too, a
-client whose socket cannot take a whole frame is closed rather than waited for
-(`rt::SseClients`, #343).
+flag; `flush()` serializes the state and hands it to `sse_hub` under the lock,
+so snapshot order is send order, and the run loop never touches a socket. The
+frame waits in `rt::SseOutbox`, where a newer `stateUpdate` supersedes a
+pending one, and a single drain message wakes the httpd task (#427). That task
+then sends it, and since it serves REST too, a client whose socket cannot take
+a whole frame is closed rather than waited for (`rt::SseClients`, #343).
 
 ## Storage
 

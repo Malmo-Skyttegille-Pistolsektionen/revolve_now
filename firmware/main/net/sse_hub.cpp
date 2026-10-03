@@ -6,6 +6,7 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,7 @@
 #include "issue_buffer.h"
 #include "program_executor.h"
 #include "sse_clients.h"
+#include "sse_outbox.h"
 
 namespace sse_hub {
 namespace {
@@ -45,11 +47,17 @@ rt::IssueBuffer s_startup_issues(kMaxStartupIssues);
 // Touched on the httpd task only, like the client list it filters.
 rt::SseClients s_clients;
 
-// One SSE frame to fan out.
-struct Work {
-  const char *event;  // static string literal
-  std::string payload;
-};
+// Frames on their way to the httpd task, pushed from any task. A std::mutex
+// rather than a FreeRTOS one because it is ready before anything runs, so no
+// caller can reach it before attach() has created it.
+rt::SseOutbox s_outbox(kSseOutboxCapacity);
+std::mutex s_outbox_lock;
+
+template <typename F>
+auto with_outbox(F &&f) {
+  std::lock_guard<std::mutex> lock(s_outbox_lock);
+  return f(s_outbox);
+}
 
 void request_close(int sock) {
   if (httpd_sess_trigger_close(s_server->server, sock) != ESP_OK) {
@@ -86,31 +94,45 @@ bool send_frame(const std::vector<int> &sockets, const char *event, const std::s
 // cannot, because it is the same task that mutates it.
 //
 // PsychicEventSource::send() is not used: it retries a full socket forever (#343).
-void send_on_httpd_task(void *arg) {
-  auto *work = static_cast<Work *>(arg);
+void drain_on_httpd_task(void *) {
+  const std::vector<rt::SseOutbox::Frame> frames =
+      with_outbox([](rt::SseOutbox &outbox) { return outbox.take(); });
+  if (frames.empty()) return;
+
   std::vector<int> sockets;
   for (PsychicClient *client : s_events.getClientList()) {
     if (client != nullptr) sockets.push_back(client->socket());
   }
-  send_frame(sockets, work->event, work->payload, 0);
-  delete work;
+  for (const rt::SseOutbox::Frame &frame : frames)
+    send_frame(sockets, frame.event, frame.payload, 0);
 }
 
-// Non-blocking: hands the frame to the httpd work queue and returns. Safe to
-// call with the run-state lock held, which is what keeps snapshot order and
+// A full mailbox loses the message without an error (#427), so success here
+// does not mean it will run; rt::SseOutbox says how each is recovered.
+bool post(httpd_work_fn_t work, const char *what) {
+  if (httpd_queue_work(s_server->server, work, nullptr) == ESP_OK) return true;
+  ESP_LOGW(TAG, "Could not post the %s to the httpd task", what);
+  return false;
+}
+
+// Non-blocking: leaves the frame in the outbox and wakes the httpd task. Safe
+// to call with the run-state lock held, which is what keeps snapshot order and
 // send order the same.
-void enqueue(const char *event, std::string payload) {
+void enqueue(const char *event, std::string payload, rt::SseOutbox::Delivery delivery) {
   // Also the guard for frames raised before the server exists: `s_server` is
   // null until attach() runs, and the boot-time program scan reports malformed
   // files long before that. Nothing to send them to, so they are dropped.
   if (s_server == nullptr || s_server->server == nullptr) return;
 
-  auto *work = new Work{event, std::move(payload)};
-  if (httpd_queue_work(s_server->server, send_on_httpd_task, work) != ESP_OK) {
-    // The work queue is full - the httpd task is wedged or badly behind.
-    // Dropping the frame beats blocking the caller, which may be the run loop.
-    ESP_LOGW(TAG, "Dropped a '%s' frame: httpd work queue full", event);
-    delete work;
+  const rt::SseOutbox::Push pushed = with_outbox(
+      [&](rt::SseOutbox &outbox) { return outbox.push(event, std::move(payload), delivery); });
+  if (pushed == rt::SseOutbox::Push::kDropped) {
+    // The httpd task is wedged or badly behind. Dropping the frame beats
+    // blocking the caller, which may be the run loop.
+    ESP_LOGW(TAG, "Dropped a '%s' frame: %u already waiting for the httpd task", event,
+             static_cast<unsigned>(kSseOutboxCapacity));
+  } else if (pushed == rt::SseOutbox::Push::kPostDrain && !post(drain_on_httpd_task, "drain")) {
+    with_outbox([](rt::SseOutbox &outbox) { outbox.drain_not_posted(); });
   }
 }
 
@@ -133,9 +155,7 @@ bool peer_is_alive(int sock) {
 // Observed on hardware as roughly five REST calls failing before one succeeded.
 //
 // Runs on the httpd task, like every other client-list access.
-void reap_dead_clients(void *) {
-  if (s_server == nullptr || s_server->server == nullptr) return;
-
+void reap_dead_clients() {
   // The sockets are collected first and closed after: closing runs
   // PsychicHttp's close callback, which mutates the very list being walked.
   // One already closing is skipped - a second close for the same session can
@@ -157,15 +177,27 @@ void reap_dead_clients(void *) {
   }
 }
 
-void send_heartbeat(void *) {
-  // Matches the MicroPython backend's shape: a monotonic id a client can use
-  // to spot a missed beat.
-  enqueue("heartbeat", "{\"id\":" + std::to_string(++s_heartbeat_id) + "}");
+// Same cadence as the heartbeat: a client that has gone is detected within
+// one beat rather than holding a socket until the device is rebooted.
+void beat_on_httpd_task(void *) {
+  if (with_outbox([](rt::SseOutbox &outbox) { return outbox.beat_ran(); })) reap_dead_clients();
+  drain_on_httpd_task(nullptr);
+}
 
-  // Same cadence as the heartbeat: a client that has gone is detected within
-  // one beat rather than holding a socket until the device is rebooted.
-  if (s_server != nullptr && s_server->server != nullptr) {
-    httpd_queue_work(s_server->server, reap_dead_clients, nullptr);
+void send_heartbeat(void *) {
+  // The timer starts in attach(), before the server does.
+  if (s_server->server == nullptr) return;
+
+  // Matches the MicroPython backend's shape: a monotonic id a client can use
+  // to spot a missed beat. Pushed without a drain of its own: the beat message
+  // drains, and one already waiting will take this frame too.
+  std::string payload = "{\"id\":" + std::to_string(++s_heartbeat_id) + "}";
+  const bool post_beat = with_outbox([&](rt::SseOutbox &outbox) {
+    outbox.push("heartbeat", std::move(payload), rt::SseOutbox::Delivery::kLatest);
+    return outbox.beat();
+  });
+  if (post_beat && !post(beat_on_httpd_task, "heartbeat")) {
+    with_outbox([](rt::SseOutbox &outbox) { outbox.beat_not_posted(); });
   }
 }
 
@@ -207,15 +239,14 @@ void attach(PsychicHttpServer &server, const char *uri) {
       .name = "sse_heartbeat",
       .skip_unhandled_events = true,
   };
-  if (esp_timer_create(&args, &s_heartbeat) == ESP_OK) {
-    esp_timer_start_periodic(s_heartbeat, kSseHeartbeatSeconds * 1000000ULL);
-  } else {
-    ESP_LOGE(TAG, "Could not start the heartbeat timer");
-  }
+  // Fatal, not logged: the beat is also what recovers a drain the mailbox
+  // lost, so without it one lost message silences the stream until reboot.
+  ESP_ERROR_CHECK(esp_timer_create(&args, &s_heartbeat));
+  ESP_ERROR_CHECK(esp_timer_start_periodic(s_heartbeat, kSseHeartbeatSeconds * 1000000ULL));
 }
 
 void broadcast_state(const std::string &payload) {
-  enqueue("stateUpdate", payload);
+  enqueue("stateUpdate", payload, rt::SseOutbox::Delivery::kLatest);
 }
 
 void broadcast_issue(const char *code, const std::string &message,
@@ -231,7 +262,7 @@ void broadcast_issue(const char *code, const std::string &message,
     return;
   }
 
-  enqueue("backend_issue", std::move(payload));
+  enqueue("backend_issue", std::move(payload), rt::SseOutbox::Delivery::kEach);
 }
 
 size_t client_count() {
@@ -243,7 +274,7 @@ const std::vector<std::string> &startup_issues() {
 }
 
 void broadcast_library_changed(const char *kind) {
-  enqueue("libraryChanged", rt::library_changed_json(kind));
+  enqueue("libraryChanged", rt::library_changed_json(kind), rt::SseOutbox::Delivery::kEach);
 }
 
 void broadcast_config_window(bool open, int32_t remaining_s) {
@@ -254,7 +285,7 @@ void broadcast_config_window(bool open, int32_t remaining_s) {
   payload += ",\"remainingSeconds\":";
   payload += std::to_string(remaining_s);
   payload += "}";
-  enqueue("configWindow", payload);
+  enqueue("configWindow", payload, rt::SseOutbox::Delivery::kLatest);
 }
 
 }  // namespace sse_hub

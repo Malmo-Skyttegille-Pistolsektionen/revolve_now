@@ -73,10 +73,13 @@ info:
 
     State is serialized *and* queued under a single lock, and the frames are
     then written from the HTTP task, so the order clients see is the order the
-    state actually took. If the HTTP work queue is full — the task wedged or
-    badly behind — a frame is **dropped** rather than blocking the run loop,
-    so a client may miss an intermediate state. It will not miss the final
-    one for long: the next mutation or the next connect republishes.
+    state actually took. While the HTTP task is busy — serving a firmware
+    upload, say — frames wait for it rather than block the run loop. A newer
+    `stateUpdate`, `configWindow` or `heartbeat` supersedes a waiting one of
+    the same event, so a client may miss an intermediate state or beat but
+    receives the latest within one heartbeat of the task freeing up.
+    `backend_issue` and `libraryChanged` each count, so they wait up to a
+    bound, past which they are **dropped**.
 
     Dead clients are reaped on the heartbeat cadence: a peer that closed
     cleanly is detected by a non-destructive peek, and TCP keepalive

@@ -62,8 +62,8 @@ void flush(bool wake_run_loop) {
     if (s_effects.pending_broadcast) {
       s_effects.pending_broadcast = false;
       // Serialized AND handed to the SSE hub under the same lock. The hub only
-      // enqueues onto the httpd work queue - it does not touch a socket - so
-      // this cannot block. Doing both under one lock is what keeps snapshot
+      // queues the frame for the httpd task - it does not touch a socket - so
+      // this cannot block on a client. Doing both under one lock is what keeps snapshot
       // order and send order identical: releasing between them let two tasks
       // snapshot A then B and send B then A, leaving every client holding a
       // stale final state that nothing would ever correct.

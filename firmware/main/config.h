@@ -106,6 +106,9 @@ constexpr int32_t kFirstUploadId = 1000;
 constexpr uint16_t kHttpPort = CONFIG_RT_HTTP_PORT;
 // Heartbeat cadence on /sse/v2, per docs/api-v2.md.
 constexpr int kSseHeartbeatSeconds = 10;
+// One-off /sse/v2 frames (`backend_issue`, `libraryChanged`) that may wait for
+// a busy httpd task before more are dropped. State frames are never dropped.
+constexpr size_t kSseOutboxCapacity = 16;
 // Ceiling on an uploaded program document or audio file.
 constexpr size_t kMaxUploadBytes = 1024 * 1024;
 
