@@ -100,4 +100,5 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-MIT — see the `LICENSE` file in each component directory.
+MIT — see [`LICENSE`](LICENSE). It covers everything here except the vendored
+libraries under `firmware/lib/`, which keep their own.

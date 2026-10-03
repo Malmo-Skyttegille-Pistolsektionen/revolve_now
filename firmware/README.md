@@ -167,4 +167,4 @@ locking rules and the storage layout.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](../LICENSE).
