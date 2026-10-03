@@ -1839,8 +1839,6 @@ that would have made the whole feature not worth having.
 
 - **Are `app` / `x86_linux` used by anyone?** (asked — drives D-03's
   archive-or-keep follow-up)
-- **LICENSE / copyright unification** across the imported repos (org vs
-  individual).
 - **The control lock is off after every boot** — acceptable security posture, or a
   cross-component contract change?
 - **CORS:** firmware allowlist vs MicroPython reflect-any — the contract
