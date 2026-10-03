@@ -1539,8 +1539,11 @@ paths:
         is assigned. Every failure path removes the staging file, so a
         repeated failed upload cannot fill the partition.
 
-        Accepted audio is RIFF/WAVE, PCM (format tag 1), 16-bit, mono or
-        stereo, with a non-zero sample rate and a non-empty `data` chunk.
+        Accepted audio is RIFF/WAVE with a non-zero sample rate and a
+        non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
+        16-bit, mono or stereo; or IMA ADPCM (format tag `0x11`), 4-bit, mono,
+        with a block of 5 to 512 bytes - the encoding of the shipped clips,
+        and what the web app converts other formats to before uploading.
         Chunks are walked rather than assumed, so a `LIST`/`INFO` chunk before
         `data` is fine.
 
@@ -1589,8 +1592,8 @@ paths:
             - `/problems/upload_missing_file` — no file part arrived.
             - `/problems/upload_missing_title` — the `title` field is absent
               or empty.
-            - `/problems/audio_format_unsupported` — not a playable PCM 16-bit
-              WAV.
+            - `/problems/audio_format_unsupported` — not a WAV in either
+              accepted encoding.
 
             A body over the 1 MiB ceiling is also answered `400`, but with a
             `text/html` body rather than a problem detail.

@@ -3,6 +3,9 @@
 
     wav_to_adpcm.py <out_dir> <in.wav> [<in.wav> ...]
 
+webapp/src/lib/ima-adpcm.ts is a byte-identical port that encodes uploads in
+the browser (D-43). Change both.
+
 Stdlib only, and deliberately so. ffmpeg was used to *measure* the codec
 options for #227, but it must not be a build prerequisite: it is a large system
 package and different versions are not guaranteed to emit identical bytes,

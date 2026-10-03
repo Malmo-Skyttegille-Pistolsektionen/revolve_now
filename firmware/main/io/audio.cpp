@@ -100,7 +100,7 @@ void write_mono_as_stereo(const int16_t *samples, size_t count) {
   }
 }
 
-// Uploaded clips: whatever the club recorded, straight from the file.
+// 16-bit PCM, straight from the file.
 void play_pcm(FILE *f, const rt::WavInfo &info) {
   static int16_t chunk[kAudioChunkBytes / 2];
   uint64_t remaining = info.data_bytes;
@@ -126,8 +126,9 @@ void play_pcm(FILE *f, const rt::WavInfo &info) {
   }
 }
 
-// The shipped set, transcoded to IMA ADPCM at build time so that firmware, web
-// app and audio fit one image (#227). Block by block, because each block
+// IMA ADPCM: the shipped set, transcoded at build time so that firmware, web
+// app and audio fit one image (#227), and uploads the web app converted
+// (D-43). Block by block, because each block
 // restarts from its own predictor - which is also why a damaged block costs
 // one block rather than the rest of the clip.
 void play_adpcm(FILE *f, const rt::WavInfo &info) {

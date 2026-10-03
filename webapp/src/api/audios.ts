@@ -33,9 +33,9 @@ export interface UploadRequest {
 
 /**
  * The device takes nothing but the extension from the client's filename, and
- * takes it as an early reject - matched here so the user is told which file is
- * wrong. Its own refusal is raised from the streaming callback and surfaces as
- * the far less helpful `No file uploaded`.
+ * takes it as an early reject. Its refusal is raised from the streaming
+ * callback and surfaces as the far less helpful `No file uploaded`, so a file
+ * sent unconverted is checked against it here first.
  */
 export function isAcceptedFilename(name: string): boolean {
   return name.length >= 5 && name.toLowerCase().endsWith('.wav');
@@ -50,7 +50,7 @@ export class UploadRejectedError extends Error {
 
 export function fileRejectionReason(file: File): string | null {
   if (!isAcceptedFilename(file.name)) {
-    return `"${file.name}" is not a .wav file. The device plays 16-bit PCM WAV only.`;
+    return `"${file.name}" is not named .wav, and the device takes nothing else.`;
   }
 
   if (file.size > MAX_FILE_BYTES) {

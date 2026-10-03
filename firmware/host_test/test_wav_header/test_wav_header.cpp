@@ -249,9 +249,10 @@ void test_non_pcm_is_refused() {
 
 // --- IMA ADPCM (#227) ------------------------------------------------------
 //
-// The shipped clips are transcoded at build time; uploaded ones stay PCM. So
-// both formats reach the same player and which one a file is has to come out
-// of the header rather than out of where the file was found.
+// The shipped clips are transcoded at build time and uploads mostly in the
+// browser (D-43), but a PCM upload is still accepted. So both formats reach
+// the same player and which one a file is has to come out of the header
+// rather than out of where the file was found.
 
 void test_an_ima_adpcm_wav_parses() {
   MemorySource src(make_adpcm_wav());

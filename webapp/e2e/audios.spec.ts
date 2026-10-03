@@ -10,7 +10,7 @@ test.beforeEach(async ({ request }) => {
   await resetDevice(request);
 });
 
-/** A PCM16 mono WAV with enough samples to be a plausible upload, no more. */
+/** A PCM16 mono WAV with enough samples to be a plausible pick, no more; the UI converts it before sending. */
 function minimalWav(dataBytes = 8): Buffer {
   const header = Buffer.alloc(44);
   header.write('RIFF', 0, 'ascii');
@@ -37,7 +37,7 @@ test('an upload through the UI reaches the device (#250)', async ({ page }) => {
   // needs a real DAC. QEMU sets CONFIG_RT_AUDIO_ENABLED=n, which stubs
   // `audio::probe_wav` to always refuse (firmware/main/io/audio.cpp) - so the
   // signal here is landing on that refusal instead of on "No file uploaded".
-  // A real board accepts this exact clip and returns 201.
+  // A real board accepts the ADPCM clip the UI converts this into, and returns 201.
   await openApp(page);
   await page.getByRole('link', { name: 'Audios' }).click();
   await expect(page).toHaveURL(/\/audios$/);

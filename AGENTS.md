@@ -120,6 +120,8 @@ completion (#135). `webapp/src/lib/run-position.ts` mirrors
 `webapp/src/lib/bank-state.ts` mirrors `enter_event` in
 `firmware/lib/rt_logic/executor.cpp` - how a `command` baseline and the
 per-bank `banks` overrides resolve into what each bank is doing.
+`webapp/src/lib/ima-adpcm.ts`, which encodes uploads in the browser (D-43), is
+a byte-identical port of `firmware/tools/wav_to_adpcm.py`.
 
 **`webapp/dist` is embedded in the application image, not rebuilt by it.** The
 firmware build bakes whatever `dist` currently holds. A firmware build after a
