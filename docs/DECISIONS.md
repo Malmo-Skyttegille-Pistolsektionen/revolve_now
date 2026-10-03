@@ -1893,6 +1893,12 @@ working, and so do bookmarks to it. A board whose hostname was set explicitly
 keeps that name. GitHub redirects the repository's URLs after a rename, but
 Pages does not, so the old `…github.io/rotation_target/` links break.
 
+**Contract:** the default host moves in both specs' `servers`, which the
+AsyncAPI diff reports as breaking. No payload, path or status code changes, so
+`/api/v2` and `/sse/v2` stay. Taken as a further exception on
+D-16/D-23/D-27's grounds: the webapp ships inside the firmware image and no
+release has been cut. The commit is marked `!`.
+
 **Rejected:** *renaming the project name and accepting the old one in OTA*.
 That fixes only boards already running the new check, so every board would
 need one cable flash anyway.
