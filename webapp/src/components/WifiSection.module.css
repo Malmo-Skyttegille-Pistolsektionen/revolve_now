@@ -1,5 +1,5 @@
 .section {
-  background-color: #fff;
+  background-color: var(--rt-surface);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
@@ -11,7 +11,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 1.1rem;
-  color: #374151;
+  color: var(--rt-text-strong);
   font-weight: 600;
 }
 
@@ -24,7 +24,7 @@
 }
 
 .label {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.9rem;
 }
 
@@ -35,12 +35,12 @@
   gap: 0.5rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9rem;
-  color: #111827;
+  color: var(--rt-ink);
   overflow-wrap: anywhere;
 }
 
 .muted {
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-family: system-ui, sans-serif;
   font-style: italic;
 }
@@ -48,7 +48,7 @@
 /* Updates in place every fifteen seconds, so the digits must not dance. */
 .dbm {
   font-variant-numeric: tabular-nums;
-  color: #6b7280;
+  color: var(--rt-text-muted);
 }
 
 .bars {
@@ -68,11 +68,11 @@
 }
 
 .barOn {
-  background-color: #4f46e5;
+  background-color: var(--rt-accent-fill);
 }
 
 .barOff {
-  background-color: #d1d5db;
+  background-color: var(--rt-border-strong);
 }
 
 .bars > :nth-child(1) {
@@ -90,7 +90,7 @@
 
 .note {
   margin: 0;
-  color: #6b7280;
+  color: var(--rt-text-muted);
   font-size: 0.85rem;
   line-height: 1.4;
 }

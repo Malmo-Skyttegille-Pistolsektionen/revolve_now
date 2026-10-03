@@ -12,8 +12,8 @@
 .title {
   margin: 0;
   font-size: 1.5rem;
-  color: #333;
-  border-bottom: 2px solid #e5e7eb;
+  color: var(--rt-text);
+  border-bottom: 2px solid var(--rt-border);
   padding-bottom: 0.5rem;
 }
 
@@ -25,7 +25,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid var(--rt-border);
   padding-bottom: 0.5rem;
 }
 
@@ -43,7 +43,7 @@
 
 .backLink {
   align-self: flex-start;
-  color: #4338ca;
+  color: var(--rt-accent-deep);
   font-size: 0.9rem;
   text-decoration: none;
 }
@@ -54,9 +54,9 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #fffbeb;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background-color: var(--rt-warn-tint-soft);
+  border: 1px solid var(--rt-warn-border);
+  color: var(--rt-warn);
   font-size: 0.85rem;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
@@ -66,9 +66,9 @@
   margin: 0;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
-  background-color: #f3f4f6;
-  border: 1px solid #d1d5db;
-  color: #374151;
+  background-color: var(--rt-surface-muted);
+  border: 1px solid var(--rt-border-strong);
+  color: var(--rt-text-strong);
   font-size: 0.85rem;
   line-height: 1.5;
 }

@@ -1,0 +1,65 @@
+/* The same segmented look as the program editor's Editor / JSON tabs. */
+.picker {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--rt-border-strong);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--rt-control-height);
+  min-width: 5.5rem;
+  padding: 0.4rem 0.9rem;
+  box-sizing: border-box;
+  background: var(--rt-surface);
+  color: var(--rt-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.option + .option {
+  border-left: 1px solid var(--rt-border-strong);
+}
+
+.option:hover:not(.optionActive) {
+  background: var(--rt-surface-muted);
+}
+
+.optionActive {
+  background: var(--rt-action-tint);
+  color: var(--rt-action-text);
+  font-weight: 600;
+}
+
+/* The input stays in the accessibility tree and takes the arrow keys; the
+   label is what shows, so the focus ring goes on the label. */
+.radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.option:has(.radio:focus-visible) {
+  outline: 2px solid var(--rt-focus);
+  outline-offset: -2px;
+}
+
+@media (max-width: 768px) {
+  .picker {
+    display: flex;
+    align-self: stretch;
+  }
+
+  .option {
+    flex: 1;
+    min-width: 0;
+  }
+}

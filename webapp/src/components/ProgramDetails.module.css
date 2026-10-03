@@ -1,7 +1,7 @@
 .panel {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--rt-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--rt-surface);
   padding: 1rem;
   margin-top: 1rem;
 }
@@ -21,7 +21,7 @@
 
 .description {
   margin: 0.25rem 0 0;
-  color: #555;
+  color: var(--rt-text-subtle);
 }
 
 .headerActions {
@@ -32,15 +32,15 @@
 .button {
   padding: 0.4rem 0.75rem;
   min-height: var(--rt-control-height);
-  border: 1px solid #ccc;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--rt-surface);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .button:hover:not(:disabled) {
-  background: #f0f0f0;
+  background: var(--rt-surface-muted);
 }
 
 .button:disabled {
@@ -50,13 +50,13 @@
 
 .meta {
   margin: 0.75rem 0;
-  color: #555;
+  color: var(--rt-text-subtle);
   font-size: 0.9rem;
 }
 
 .message {
   margin: 0.75rem 0;
-  color: #555;
+  color: var(--rt-text-subtle);
 }
 
 @media (max-width: 768px) {

@@ -11,7 +11,12 @@ import {
 } from '@tanstack/react-router';
 import { SettingsProvider } from './context/SettingsContext';
 import { StandaloneEditorApp } from './standalone/StandaloneEditorApp';
+import { applyTheme, readStoredTheme } from './lib/theme';
 import './index.css';
+
+// Before the first render, so an explicit choice that differs from the OS does
+// not flash the other theme while React mounts.
+applyTheme(readStoredTheme());
 
 /**
  * The GitHub Pages entry (#140): the same `ProgramEditor` the device build

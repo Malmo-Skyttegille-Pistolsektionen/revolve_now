@@ -30,16 +30,16 @@
 .button {
   padding: 0.4rem 0.75rem;
   min-height: var(--rt-control-height);
-  border: 1px solid #ccc;
+  border: 1px solid var(--rt-border-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--rt-surface);
   cursor: pointer;
   font-size: 0.9rem;
   white-space: nowrap;
 }
 
 .button:hover:not(:disabled) {
-  background: #f0f0f0;
+  background: var(--rt-surface-muted);
 }
 
 .button:disabled {
@@ -48,22 +48,22 @@
 }
 
 .buttonPrimary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #fff;
+  background: var(--rt-action);
+  border-color: var(--rt-action);
+  color: var(--rt-on-fill);
 }
 
 .buttonPrimary:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--rt-action-deep);
 }
 
 .buttonDestructive {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--rt-stop-ink);
+  color: var(--rt-stop-ink);
 }
 
 .buttonDestructive:hover:not(:disabled) {
-  background: #fee2e2;
+  background: var(--rt-stop-tint);
 }
 
 .headerActions {
@@ -79,13 +79,13 @@
   gap: 0.5rem;
   padding: 0.4rem 0.75rem;
   border-radius: 4px;
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--rt-surface-muted);
+  color: var(--rt-text-subtle);
   font-size: 0.9rem;
 }
 
 .message {
-  color: #555;
+  color: var(--rt-text-subtle);
 }
 
 /* Keeps a wide table inside its own scroller rather than letting it push the
@@ -103,7 +103,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--rt-surface);
   font-size: 0.95rem;
 }
 
@@ -111,7 +111,7 @@
 .table td {
   text-align: left;
   padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--rt-border);
   vertical-align: middle;
 }
 
@@ -119,15 +119,15 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #6b7280;
+  color: var(--rt-text-muted);
 }
 
 .row:hover {
-  background: #fafafa;
+  background: var(--rt-surface-sunken);
 }
 
 .rowLoaded {
-  background: #eff6ff;
+  background: var(--rt-action-tint);
 }
 
 .idColumn {
@@ -156,7 +156,7 @@
 }
 
 .description {
-  color: #555;
+  color: var(--rt-text-subtle);
 }
 
 .titleButton {
@@ -164,7 +164,7 @@
   background: none;
   padding: 0;
   font: inherit;
-  color: #1d4ed8;
+  color: var(--rt-action-text);
   cursor: pointer;
   text-align: left;
 }
@@ -183,20 +183,20 @@
 }
 
 .badgeShipped {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--rt-fill);
+  color: var(--rt-text-strong);
   margin-left: 0;
 }
 
 .badgeUploaded {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--rt-shown-tint);
+  color: var(--rt-shown-text);
   margin-left: 0;
 }
 
 .badgeLoaded {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--rt-action-tint-strong);
+  color: var(--rt-action-text);
 }
 
 /* How many banks a program needs. Neutral while the device can run it - this
@@ -204,21 +204,21 @@
    cannot, which is the advisory register: nothing is wrong, and nothing here
    will start. */
 .badgeBanks {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--rt-surface-muted);
+  color: var(--rt-text-strong);
   font-variant-numeric: tabular-nums;
 }
 
 .badgeUnavailable {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--rt-warn-tint);
+  color: var(--rt-warn);
   font-variant-numeric: tabular-nums;
 }
 
 .unrunnable {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
-  color: #92400e;
+  color: var(--rt-warn);
 }
 
 /* --- Phone -----------------------------------------------------------------
@@ -248,7 +248,7 @@
   }
 
   .table tr {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--rt-border);
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.6rem;
@@ -266,7 +266,7 @@
   .table td::before {
     content: attr(data-label);
     flex: 0 0 4.5rem;
-    color: #6b7280;
+    color: var(--rt-text-muted);
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.05em;

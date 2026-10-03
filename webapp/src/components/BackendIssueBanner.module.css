@@ -4,9 +4,9 @@
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 6px;
-  background-color: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #78350f;
+  background-color: var(--rt-warn-tint);
+  border: 1px solid var(--rt-warn-border);
+  color: var(--rt-warn);
   font-size: 0.9rem;
 }
 
@@ -46,5 +46,5 @@
 }
 
 .dismiss:hover {
-  background-color: #fde68a;
+  background-color: var(--rt-warn-tint-strong);
 }
