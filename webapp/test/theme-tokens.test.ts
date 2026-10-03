@@ -40,7 +40,8 @@ describe('theme tokens', () => {
   });
 
   it('matches the dark column of the DESIGN.md table', () => {
-    const rows = [...DESIGN.matchAll(/^\| `([a-z-]+)` \| `(#[0-9a-f]{6})` \| `(#[0-9a-f]{6})` \|$/gm)];
+    // Cells may be padded: Prettier aligns the table's columns.
+    const rows = [...DESIGN.matchAll(/^\| `([a-z-]+)` +\| `(#[0-9a-f]{6})` +\| `(#[0-9a-f]{6})` +\|$/gm)];
     expect(Object.fromEntries(rows.map((m) => [m[1], m[2]]))).toEqual(light);
     expect(Object.fromEntries(rows.map((m) => [m[1], m[3]]))).toEqual(darkFromOs);
   });
