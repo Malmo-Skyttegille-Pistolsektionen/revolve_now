@@ -33,6 +33,11 @@ nav:
   - Expert mode: expert-mode.md
   - Status LED: status-led.md
   - Troubleshooting: troubleshooting.md
+  - Figures and tables: lists.md
+
+# Fills lists.md from the other pages at build time.
+hooks:
+  - docs/hooks/lists.py
 
 markdown_extensions:
   - tables

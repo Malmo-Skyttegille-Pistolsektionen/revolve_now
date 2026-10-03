@@ -13,11 +13,12 @@ which is which before changing anything:
 | Server Base URL | browser | Which device this browser talks to |
 | Address | device | The address the device says it is reachable on |
 | Control lock | device | Whether control is open to everyone or needs a login |
-| Start delay | browser | Seconds counted down before a run starts |
 | Startup Issues | device | What the device could not read when it booted |
 | Storage | device | How much room the flash partitions have |
 | WiFi | device | Which network it is on, and how good the link is |
 | About | device | What firmware and web app this is, and exactly which build |
+
+![The Settings page](img/settings.png)
 
 Nothing on this page can stop the device working. The settings that can —
 which network it joins, which pins it drives, and the crash dump download —
@@ -67,11 +68,6 @@ token; **Login** on another browser asks for that password again.
 
 The password protects against the accidental rather than the determined: the
 device is on the range's own network, and the traffic is plain HTTP.
-
-## Start delay
-
-Covered under [starting a run](running-a-program.md#starting) — it is here as
-well because it is a setting, and the two controls write the same value.
 
 ## Startup Issues
 
