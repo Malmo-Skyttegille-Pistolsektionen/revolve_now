@@ -29,7 +29,7 @@ void assert_problem(const rt::ProblemType &expected, const Answer &answer) {
 Answer accepted_upload(UploadSession &session, bool restart_scheduled) {
   TEST_ASSERT_FALSE(session.gate(true).has_value());
   TEST_ASSERT_TRUE(session.begin(false));
-  session.installed(restart_scheduled);
+  session.install(restart_scheduled);
   return session.respond();
 }
 
@@ -117,18 +117,19 @@ void test_an_empty_file_part_does_not_inherit_the_previous_refusal() {
   TEST_ASSERT_EQUAL_STRING(rt::ota::message(Refusal::kEmptyImage), answer.detail);
 }
 
-void test_an_empty_file_part_does_not_inherit_the_previous_acceptance() {
+void test_the_request_after_an_acceptance_is_not_told_accepted() {
   // The worse direction: a request that wrote nothing told it was accepted.
   UploadSession session;
   TEST_ASSERT_TRUE(accepted_upload(session, true).accepted());
 
-  TEST_ASSERT_FALSE(session.gate(true).has_value());
-  assert_problem(rt::problem::kOtaImageRefused, session.respond());
+  const std::optional<Answer> gated = session.gate(true);
+  TEST_ASSERT_TRUE(gated.has_value());
+  TEST_ASSERT_FALSE(gated->accepted());
 }
 
 void test_a_raw_body_is_answered_at_the_gate_with_a_problem_detail() {
-  // Refused by onUpload instead, PsychicUploadHandler answered 500 text/html
-  // itself and onRequest never ran (D-19).
+  // Answered before the body, so it is a problem detail like every other
+  // error (D-19), not PsychicUploadHandler's own 500 text/html.
   UploadSession session;
   const std::optional<Answer> gated = session.gate(false);
   TEST_ASSERT_TRUE(gated.has_value());
@@ -157,13 +158,71 @@ void test_a_refusal_does_not_outlive_its_request() {
   TEST_ASSERT_TRUE(accepted_upload(session, true).accepted());
 }
 
-void test_a_write_that_fails_before_the_image_check_is_refused_not_accepted() {
-  // esp_ota_begin or esp_ota_write failing records nothing; the answer must
-  // still be a refusal.
+// --- the device's own failures --------------------------------------------
+
+void test_a_failed_write_is_the_devices_fault_not_the_files() {
+  // esp_ota_begin, a flash write, esp_ota_end or the boot partition failing:
+  // the image may have been fine.
   UploadSession session;
   session.gate(true);
   TEST_ASSERT_TRUE(session.begin(false));
+  session.fail();
+  assert_problem(rt::problem::kOtaWriteFailed, session.respond());
+}
+
+void test_a_refusal_outranks_a_failure_in_the_same_request() {
+  UploadSession session;
+  session.gate(true);
+  session.begin(false);
+  session.refuse(Refusal::kInvalidImage);
+  session.fail();
   assert_problem(rt::problem::kOtaImageRefused, session.respond());
+}
+
+void test_a_failure_does_not_outlive_its_request() {
+  UploadSession session;
+  session.gate(true);
+  session.begin(false);
+  session.fail();
+  session.respond();
+
+  session.gate(true);
+  assert_problem(rt::problem::kOtaImageRefused, session.respond());
+}
+
+// --- between an accepted image and the restart -----------------------------
+
+void test_an_upload_during_the_restart_drain_is_refused_at_the_gate() {
+  // The next update slot counts from the running one, so it is now the image
+  // just installed: anything let through would erase it.
+  UploadSession session;
+  accepted_upload(session, true);
+  const std::optional<Answer> gated = session.gate(true);
+  TEST_ASSERT_TRUE(gated.has_value());
+  assert_problem(rt::problem::kRestartPending, *gated);
+  TEST_ASSERT_FALSE(session.begin(false));
+}
+
+void test_a_second_file_part_writes_nothing_and_the_request_stays_accepted() {
+  UploadSession session;
+  TEST_ASSERT_TRUE(accepted_upload(session, true).accepted());
+  TEST_ASSERT_FALSE(session.begin(false));
+  TEST_ASSERT_TRUE(session.respond().accepted());
+}
+
+void test_a_restart_is_pending_only_once_one_was_scheduled() {
+  // ota::in_progress() reads this, so a program started in the drain is
+  // refused rather than cut off by the restart.
+  UploadSession scheduled;
+  TEST_ASSERT_FALSE(scheduled.restart_pending());
+  accepted_upload(scheduled, true);
+  TEST_ASSERT_TRUE(scheduled.restart_pending());
+
+  // A failed restart waits for a power cycle, which may be a long time; runs
+  // are not held off for it.
+  UploadSession failed;
+  accepted_upload(failed, false);
+  TEST_ASSERT_FALSE(failed.restart_pending());
 }
 
 int main() {
@@ -176,10 +235,15 @@ int main() {
   RUN_TEST(test_a_raw_body_after_a_failed_restart_also_gets_restart_failed);
   RUN_TEST(test_nothing_is_written_while_awaiting_a_power_cycle_even_past_the_gate);
   RUN_TEST(test_an_empty_file_part_does_not_inherit_the_previous_refusal);
-  RUN_TEST(test_an_empty_file_part_does_not_inherit_the_previous_acceptance);
+  RUN_TEST(test_the_request_after_an_acceptance_is_not_told_accepted);
   RUN_TEST(test_a_raw_body_is_answered_at_the_gate_with_a_problem_detail);
   RUN_TEST(test_a_raw_body_clears_what_the_previous_upload_left);
   RUN_TEST(test_a_refusal_does_not_outlive_its_request);
-  RUN_TEST(test_a_write_that_fails_before_the_image_check_is_refused_not_accepted);
+  RUN_TEST(test_a_failed_write_is_the_devices_fault_not_the_files);
+  RUN_TEST(test_a_refusal_outranks_a_failure_in_the_same_request);
+  RUN_TEST(test_a_failure_does_not_outlive_its_request);
+  RUN_TEST(test_an_upload_during_the_restart_drain_is_refused_at_the_gate);
+  RUN_TEST(test_a_second_file_part_writes_nothing_and_the_request_stays_accepted);
+  RUN_TEST(test_a_restart_is_pending_only_once_one_was_scheduled);
   return UNITY_END();
 }

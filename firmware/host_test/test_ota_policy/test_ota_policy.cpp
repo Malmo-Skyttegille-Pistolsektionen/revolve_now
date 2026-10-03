@@ -1,5 +1,5 @@
 // ============================================================================
-//  Whether a firmware image may be accepted (#127). Two of the three refusals
+//  Whether a firmware image may be accepted (#127). Two of the refusals
 //  are safety rules, not plumbing - and a safety rule that only exists inside
 //  an HTTP handler is one nobody can test.
 // ============================================================================

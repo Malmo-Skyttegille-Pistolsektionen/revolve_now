@@ -56,8 +56,7 @@ test('an image for another project is refused', async ({ request }) => {
 });
 
 test('a file that is not an image is refused on its first byte', async ({ request }) => {
-  // Before #344 this answered "empty or too small": esp_ota_write refused it
-  // and nothing recorded why.
+  // esp_ota_write refuses it, and that is a refusal of the file, not "empty".
   await expectProblem(await request.post(`${API}/ota`, { multipart: filePart(Buffer.alloc(4096)) }), {
     type: '/problems/ota_image_refused',
     title: 'Firmware image refused',
@@ -77,13 +76,13 @@ test('a running program refuses, and the next empty part answers for itself', as
     detail: 'A program is running - stop it before updating the firmware',
   });
 
-  // MultipartProcessor never calls onUpload for an empty part. Before #342
-  // this answered with the 409 above.
+  // MultipartProcessor never calls onUpload for an empty part, so this request
+  // answers for itself, not with the 409 above.
   await expectProblem(await request.post(`${API}/ota`, { multipart: filePart(Buffer.alloc(0)) }), EMPTY_IMAGE);
 });
 
 test('a raw body is answered with a problem detail', async ({ request }) => {
-  // Refused from onUpload, PsychicUploadHandler answered 500 text/html itself.
+  // Answered before the body, so it is a problem detail (D-19).
   await expectProblem(
     await request.post(`${API}/ota`, {
       headers: { 'Content-Type': 'application/octet-stream' },

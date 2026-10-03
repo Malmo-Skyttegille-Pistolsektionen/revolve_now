@@ -7,7 +7,7 @@
 //
 // In rt_logic rather than main/ because these are decisions, not effects: the
 // ESP-IDF calls that write flash live in main/ota/ota.cpp, and everything that
-// says *no* lives here where a host test reaches it. Two of the three refusals
+// says *no* lives here where a host test reaches it. Two of the refusals
 // are safety rules rather than plumbing, and a safety rule that only exists
 // inside an HTTP handler is one nobody can test.
 namespace rt::ota {

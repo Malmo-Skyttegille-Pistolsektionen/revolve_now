@@ -22,7 +22,8 @@ using ControlLockGuard = bool (*)(PsychicRequest *, PsychicResponse *);
 // every other write.
 void register_routes(PsychicHttpServer &server, ControlLockGuard require_control_lock);
 
-// True from the first byte of an upload until it finishes or is abandoned.
+// True from the first byte of an upload until it is refused, abandoned, or the
+// device restarts into it.
 // The run loop refuses to start a program while this is true: a reboot is
 // moments away and a program that begins now would be cut off mid-sequence.
 bool in_progress();

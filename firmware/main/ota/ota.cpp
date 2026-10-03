@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 
+#include "backend_issue.h"
 #include "ota_upload.h"
 #include "problem.h"
 #include "program_executor.h"
@@ -40,7 +41,7 @@ void abort_upload(const char *why) {
 }
 
 void raise(rt::ota::Refusal refusal) {
-  sse_hub::broadcast_issue("ota_refused", rt::ota::message(refusal));
+  sse_hub::broadcast_issue(rt::issue_code::kOtaRefused, rt::ota::message(refusal));
 }
 
 // Recorded for onRequest's answer, and told to every open page.
@@ -60,7 +61,7 @@ esp_err_t send(PsychicResponse *res, const rt::ota::Answer &answer) {
 }  // namespace
 
 bool in_progress() {
-  return s_in_progress;
+  return s_in_progress || s_session.restart_pending();
 }
 
 void register_routes(PsychicHttpServer &server, ControlLockGuard require_control_lock) {
@@ -73,6 +74,10 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
   upload.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
                           const PsychicMiddlewareNext &next) -> esp_err_t {
     if (!s_require_control_lock(req, res)) return ESP_OK;
+    // A client that vanishes mid-transfer never delivers a final chunk, so
+    // nothing else closes its handle - and in_progress() would hold off every
+    // program start until the next upload.
+    if (s_handle != 0) abort_upload("leftover handle from an abandoned upload");
     if (const auto answer = s_session.gate(req->isMultipart())) {
       ESP_LOGW(TAG, "Refused before the body: %s", answer->detail);
       return send(res, *answer);
@@ -85,10 +90,6 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     if (index == 0) {
       ESP_LOGI(TAG, "Upload '%s' starting", filename == nullptr ? "(unnamed)" : filename);
 
-      // Reclaim a handle a previous upload leaked. A client that vanishes
-      // mid-transfer never delivers a final chunk, so nothing else closes it.
-      if (s_handle != 0) abort_upload("leftover handle from an abandoned upload");
-
       const bool program_running = executor::is_running();
       if (!s_session.begin(program_running)) {
         ESP_LOGW(TAG, "Refused before writing");
@@ -97,6 +98,11 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
       }
 
       s_partition = esp_ota_get_next_update_partition(nullptr);
+      if (s_partition == nullptr) {
+        ESP_LOGE(TAG, "No inactive slot");
+        s_session.fail();
+        return ESP_FAIL;
+      }
 
       // Sized from Content-Length rather than OTA_SIZE_UNKNOWN. Unknown makes
       // esp_ota_begin erase the whole 3 MB slot before the first byte is
@@ -111,10 +117,12 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
           request == nullptr ? 0 : static_cast<size_t>(request->contentLength());
       if (declared > 0 && declared <= s_partition->size) erase_size = declared;
 
-      if (s_partition == nullptr || esp_ota_begin(s_partition, erase_size, &s_handle) != ESP_OK) {
+      if (esp_ota_begin(s_partition, erase_size, &s_handle) != ESP_OK) {
         ESP_LOGE(TAG, "Could not open the inactive slot");
-        s_handle = 0;  // a failed begin leaves nothing to abort
+        // A failed erase has already handed out a handle.
+        if (s_handle != 0) esp_ota_abort(s_handle);
         clear();
+        s_session.fail();
         return ESP_FAIL;
       }
       s_in_progress = true;
@@ -126,7 +134,11 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     // Validation fails here on the first byte of anything that is not an image.
     const esp_err_t write_err = esp_ota_write(s_handle, data, len);
     if (write_err != ESP_OK) {
-      if (write_err == ESP_ERR_OTA_VALIDATE_FAILED) refuse(rt::ota::Refusal::kInvalidImage);
+      if (write_err == ESP_ERR_OTA_VALIDATE_FAILED) {
+        refuse(rt::ota::Refusal::kInvalidImage);
+      } else {
+        s_session.fail();
+      }
       abort_upload("write failed");
       return ESP_FAIL;
     }
@@ -156,13 +168,18 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     const esp_err_t end_err = esp_ota_end(s_handle);
     if (end_err != ESP_OK) {
       ESP_LOGE(TAG, "Image failed validation");
-      if (end_err == ESP_ERR_OTA_VALIDATE_FAILED) refuse(rt::ota::Refusal::kInvalidImage);
+      if (end_err == ESP_ERR_OTA_VALIDATE_FAILED) {
+        refuse(rt::ota::Refusal::kInvalidImage);
+      } else {
+        s_session.fail();
+      }
       clear();
       return ESP_FAIL;
     }
     if (esp_ota_set_boot_partition(s_partition) != ESP_OK) {
       ESP_LOGE(TAG, "Could not set the boot partition");
       clear();
+      s_session.fail();
       return ESP_FAIL;
     }
 
@@ -172,7 +189,7 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     // Only once the restart is on its way: an image that will boot but never
     // does is worse than a refusal.
     const bool scheduled = device_restart::schedule("into the new firmware");
-    s_session.installed(scheduled);
+    s_session.install(scheduled);
     return scheduled ? ESP_OK : ESP_FAIL;
   });
 

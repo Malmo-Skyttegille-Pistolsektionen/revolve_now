@@ -517,6 +517,12 @@ components:
               a shipped one, the shipped clip is kept, and the uploaded entry
               is left unloaded.
 
+            - `ota_refused` — a firmware upload was refused: a program was
+              running, or the image was empty, not an image, incomplete, or
+              for another project. Sent to every open page, not only the
+              uploader's, since a refused update concerns whoever is at the
+              range.
+
             `program_invalid` is also a REST problem type,
             `/problems/program_invalid` in `openapi.yaml` — one failure, one
             word, whichever channel reports it (D-19). Rename it in one place
@@ -526,6 +532,7 @@ components:
             - program_invalid
             - program_id_collision
             - audio_id_collision
+            - ota_refused
         message:
           type: string
           description: >-

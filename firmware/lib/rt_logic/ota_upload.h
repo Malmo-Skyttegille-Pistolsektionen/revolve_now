@@ -31,11 +31,12 @@ class UploadSession {
   // ends the request.
   std::optional<Answer> gate(bool multipart) {
     restarting_ = false;
+    failed_ = false;
     refusal_ = Refusal::kNone;
 
-    // Ahead of the multipart check: the contract promises every upload this
-    // answer until the power cycle.
-    if (awaiting_power_cycle_) return restart_failed();
+    // Ahead of the multipart check: once an image is installed, every upload
+    // gets this answer until the device restarts.
+    if (installed_) return already_installed();
     if (!multipart) {
       return Answer{&problem::kUploadMissingFile,
                     "Expected a multipart/form-data body with the image in a file part"};
@@ -45,29 +46,40 @@ class UploadSession {
 
   // The first chunk. False means write nothing.
   bool begin(bool program_running) {
-    // Already refused at the gate; checked again at the write because the
-    // inactive slot is now the boot partition, and the first write erases it.
-    if (awaiting_power_cycle_) return false;
+    // The next update slot counts from the running one, so once an image is
+    // installed it is that image: the first write would erase it. Refused at
+    // the gate too; this also covers a second file part in the same request.
+    if (installed_) return false;
     refusal_ = check_start(program_running);
     return refusal_ == Refusal::kNone;
   }
 
-  // The image landed and check_image said no.
+  // The image is not acceptable.
   void refuse(Refusal refusal) { refusal_ = refusal; }
 
-  // The image is the boot partition. Sticky when no restart could be started:
-  // only a power cycle clears it.
-  void installed(bool restart_scheduled) {
+  // The device could not do its part - open the slot, write it, finalise it.
+  void fail() { failed_ = true; }
+
+  // The image is the boot partition. Sticky until the device restarts - or,
+  // when no restart could be started, until it is power-cycled.
+  void install(bool restart_scheduled) {
+    installed_ = true;
+    restart_scheduled_ = restart_scheduled;
     restarting_ = restart_scheduled;
-    if (!restart_scheduled) awaiting_power_cycle_ = true;
   }
+
+  // Between an accepted image and the restart that runs it.
+  bool restart_pending() const { return installed_ && restart_scheduled_; }
 
   Answer respond() const {
     if (restarting_) return Answer{};
-    if (awaiting_power_cycle_) return restart_failed();
+    if (installed_) return already_installed();
+    if (failed_ && refusal_ == Refusal::kNone) {
+      return Answer{&problem::kOtaWriteFailed,
+                    "The device could not write the firmware. Nothing was changed - try again."};
+    }
 
-    // Nothing recorded means nothing was written: an empty or missing file
-    // part, or a write that failed before an image could be checked.
+    // Nothing recorded means nothing arrived: an empty or missing file part.
     const Refusal refusal = refusal_ == Refusal::kNone ? Refusal::kEmptyImage : refusal_;
     // A running program clears on its own; a bad image never will.
     const ProblemType &type =
@@ -76,15 +88,22 @@ class UploadSession {
   }
 
  private:
-  static Answer restart_failed() {
+  Answer already_installed() const {
+    if (restart_scheduled_) {
+      return Answer{&problem::kRestartPending,
+                    "A firmware update was just installed and the device is restarting into it - "
+                    "wait for it to come back"};
+    }
     return Answer{&problem::kRestartFailed,
                   "The firmware was installed and is the boot partition, but the restart could "
                   "not be started. Power-cycle the device to run it."};
   }
 
   Refusal refusal_ = Refusal::kNone;
+  bool failed_ = false;
   bool restarting_ = false;
-  bool awaiting_power_cycle_ = false;
+  bool installed_ = false;
+  bool restart_scheduled_ = false;
 };
 
 }  // namespace rt::ota

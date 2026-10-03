@@ -42,6 +42,17 @@ async function skipTo(index: number, id: number, init?: RequestInit): Promise<Re
 }
 
 /**
+ * Whether the device has gone away mid-restart. Any answer at all means it is
+ * there - a 404 included, since what this tells apart is "answered" from
+ * "dropped the socket".
+ */
+async function unreachable(): Promise<boolean> {
+  return api('/version')
+    .then(() => false)
+    .catch(() => true);
+}
+
+/**
  * Asserts the whole RFC 9457 problem document, media type included (D-19).
  *
  * The whole document rather than just the `type`: `title` and `status` are
@@ -1002,13 +1013,6 @@ describe('hardware configuration', () => {
 describe('restarting the device', () => {
   const restart = async (init?: RequestInit): Promise<Response> => api('/system/restart', { method: 'POST', ...init });
 
-  // Any answer at all means the device is there - a 404 included, since what
-  // this is telling apart is "answered" from "dropped the socket".
-  const unreachable = async (): Promise<boolean> =>
-    api('/version')
-      .then(() => false)
-      .catch(() => true);
-
   // The firmware answers, keeps serving for 1.5 s so the response drains, and
   // only then reboots - so a client that polls immediately still gets answers.
   it('answers the same shape as the OTA upload, drains, then goes away', async () => {
@@ -1128,11 +1132,6 @@ describe('firmware upload', () => {
     if (image !== null) body.append('file', new Blob([new Uint8Array(image)]), 'rotation_target_backend.bin');
     return fetch(`${target}/ota`, { method: 'POST', body, ...init });
   };
-  const unreachable = async (): Promise<boolean> =>
-    api('/version')
-      .then(() => false)
-      .catch(() => true);
-
   const emptyImage = {
     type: '/problems/ota_image_refused',
     title: 'Firmware image refused',
@@ -1157,6 +1156,28 @@ describe('firmware upload', () => {
     expect(await unreachable()).toBe(true);
     clock.advance(1500);
     expect(await unreachable()).toBe(false);
+  });
+
+  it('writes nothing and starts nothing between an accepted image and the restart', async () => {
+    expect((await upload(fakeFirmwareImage())).status).toBe(200);
+
+    // The next upload would be written over the image just installed.
+    await expectProblem(await upload(fakeFirmwareImage()), {
+      type: '/problems/restart_pending',
+      title: 'The device is restarting',
+      status: 409,
+      detail: 'A firmware update was just installed and the device is restarting into it - wait for it to come back',
+    });
+    await api('/programs/40/load', { method: 'POST' });
+    await expectProblem(await start(40), {
+      type: '/problems/program_running',
+      title: 'A program is running',
+      status: 409,
+      detail: 'A firmware update is in progress - wait for the device to restart',
+    });
+
+    clock.advance(3000);
+    expect((await upload(fakeFirmwareImage('AutoLee'))).status).toBe(400);
   });
 
   it('refuses while a program is running, with 409', async () => {

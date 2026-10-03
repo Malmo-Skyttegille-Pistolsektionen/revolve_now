@@ -1481,7 +1481,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "409":
-          description: A program is running.
+          description: |
+            `/problems/program_running` — a program is running.
+
+            `/problems/restart_pending` — an image was just accepted and the
+            device is about to restart into it. The slot the next upload would
+            be written to is that image, so nothing is written until the
+            restart.
           content:
             application/problem+json:
               schema:
@@ -1492,11 +1498,15 @@ paths:
             partition, but the restart could not be started. The update is
             installed; a power cycle runs it.
 
-            **Every further upload answers this too, until that power cycle.**
-            The slot the next upload would be written to is now the boot
-            partition, so a retry would erase the image somebody is waiting to
-            run. The device refuses before writing a byte rather than accepting
-            an upload it would destroy the update to serve.
+            **Every further upload answers this too, until that power cycle**,
+            for the same reason as `restart_pending`. The device refuses before
+            writing a byte rather than accepting an upload it would destroy the
+            update to serve.
+
+            `/problems/ota_write_failed` — the device could not open, write or
+            finalise the inactive slot, or could not make it the boot
+            partition. The image may have been fine; the running firmware is
+            unchanged.
           content:
             application/problem+json:
               schema:
@@ -2408,6 +2418,7 @@ components:
             - /problems/program_banks_unavailable
             # firmware update
             - /problems/ota_image_refused
+            - /problems/restart_pending
             # validation
             - /problems/program_invalid
             - /problems/program_id_mismatch
@@ -2428,6 +2439,7 @@ components:
             - /problems/audio_store_failed
             - /problems/wifi_store_failed
             - /problems/restart_failed
+            - /problems/ota_write_failed
         title:
           type: string
           description: >-

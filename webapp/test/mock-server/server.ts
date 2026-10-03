@@ -97,12 +97,15 @@ const PROBLEMS = {
   '/problems/wifi_unavailable': { title: 'This device has no WiFi radio', status: 409 },
   // firmware update
   '/problems/ota_image_refused': { title: 'Firmware image refused', status: 400 },
+  '/problems/restart_pending': { title: 'The device is restarting', status: 409 },
   // internal
   '/problems/program_store_failed': { title: 'Could not store program', status: 500 },
   '/problems/audio_store_failed': { title: 'Could not store audio', status: 500 },
   '/problems/wifi_store_failed': { title: 'Could not store WiFi credentials', status: 500 },
   // Out of memory for the restart task on the device; the mock never runs out.
   '/problems/restart_failed': { title: 'Could not start the restart', status: 500 },
+  // A flash write failing on the device; the mock never writes flash.
+  '/problems/ota_write_failed': { title: 'Could not write the firmware', status: 500 },
 } satisfies Record<ProblemType, { title: string; status: number }>;
 
 /**
@@ -228,7 +231,7 @@ const APP_DESC_MAGIC_WORD = 0xabcd5432;
 /** After `magic_word`, `secure_version`, `reserv1[2]` and `version[32]`. */
 const APP_DESC_PROJECT_NAME_OFFSET = APP_DESC_OFFSET + 48;
 /** `project()` in firmware/CMakeLists.txt: what an uploaded image is checked against. */
-export const FIRMWARE_PROJECT_NAME = 'rotation_target_backend';
+const FIRMWARE_PROJECT_NAME = 'rotation_target_backend';
 /** `kFirstUploadId` in firmware/main/config.h - the floor for uploaded audio AND program ids. */
 const FIRST_UPLOAD_ID = 1000;
 /**
@@ -550,6 +553,8 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
 
 /** `rt::ota::message(kEmptyImage)` in firmware/lib/rt_logic/ota_policy.h. */
 const OTA_EMPTY_IMAGE_DETAIL = 'The upload was empty or too small to be a firmware image';
+const OTA_RESTART_PENDING_DETAIL =
+  'A firmware update was just installed and the device is restarting into it - wait for it to come back';
 const OTA_RESTART_FAILED_DETAIL =
   'The firmware was installed and is the boot partition, but the restart could not be started. Power-cycle the device to run it.';
 
@@ -678,11 +683,12 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   let downFrom: number | null = null;
   let downUntil = 0;
   /**
-   * `UploadSession::awaiting_power_cycle_` in firmware/lib/rt_logic/ota_upload.h:
-   * an image was installed but no restart could be started. Only a power cycle
-   * clears it - `restart()` on the handle, here.
+   * `UploadSession::installed_` in firmware/lib/rt_logic/ota_upload.h: an
+   * image is the boot partition, and either a restart is on its way or none
+   * could be started. The restart clears it - `restart()` on the handle
+   * stands in for the power cycle the second case needs.
    */
-  let otaAwaitingPowerCycle = false;
+  let otaInstalled: 'restarting' | 'awaiting-power-cycle' | null = null;
   const wifiNetworks: WifiNetwork[] = seed.wifiNetworks ?? DEFAULT_WIFI_NETWORKS;
   /** The banks this device booted on; the array's length is the count. */
   const bankCount = (): number => activeHardware.banks.length;
@@ -712,7 +718,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     );
     if (savedWifiSsid !== null) wifi = { ...wifi, ssid: savedWifiSsid };
     wifiSavedSinceBoot = false;
-    otaAwaitingPowerCycle = false;
+    otaInstalled = null;
   }
 
   /**
@@ -1640,11 +1646,17 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
     // POST /ota - `UploadSession` in firmware/lib/rt_logic/ota_upload.h, in the
     // order the handler's callbacks reach it: the middleware before the body,
-    // the first chunk, the image check once it has landed.
+    // the first chunk, the image check once it has landed. Not modelled: the
+    // device's own write failures, and esp_ota_end's full verification - so a
+    // 200 here does not mean a real device would take the same bytes.
     if (endpoint === '/ota' && req.method === 'POST') {
       if (!checkControlLockAuth(req, res)) return;
 
-      if (otaAwaitingPowerCycle) {
+      if (otaInstalled === 'restarting') {
+        problemResponse(res, '/problems/restart_pending', OTA_RESTART_PENDING_DETAIL);
+        return;
+      }
+      if (otaInstalled === 'awaiting-power-cycle') {
         problemResponse(res, '/problems/restart_failed', OTA_RESTART_FAILED_DETAIL);
         return;
       }
@@ -1699,10 +1711,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       }
 
       if (seed.restartFails === true) {
-        otaAwaitingPowerCycle = true;
+        otaInstalled = 'awaiting-power-cycle';
         problemResponse(res, '/problems/restart_failed', OTA_RESTART_FAILED_DETAIL);
         return;
       }
+      otaInstalled = 'restarting';
       jsonResponse(res, 200, { status: 'accepted', restarting: true });
       scheduleRestart();
       return;
@@ -1900,6 +1913,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     // diagnosis, and the answer this endpoint always gave), then the id.
     if (endpoint === '/programs/start' && req.method === 'POST') {
       if (!checkControlLockAuth(req, res)) return;
+
+      // `ota::in_progress()`: a restart into new firmware is moments away.
+      if (otaInstalled === 'restarting') {
+        problemResponse(
+          res,
+          '/problems/program_running',
+          'A firmware update is in progress - wait for the device to restart',
+        );
+        return;
+      }
 
       const startBody = parseJsonObject(await parseBody(req));
       const requestedId = startBody?.id;
