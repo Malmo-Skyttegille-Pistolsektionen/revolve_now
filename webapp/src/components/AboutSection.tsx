@@ -53,6 +53,11 @@ export function AboutSection(): React.ReactNode {
     <section className={styles.section} data-testid='about-section'>
       <h2 className={styles.sectionTitle}>About</h2>
 
+      {/* The only place the app names itself: the tab bar stays free of brand (DESIGN.md). */}
+      <p className={styles.product} data-testid='product-name'>
+        Revolve Now
+      </p>
+
       <dl className={styles.rows}>
         <dt className={styles.label}>App</dt>
         <dd className={styles.value} data-testid='version-app'>
