@@ -20,5 +20,14 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "test", "vite-plugins", "vite.config.ts", "vitest.config.ts", "e2e", "playwright.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "vite-plugins",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "e2e",
+    "playwright.config.ts",
+    "scripts/screenshots.*.ts"
+  ]
 }

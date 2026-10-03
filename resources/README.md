@@ -27,4 +27,4 @@ program document schema these files are validated against.
 
 ## License
 
-MIT. See [LICENSE](./LICENSE) for details.
+MIT. See [LICENSE](../LICENSE).
