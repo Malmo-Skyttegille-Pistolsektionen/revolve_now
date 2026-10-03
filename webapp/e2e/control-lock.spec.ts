@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
 import { CONTROL_LOCK_PASSWORD, enableControlLockViaUi, openApp, resetDevice } from './device';
 
 const STALE_TOKEN_KEY = 'rt_settings_control_lock_token';
@@ -63,7 +62,10 @@ test('a mutation with a stale control lock session fails into view-only, not a b
   await page.getByRole('link', { name: 'Run' }).click();
   await expect(page.getByRole('button', { name: 'Toggle Targets' })).toBeVisible();
 
-  const before = await targetStripText(page);
+  // `-` is the strip before the first state arrives over SSE, not a state.
+  const strip = page.getByTestId('run-target-status');
+  await expect(strip).not.toHaveText('-');
+  const before = (await strip.textContent()) ?? '';
 
   // Impersonate a session the device no longer honours: the cookie goes, and
   // the remembered bearer token is replaced with one the device never issued.
@@ -83,10 +85,7 @@ test('a mutation with a stale control lock session fails into view-only, not a b
   await expect(page.getByRole('button', { name: 'Toggle Targets' })).toHaveCount(0);
   expect(await page.evaluate((key) => localStorage.getItem(key), STALE_TOKEN_KEY)).toBeNull();
 
-  // And the device did not act on the rejected request.
-  expect(await targetStripText(page)).toBe(before);
+  // And the device did not act on the rejected request. Retried, because the
+  // fresh load may not have had its first state yet.
+  await expect(strip).toHaveText(before);
 });
-
-async function targetStripText(page: Page): Promise<string | null> {
-  return page.getByTestId('run-target-status').textContent();
-}
