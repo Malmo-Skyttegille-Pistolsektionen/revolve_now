@@ -69,9 +69,11 @@ idf.py build
 - **Editing `sdkconfig.defaults` does nothing on its own.** ESP-IDF seeds
   `sdkconfig` from it only when `sdkconfig` does not exist, and `sdkconfig` is
   gitignored — so in a clone that has already been built, a changed default is
-  silently ignored. Delete `sdkconfig` (or `idf.py fullclean`) and rebuild, then
-  grep the generated `sdkconfig` to confirm the value landed. This fails quietly
-  and looks exactly like the change not working.
+  silently ignored. Set the value in the existing `sdkconfig` (`idf.py
+  menuconfig`, or edit it and `idf.py reconfigure`), then grep it to confirm the
+  value landed. Deleting `sdkconfig` also works but **destroys the WiFi
+  credentials** — the warning above applies. This fails quietly and looks
+  exactly like the change not working.
 
 ### Flashing, and when `--no-stub` is needed
 

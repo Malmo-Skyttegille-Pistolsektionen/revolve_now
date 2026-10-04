@@ -41,9 +41,9 @@ idf.py -p /dev/ttyACM0 flash monitor
 > have already built. Why, and how to keep the credentials out of the tree
 > entirely, in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-> **`idf.py flash` uses esptool's stub loader, which fails on this board** and
-> fails in a way that looks like bad flash. See
-> [`docs/HARDWARE.md`](docs/HARDWARE.md) for the `--no-stub` invocation.
+> **`idf.py flash` is fine with esptool's stub loader.** Only a large
+> `read-flash` (a whole-chip backup) needs `--no-stub`, and its failure looks
+> like bad flash. See [`docs/HARDWARE.md`](docs/HARDWARE.md).
 
 The shipped audio and programs live in the monorepo's sibling `resources/`
 directory. The build reads them from there by default; point `RT_RESOURCES_DIR`
