@@ -41,6 +41,14 @@ const SEED: MockSeed = {
   ] satisfies AudioFile[],
 };
 
+/**
+ * The mock models the board build. The QEMU profile compiles out the RGB LED
+ * and audio, and `hardware_store.cpp` leaves their pins at 0 when it does.
+ */
+const COMPILED_DEFAULTS = onDevice
+  ? { ...HARDWARE_DEFAULTS, ledGpio: 0, i2sBckGpio: 0, i2sWsGpio: 0, i2sDoutGpio: 0 }
+  : HARDWARE_DEFAULTS;
+
 /** Program 40 is the fixture on the mock and the shipped file on the device. */
 const PROGRAM_40_SERIES = (onDevice ? shipped40 : PROGRAM_FALT_TRANING).series.length;
 
@@ -729,9 +737,9 @@ describe('hardware configuration', () => {
 
   it('starts on the compiled defaults, with nothing overridden', async () => {
     expect(await read()).toMatchObject({
-      active: HARDWARE_DEFAULTS,
-      saved: HARDWARE_DEFAULTS,
-      defaults: HARDWARE_DEFAULTS,
+      active: COMPILED_DEFAULTS,
+      saved: COMPILED_DEFAULTS,
+      defaults: COMPILED_DEFAULTS,
       overridden: false,
       restartRequired: false,
     });
@@ -878,17 +886,6 @@ describe('target banks', () => {
     expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).targetBanks).toEqual({ A: 'shown' });
   });
 
-  it('hide actually hides', async () => {
-    await api('/targets/show', { method: 'POST' });
-    const res = await api('/targets/hide', { method: 'POST' });
-
-    expect(await res.json()).toEqual({ message: 'Targets hidden' });
-    // `activeLow` is true here, so hidden is the *high* pad level: the field is
-    // the raw read-back, not what it means.
-    const info = (await (await api('/diagnostics/info')).json()) as DiagnosticsInfo;
-    expect(info.banks[0].padLevel).toBe(1);
-  });
-
   it('refuses a banks that is not an array of letters', async () => {
     for (const body of [{ banks: 'B' }, { banks: 3 }, { banks: { B: true } }]) {
       await expectProblem(await api('/targets/show', { method: 'POST', body: JSON.stringify(body) }), {
@@ -903,13 +900,21 @@ describe('target banks', () => {
   // One spelling per bank, and one letter per entry: the device never has to
   // decide whether "a" and "A" are the same request.
   it('refuses lower case and multi-character entries', async () => {
-    for (const letter of ['a', 'AA', '']) {
+    for (const letter of ['a', 'AA']) {
       const res = await api('/targets/show', { method: 'POST', body: JSON.stringify({ banks: [letter] }) });
       expect(res.status).toBe(400);
       expect(((await res.json()) as { detail: string }).detail).toBe(
         `'${letter}' is not a bank on this device, which has only bank A.`,
       );
     }
+
+    // `bank_refusal_message` keys on an empty offender, so `[""]` reads as
+    // naming no bank at all - the same sentence as `[]`.
+    const empty = await api('/targets/show', { method: 'POST', body: JSON.stringify({ banks: [''] }) });
+    expect(empty.status).toBe(400);
+    expect(((await empty.json()) as { detail: string }).detail).toBe(
+      "'banks' named no bank. Omit the body to move every bank.",
+    );
   });
 
   it('refuses an empty list rather than widening it to every bank', async () => {

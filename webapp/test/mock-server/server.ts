@@ -855,6 +855,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       // Applied whole: a typo in the second entry must not leave the first
       // already driven.
       if (index < 0 || index >= state.bankShown.length) {
+        // `bank_refusal_message` tells "named nothing" from "named a bad
+        // letter" by an empty offender, so `[""]` gets the former.
+        if (letter === '') {
+          problemResponse(
+            res,
+            '/problems/bank_unavailable',
+            "'banks' named no bank. Omit the body to move every bank.",
+          );
+          return null;
+        }
         const range =
           state.bankShown.length <= 1 ? 'only bank A' : `banks A-${BANK_LETTERS[state.bankShown.length - 1]}`;
         problemResponse(

@@ -742,6 +742,19 @@ async function withBanks(count: number): Promise<{ server: MockServer; base: str
  * the firmware actually applies.
  */
 describe('target banks', () => {
+  // Mock-only because the emulator discards GPIO writes and reads every pad
+  // back as 0 (firmware/docs/QEMU.md).
+  it('hide actually hides', async () => {
+    await api('/targets/show', { method: 'POST' });
+    const res = await api('/targets/hide', { method: 'POST' });
+
+    expect(await res.json()).toEqual({ message: 'Targets hidden' });
+    // `activeLow` is true here, so hidden is the *high* pad level: the field is
+    // the raw read-back, not what it means.
+    const info = (await (await api('/diagnostics/info')).json()) as DiagnosticsInfo;
+    expect(info.banks[0].padLevel).toBe(1);
+  });
+
   it('publishes one key per bank on a device with several', async () => {
     const four = await withBanks(4);
     const sse = await openSSE(four.server.port);
