@@ -86,7 +86,7 @@ export interface SettingsContextType {
   logoutControlLock: () => void;
 }
 
-const SettingsContext = createContext<SettingsContextType | null>(null);
+export const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export function useSettings(): SettingsContextType {
   const context = use(SettingsContext);

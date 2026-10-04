@@ -1,4 +1,5 @@
-import { useSettings } from '../context/SettingsContext';
+import { use } from 'react';
+import { SettingsContext } from '../context/SettingsContext';
 import { en } from './en';
 import { type Language, resolveLanguage } from './language';
 import type { Messages } from './messages';
@@ -9,10 +10,14 @@ export type { Language, LanguagePreference } from './language';
 
 export const MESSAGES: Record<Language, Messages> = { en, sv };
 
-/** The language the app renders in right now, with `system` resolved. */
+/**
+ * The language the app renders in right now, with `system` resolved. Outside
+ * a `SettingsProvider` - a component rendered on its own in a test - it is
+ * the browser's, which is what the provider would have started from.
+ */
 export function useLanguage(): Language {
-  const { settings } = useSettings();
-  return resolveLanguage(settings.language);
+  const settings = use(SettingsContext);
+  return resolveLanguage(settings?.settings.language ?? 'system');
 }
 
 /**
