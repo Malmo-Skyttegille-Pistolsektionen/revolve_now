@@ -1,7 +1,6 @@
 #include "config/hardware_store.h"
 #include "rgb_led.h"
 
-#include "config.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
 

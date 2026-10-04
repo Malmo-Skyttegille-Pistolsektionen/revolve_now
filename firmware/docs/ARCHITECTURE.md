@@ -52,7 +52,11 @@ Three tasks touch run state:
 - **`httpd`** — REST handlers, calling the same `executor::` functions.
 - **`audio`** (priority 5) — plays queued clips. Above the run loop
   deliberately: an underrun is audible on the range, a few ms of added REST
-  latency is not.
+  latency is not. Level with `httpd`, which runs at ESP-IDF's default 5.
+
+The task watchdog watches the idle tasks only - nothing calls
+`esp_task_wdt_add()` - so it catches a CPU starved by a spinning task, not a
+run loop or httpd task that is blocked.
 
 A single recursive mutex guards `rt::ProgramState` and the executor. It is
 recursive because `set_targets()` is reached both directly (the `/targets/*`

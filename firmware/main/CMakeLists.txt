@@ -30,7 +30,7 @@ idf_component_register(
          "system/restart.cpp"
          "diagnostics/partitions.cpp" "diagnostics/build_info.cpp" "console/console.cpp"
          ${RT_NET_SRCS}
-         "net/web_server.cpp" "net/sse_hub.cpp"
+         "net/net_common.cpp" "net/web_server.cpp" "net/sse_hub.cpp"
     INCLUDE_DIRS "." "config" "io" "storage" "repositories" "executor" "net" "diagnostics" "console" "ota"
                  "system"
     REQUIRES rt_logic arduinojson psychic_http

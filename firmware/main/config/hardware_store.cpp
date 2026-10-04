@@ -2,10 +2,10 @@
 
 #include <cstring>
 
-#include "config.h"
 #include "esp_log.h"
 #include "hardware_overlay.h"
 #include "nvs.h"
+#include "nvs_str.h"
 #include "sdkconfig.h"
 
 namespace hardware_store {
@@ -25,17 +25,6 @@ namespace hw_key = rt::hw_key;
 
 rt::HardwareConfig s_current;
 bool s_overridden = false;
-
-bool read_str(nvs_handle_t handle, const char *key, std::string &out) {
-  size_t len = 0;
-  if (nvs_get_str(handle, key, nullptr, &len) != ESP_OK || len == 0) return false;
-
-  out.resize(len);
-  if (nvs_get_str(handle, key, &out[0], &len) != ESP_OK) return false;
-  // nvs_get_str counts the NUL; std::string tracks its own length.
-  out.resize(len > 0 ? len - 1 : 0);
-  return true;
-}
 
 // A key that was not there is already in the state the caller wanted.
 bool erase_if_present(nvs_handle_t handle, const char *key) {
@@ -63,7 +52,7 @@ class NvsReader : public rt::ConfigReader {
   }
 
   bool read_str(const char *key, std::string &out) override {
-    return hardware_store::read_str(handle_, key, out);
+    return storage::nvs_read_str(handle_, key, out);
   }
 
  private:

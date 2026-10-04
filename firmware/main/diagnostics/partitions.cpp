@@ -12,11 +12,11 @@ namespace {
 // The on-flash length of the app image in `part`, or 0 if it does not hold one.
 //
 // ESP-IDF has no runtime call for this, and the figure is what says whether an
-// OTA image will fit a slot (#127) - so we walk the image header the same way
-// scripts/app_desc.py does offline. Layout per esp_image_format.h: a 24-byte
-// header, then `segment_count` segments each with an 8-byte header, then
-// padding to a 16-byte boundary less one, a checksum byte, and a 32-byte hash
-// when the header says one is appended. Sizes are hardcoded rather than pulled
+// OTA image will fit a slot (#127) - so we walk the segment headers ourselves.
+// Layout per esp_image_format.h: a 24-byte header, then `segment_count`
+// segments each with an 8-byte header, then padding to a 16-byte boundary less
+// one, a checksum byte, and a 32-byte hash when the header says one is
+// appended. Sizes are hardcoded rather than pulled
 // from bootloader_support, which app code does not otherwise depend on.
 uint32_t app_image_size(const esp_partition_t *part) {
   constexpr size_t kImageHeaderBytes = 24;

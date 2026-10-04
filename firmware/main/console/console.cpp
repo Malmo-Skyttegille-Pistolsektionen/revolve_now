@@ -21,7 +21,6 @@
 
 #include "audio.h"
 #include "audios.h"
-#include "config.h"
 #include "factory_reset.h"
 #include "console_command.h"
 #include "net_mgr.h"

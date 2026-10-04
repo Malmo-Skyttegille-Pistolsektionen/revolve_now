@@ -4,7 +4,6 @@
 // ============================================================================
 #include "config/hardware_store.h"
 #include "audio.h"
-#include "config.h"
 #include "audios.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"

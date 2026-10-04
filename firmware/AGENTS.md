@@ -38,7 +38,8 @@ PSRAM mode leaves it undetected at boot rather than failing loudly.
 
 Pin defaults live in `main/Kconfig.projbuild` (table in
 [`docs/HARDWARE.md`](docs/HARDWARE.md#configuration)), ported from the
-MicroPython `config.py`. The two "ESP32-C6" comments
+MicroPython `config.py`. At runtime they come from `hardware_store` (NVS),
+which those defaults only seed. The two "ESP32-C6" comments
 in that MicroPython file are wrong; `RGG_LED_PIN = 48` is the clue that fits.
 
 ## Build, flash, test
@@ -65,7 +66,8 @@ idf.py build
   that path holds no `audios/audios.json`.
 - **Toolchain:** the exact ESP-IDF `idf:` pins in `main/idf_component.yml`;
   CI builds with the same. 5.x does not build: 6.0 removed `i2s_port_t`, so
-  `i2s_chan_config_t::id` is a plain `int` — see `kI2sPort` in `main/config.h`.
+  `i2s_chan_config_t::id` is a plain `int` — see `i2s_port` in
+  `lib/rt_logic/hardware_config.h`.
 - **Editing `sdkconfig.defaults` does nothing on its own.** ESP-IDF seeds
   `sdkconfig` from it only when `sdkconfig` does not exist, and `sdkconfig` is
   gitignored — so in a clone that has already been built, a changed default is
