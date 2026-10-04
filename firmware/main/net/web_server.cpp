@@ -82,6 +82,29 @@ bool s_upload_in_flight = false;
 // server-wide ceiling is sized for firmware, so audio bounds itself.
 size_t s_upload_bytes = 0;
 
+// The staging file, open from the first chunk until the last one or the first
+// failure. Null mid-body means the upload already failed and later chunks are
+// dropped - the multipart parser ignores the callback's return and keeps
+// delivering them.
+FILE *s_upload_file = nullptr;
+
+// Closes the staging file if it is open; false if the close failed, which is
+// where a write the stdio buffer was still holding reports running out of space.
+bool close_upload_file() {
+  if (s_upload_file == nullptr) return true;
+  const bool ok = fclose(s_upload_file) == 0;
+  s_upload_file = nullptr;
+  return ok;
+}
+
+// Abandons the upload in flight: closes the staging file and removes it, so a
+// repeated failed upload cannot fill the partition.
+void fail_upload() {
+  s_upload_in_flight = false;
+  (void)close_upload_file();
+  (void)::remove(kStagedUploadPath);
+}
+
 // Drops whatever a previous upload left staged. Safe to call outside a
 // request: every completion path either renames the staging file into the
 // repository or removes it, so a survivor is always dead weight.
@@ -90,6 +113,9 @@ void discard_dead_upload() {
     ESP_LOGW(TAG, "Previous upload died mid-body - discarding its staged bytes");
     s_upload_in_flight = false;
   }
+  // A connection that died mid-body never reached the last chunk, so its
+  // staging file is still open.
+  (void)close_upload_file();
   // Deliberately ignored: this is best-effort cleanup, and the next upload
   // truncates the path anyway. The cast is how that is written down.
   (void)::remove(kStagedUploadPath);
@@ -122,6 +148,28 @@ esp_err_t send_problem(PsychicResponse *res, const rt::ProblemType &type,
 
 esp_err_t send_message(PsychicResponse *res, const std::string &message) {
   return send_json(res, 200, rt::json_message(message));
+}
+
+// Endpoint middleware bounding a JSON body at kMaxUploadBytes. The server-wide
+// ceiling is sized for firmware, and PsychicWebHandler mallocs the whole body
+// before the handler runs, so a check inside the handler would come too late.
+// Answered as the HTTP layer answers its own ceiling - 400, text/html, and the
+// connection closed so the unread body does not hold the socket - because that
+// is what contracts/openapi.yaml documents for an oversized body.
+esp_err_t bound_body(PsychicRequest *req, PsychicResponse *res, const PsychicMiddlewareNext &next) {
+  if (req->contentLength() <= kMaxUploadBytes) return next();
+  ESP_LOGW(TAG, "Rejected %s %s: %u-byte body past the %u-byte ceiling", req->methodStr(),
+           req->uri(), static_cast<unsigned>(req->contentLength()),
+           static_cast<unsigned>(kMaxUploadBytes));
+  const std::string error =
+      "Request body must be at most " + std::to_string(kMaxUploadBytes) + " bytes";
+  res->send(400, "text/html", error.c_str());
+  return ESP_FAIL;
+}
+
+// s_server.on() with bound_body in front of the handler.
+void on_bounded(const char *uri, int method, const PsychicHttpRequestCallback &handler) {
+  s_server.on(uri, method, handler)->addMiddleware(bound_body);
 }
 
 // --- auth ------------------------------------------------------------------
@@ -412,7 +460,7 @@ void register_program_routes() {
     return send_json(res, 200, out);
   });
 
-  s_server.on("/api/v2/programs", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
+  on_bounded("/api/v2/programs", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
     const char *body = req->body();
@@ -446,7 +494,7 @@ void register_program_routes() {
 
   // Currently the only PUT route, so this wildcard shadows nothing; a fixed
   // PUT path under /api/v2/programs/ would have to be registered above it.
-  s_server.on("/api/v2/programs/*", HTTP_PUT, [](PsychicRequest *req, PsychicResponse *res) {
+  on_bounded("/api/v2/programs/*", HTTP_PUT, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
     int32_t id = 0;
@@ -1020,6 +1068,15 @@ void register_audio_routes() {
       s_upload_in_flight = true;
       s_upload_bytes = 0;
       storage::make_dirs(kUploadAudioDir);
+      (void)close_upload_file();
+      s_upload_file = fopen(kStagedUploadPath, "wb");
+      if (s_upload_file == nullptr) {
+        fail_upload();
+        return ESP_FAIL;
+      }
+    } else if (s_upload_file == nullptr) {
+      // An earlier chunk failed and the upload is already abandoned.
+      return ESP_FAIL;
     }
 
     // The server-wide ceiling is sized for firmware now, so a clip has to be
@@ -1028,25 +1085,13 @@ void register_audio_routes() {
     if (s_upload_bytes > kMaxUploadBytes) {
       ESP_LOGW(TAG, "Rejected upload '%s': past the %u-byte ceiling", filename,
                static_cast<unsigned>(kMaxUploadBytes));
-      s_upload_in_flight = false;
-      (void)::remove(kStagedUploadPath);
+      fail_upload();
       return ESP_FAIL;
     }
 
-    FILE *f = fopen(kStagedUploadPath, index == 0 ? "wb" : "ab");
-    if (f == nullptr) {
-      s_upload_in_flight = false;
-      (void)::remove(kStagedUploadPath);
-      return ESP_FAIL;
-    }
-    const size_t written = fwrite(data, 1, len, f);
-    fclose(f);
-
-    if (written != len) {
-      // Out of space, most likely. Never leave the partial behind: a repeated
-      // failed upload would otherwise fill the partition.
-      s_upload_in_flight = false;
-      (void)::remove(kStagedUploadPath);
+    // Out of space, most likely, either here or in the final flush.
+    if (fwrite(data, 1, len, s_upload_file) != len || (final && !close_upload_file())) {
+      fail_upload();
       return ESP_FAIL;
     }
 
@@ -1078,6 +1123,9 @@ void register_audio_routes() {
     const bool uploaded = req->hasSessionKey("upload_done");
     req->setSessionKey("upload_done", "");
     s_upload_in_flight = false;
+    // Still open only if the body ended without a last chunk; it is incomplete
+    // either way, and the guard below removes it.
+    (void)close_upload_file();
 
     // From here every failure path removes the staged file.
     struct Staged {
