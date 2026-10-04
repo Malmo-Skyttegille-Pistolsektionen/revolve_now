@@ -286,6 +286,7 @@ paths:
               schema:
                 type: string
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/hardware_config_window_closed` — nobody has completed
             the three-press sequence recently, so the configuration window is
@@ -295,10 +296,6 @@ paths:
 
             The only refusal this operation has. There is no `401`: nothing
             here is gated on the control lock.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /control-lock/status:
     get:
@@ -337,21 +334,15 @@ paths:
         "200":
           $ref: "#/components/responses/ControlLockSession"
         "401":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/invalid_password` — the password was empty, or the
               body carried none.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/control_lock_already_enabled` — log in or disable it
               first.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /control-lock/login:
     post:
@@ -368,20 +359,14 @@ paths:
         "200":
           $ref: "#/components/responses/ControlLockSession"
         "401":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/invalid_password` — wrong password.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/control_lock_not_enabled` — there is nothing to log in
               to.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /control-lock/logout:
     post:
@@ -483,13 +468,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreatedId"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_invalid` — empty body, malformed JSON, or a
               non-object root.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -508,13 +490,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Program"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program, or a path
               segment that is not a plain decimal integer.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
     put:
       tags: [programs]
       summary: Replace an uploaded program
@@ -559,26 +538,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Program"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_invalid` — empty body, malformed JSON, or a
               non-object root.
             - `/problems/program_id_mismatch` — the body declares a different
               id from the path.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program, or a path
               segment that is not a plain decimal integer.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_readonly` — the program is shipped with the
               firmware and has no writable file behind it. Upload the document
@@ -589,18 +563,11 @@ paths:
             The same status for two refusals a client must answer differently
             is why `type` exists (D-19): the wording of `detail` is not a
             discriminator.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_store_failed` — the replacement could not be
               written to flash. The previous document is left intact.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/{id}/load:
     parameters:
@@ -626,13 +593,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/{id}/delete:
     parameters:
@@ -663,22 +627,16 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_readonly` — the program is shipped with the
               firmware and has no writable file behind it. The same type
               `PUT /programs/{id}` answers for the same program.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/start:
     post:
@@ -713,6 +671,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/no_program_loaded` — nothing is loaded, or the loaded
               program has no series at the current index.
@@ -721,13 +680,10 @@ paths:
 
             The id check comes first: a start without a well-formed body is
             refused as such whether or not anything is loaded.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_running` — a firmware update is in progress
               and the device is about to restart. Checked before anything
@@ -742,10 +698,6 @@ paths:
               Nothing moves: a device never clamps a letter to the nearest
               bank it happens to drive. Uploading and loading such a program
               are both fine; only starting it is refused.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/stop:
     post:
@@ -770,12 +722,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_running` — nothing is running.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -799,12 +748,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/no_program_loaded` — nothing is loaded.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -847,13 +793,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_running` — a run is in progress. `stop` first;
               it is a pause, so the refusal lifts with it.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/series/{seriesIndex}/skip_to:
     parameters:
@@ -900,6 +843,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/series_index_invalid` — nothing is loaded, or the
               index is outside the loaded program. The firmware does not
@@ -907,30 +851,20 @@ paths:
               id, but stays a `400` either way.
             - `/problems/skip_id_required` — no body, unparseable JSON, or no
               integer `id`.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/route_not_found` — the path segment is not a plain
               decimal integer.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/skip_program_mismatch` — a different program is
               loaded. `detail` names both ids, same reasoning as `start`'s
               `409`. The run state is untouched and no `stateUpdate` is
               published.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /targets/show:
     post:
@@ -1095,19 +1029,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/hardware_config_invalid` — a value the device refuses.
               `detail` names which and why, because the operator has to decide
               what to type instead.
             - `/problems/hardware_config_serial_only` — the body carried
               `targetsShownAtBoot`, which changes only from the serial console.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/hardware_config_window_closed` — nobody has completed
             the three-press sequence recently, so the configuration window is
@@ -1116,11 +1048,8 @@ paths:
             Separate from 401, which is about the control lock: this is not a
             question of who you are but of whether somebody is standing at the
             device. Both apply, and both must pass.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running.
 
@@ -1128,10 +1057,6 @@ paths:
             useful of the two instructions. Reconfiguring the machine and
             operating it are different activities, and these values only take
             effect at the next restart.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /config/hardware/reset:
     post:
@@ -1162,22 +1087,16 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/hardware_config_window_closed` — the configuration
             window is shut. The same guard as `PUT /config/hardware`: this
             rewrites every value at once.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running. Checked before
             the window, as on `PUT /config/hardware`.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /wifi:
     get:
@@ -1271,28 +1190,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/wifi_credentials_invalid` — an empty SSID, an SSID over
             32 bytes, or a password over 63. `detail` says which, because the
             operator has to decide what to type instead.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/hardware_config_window_closed` — nobody has completed
             the three-press sequence recently, so the configuration window is
             shut. The same window and the same problem type as
             `PUT /config/hardware` and `GET /diagnostics/bundle`: one window,
             one type, whichever endpoint it is guarding.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_running` — a program is running. Checked
               before the window, because "stop the run" is the more useful
@@ -1302,18 +1216,11 @@ paths:
             - `/problems/wifi_unavailable` — this build has no radio
               (`CONFIG_RT_NET_OPENETH`). Permanent for this firmware, not a
               state to retry.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/wifi_store_failed` — NVS refused the write. Nothing was
             saved and the device stays on the network it is on.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /wifi/networks:
     get:
@@ -1345,21 +1252,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/WifiNetworkList"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/hardware_config_window_closed` — the configuration
             window is shut, or a program is running.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/wifi_unavailable` — this build has no radio
             (`CONFIG_RT_NET_OPENETH`).
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /system/restart:
     post:
@@ -1398,35 +1299,21 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [status, restarting]
-                additionalProperties: false
-                properties:
-                  status:
-                    type: string
-                    enum: [accepted]
-                  restarting:
-                    type: boolean
+                $ref: "#/components/schemas/RestartAccepted"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running. Stop it first;
             a restart takes the targets and the audio down mid-sequence.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/restart_failed` — the device could not start the task
             that does the restarting, which on this firmware means it is out of
             memory. Nothing was restarted, so the answer is a refusal rather
             than a `200` the client would sit waiting on.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /ota:
     post:
@@ -1486,15 +1373,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [status, restarting]
-                properties:
-                  status:
-                    type: string
-                    enum: [accepted]
-                  restarting:
-                    type: boolean
+                $ref: "#/components/schemas/RestartAccepted"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/ota_image_refused` — the upload was empty, too small to
             be an image, not an image at all or incomplete, or not for this
@@ -1502,13 +1383,10 @@ paths:
 
             `/problems/upload_missing_file` — the body was not
             `multipart/form-data`. Answered before any of it is read.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running.
 
@@ -1516,11 +1394,8 @@ paths:
             device is about to restart into it. The slot the next upload would
             be written to is that image, so nothing is written until the
             restart.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/restart_failed` — the image was written and is the boot
             partition, but the restart could not be started. The update is
@@ -1535,10 +1410,6 @@ paths:
             finalise the inactive slot, or could not make it the boot
             partition. The image may have been fine; the running firmware is
             unchanged.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /audios:
     get:
@@ -1616,6 +1487,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreatedId"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/upload_missing_file` — no file part arrived.
             - `/problems/upload_missing_title` — the `title` field is absent
@@ -1625,20 +1497,13 @@ paths:
 
             A clip over the 1 MiB ceiling is answered by the HTTP layer with a
             `text/html` body rather than a problem detail (see Limits in `info`).
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/audio_store_failed` — the clip could not be moved
               into place or indexed.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /audios/{id}/play:
     parameters:
@@ -1673,13 +1538,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/audio_not_found` — no such clip.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /audios/{id}/delete:
     parameters:
@@ -1716,14 +1578,12 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/audio_not_found` — no such clip.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             The clip is shipped, or it still matters to a run. Four types
             under one status, in the order the firmware checks them:
@@ -1742,10 +1602,6 @@ paths:
             - `/problems/audio_playing` — the audio task is reading the file
               right now. LittleFS has no unlink-while-open, so removing it
               would corrupt the read.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /sse/v2:
     get:
@@ -1835,6 +1691,14 @@ components:
             $ref: "#/components/schemas/BankSelection"
 
   responses:
+    Problem:
+      description: >-
+        An RFC 9457 problem detail. Every operation that uses this names its
+        own problem types in a `description` beside the `$ref`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     BankUnavailable:
       description: |
         - `/problems/bank_unavailable` — `banks` names a bank this device does
@@ -2500,6 +2364,20 @@ components:
       properties:
         message:
           type: string
+      additionalProperties: false
+
+    RestartAccepted:
+      type: object
+      description: >-
+        The answer to a call that ends in a restart: `POST /system/restart`
+        and a successful `POST /ota`.
+      required: [status, restarting]
+      properties:
+        status:
+          type: string
+          enum: [accepted]
+        restarting:
+          type: boolean
       additionalProperties: false
 
     CreatedId:
