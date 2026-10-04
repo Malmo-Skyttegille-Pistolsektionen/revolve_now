@@ -1,6 +1,12 @@
 # Vendored from hoeken/PsychicHttp (MIT), src/ + LICENSE only (examples/ and
 # its Arduino/ArduinoJson/esp_littlefs submodules are not needed - we're
 # always the pure-ESP-IDF path, no Arduino component in this project).
+#
+# Verbatim apart from one local patch (marked "Local patch" in place), to go
+# upstream: a peer FIN mid-body made httpd_req_recv() return 0, which the body
+# readers never counted, so PsychicRequest::loadBody and MultipartProcessor
+# looped forever and the TWDT panicked the device. loadBody also reported
+# ESP_OK after a failed read.
 file(GLOB PSYCHIC_HTTP_SRCS "src/*.cpp")
 
 idf_component_register(

@@ -246,10 +246,12 @@ esp_err_t PsychicRequest::loadBody()
 
     if (received == HTTPD_SOCK_ERR_TIMEOUT) {
       continue;
-    } else if (received == HTTPD_SOCK_ERR_FAIL) {
+    } else if (received <= 0) {
+      // Local patch (see CMakeLists.txt): 0 is a peer FIN before content_len
+      // arrived; it never reduced `remaining`, so this spun forever.
       ESP_LOGE(PH_TAG, "Failed to receive data.");
-      _bodyParsed = ESP_FAIL;
-      break;
+      free(buf);
+      return _bodyParsed = ESP_FAIL;
     }
 
     remaining -= received;
