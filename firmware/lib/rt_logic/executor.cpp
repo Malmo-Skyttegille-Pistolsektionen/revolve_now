@@ -234,6 +234,22 @@ void Executor::enter_event(int32_t index, const Event &event, bool play_audio) {
   if (play_audio && !event.audio_ids.empty()) effects_.play_audios(event.audio_ids);
 }
 
+bool Executor::enter_through(const Series &series, int32_t index) {
+  // Nothing entered yet: only the event the clock is in, as before.
+  int32_t next =
+      state_.current_event_index.has_value ? state_.current_event_index.value + 1 : index;
+  // The index cannot go backwards on a monotonic clock; if it ever does, enter
+  // where the clock is rather than stay on a stale event.
+  if (index < next - 1) next = index;
+
+  bool entered = false;
+  for (; next <= index; next++) {
+    enter_event(next, series.events[static_cast<size_t>(next)], true);
+    entered = true;
+  }
+  return entered;
+}
+
 void Executor::complete_series(int32_t series_index) {
   state_.running = false;
   state_.ticker_ms.clear();
@@ -279,6 +295,9 @@ int32_t Executor::tick() {
       elapsed64 < 0 ? 0 : (elapsed64 > total_ms ? total_ms : static_cast<int32_t>(elapsed64));
 
   if (elapsed_ms >= total_ms) {
+    // A wake-up past the end still owes the events it crossed: a final "hide"
+    // skipped here would leave the targets in the wrong state for good.
+    enter_through(*series, static_cast<int32_t>(series->events.size()) - 1);
     complete_series(state_.current_series_index.value);
     return kIdleSleepMs;
   }
@@ -295,10 +314,10 @@ int32_t Executor::tick() {
 
   bool changed = false;
 
-  if (!state_.current_event_index.has_value || loc.index != state_.current_event_index.value) {
-    enter_event(loc.index, series->events[static_cast<size_t>(loc.index)], true);
-    changed = true;
-  }
+  // Every event crossed since the last wake-up, not just the one the clock is
+  // in: the loop wakes late (a flash write, a busy core), and an event shorter
+  // than the delay would otherwise never fire its command or audio.
+  if (enter_through(*series, loc.index)) changed = true;
 
   // Millisecond precision, one-second cadence. The comparison is on whole
   // seconds on purpose: publishing whenever the millisecond changed would put
