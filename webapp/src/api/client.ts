@@ -1,5 +1,3 @@
-import { useSettings } from '../context/SettingsContext';
-
 import { DEFAULT_BASE_URL, normalizeBaseUrl } from './base-url';
 import type { Problem, ProblemType } from './types';
 
@@ -14,10 +12,6 @@ export function getSseBaseUrl(): string {
 }
 
 export function updateBaseUrl(url: string): void {
-  dynamicBaseUrl = normalizeBaseUrl(url);
-}
-
-export function initializeBaseUrl(url: string): void {
   dynamicBaseUrl = normalizeBaseUrl(url);
 }
 
@@ -210,11 +204,6 @@ async function requestFile(
   };
 }
 
-// For use outside of React components (no auth error handling)
-export async function client<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  return request<T>(endpoint, options, undefined, undefined);
-}
-
 // For use inside React components with proper auth error handling
 export function createAuthenticatedClient(controlLockToken: string | null, onAuthError: () => void) {
   return {
@@ -223,16 +212,6 @@ export function createAuthenticatedClient(controlLockToken: string | null, onAut
     },
     requestFile: async (endpoint: string, options?: RequestInit): Promise<DownloadedFile> => {
       return requestFile(endpoint, options, controlLockToken, onAuthError);
-    },
-  };
-}
-
-export function useClient() {
-  const { controlLockToken, logoutControlLock } = useSettings();
-
-  return {
-    request: async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
-      return request<T>(endpoint, options, controlLockToken, logoutControlLock);
     },
   };
 }

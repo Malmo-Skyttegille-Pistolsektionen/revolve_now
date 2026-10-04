@@ -8,7 +8,7 @@ import { useHardwareConfigApi } from '../api/hardwareConfig';
 import type { ProgramSummary, StateUpdatePayload } from '../api/types';
 import { Timeline } from '../components/Timeline';
 import { bankRangeLabel, deviceBankCount } from '../lib/bank-state';
-import { banksRequired } from '../lib/program-document';
+import { BANK_LETTERS, banksRequired } from '../lib/program-document';
 import { CountdownModal } from '../components/CountdownModal';
 import { StartDelayControl } from '../components/StartDelayControl';
 import { useSettings } from '../context/SettingsContext';
@@ -28,9 +28,6 @@ function navHeightPx(): number {
 export const Route = createFileRoute('/run')({
   component: RunView,
 });
-
-/** `rt::bank_letter` - the letter a bank's position gives it. */
-const BANK_LETTERS = 'ABCDEFGH';
 
 type RunMessages = Messages['run'];
 
@@ -381,8 +378,9 @@ export function RunView(): React.ReactNode {
   const hideTargetsMutation = useMutation({ mutationFn: () => programsApi.hideTargets() });
 
   const handleProgramChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    const id = Number(e.target.value);
-    if (id) {
+    // Not `if (id)`: the placeholder is the only empty value, and 0 is an id.
+    if (e.target.value !== '') {
+      const id = Number(e.target.value);
       setNotice(null);
       setPendingLoad({ id, previousProgramId: loadedProgramId });
       loadMutation.mutate(id);

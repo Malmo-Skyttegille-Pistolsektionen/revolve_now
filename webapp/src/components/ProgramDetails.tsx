@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useProgramsApi } from '../api/programs';
 import { useT, type Messages } from '../i18n';
+import { downloadJson, programFilename } from '../lib/download';
 import { programTotalMs } from '../lib/program-document';
 import { Timeline } from './Timeline';
 import styles from './ProgramDetails.module.css';
@@ -38,13 +39,7 @@ export function ProgramDetails({ id, onClose }: ProgramDetailsProps): React.Reac
   function handleDownload(): void {
     if (!program) return;
 
-    const blob = new Blob([JSON.stringify(program, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${program.id}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadJson(programFilename(program.id), JSON.stringify(program, null, 2));
   }
 
   return (

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, client, problemType } from '../src/api/client';
+import { ApiError, createAuthenticatedClient, problemType } from '../src/api/client';
 import type { Problem } from '../src/api/types';
 import { en } from '../src/i18n/en';
 import { failureNotice, unloadFailureNotice, updateFailureNotice } from '../src/lib/program-notices';
@@ -133,7 +133,7 @@ describe('the client parses the wire document', () => {
 
   async function reject(): Promise<ApiError> {
     try {
-      await client('/programs/unload', { method: 'POST' });
+      await createAuthenticatedClient(null, () => undefined).request('/programs/unload', { method: 'POST' });
     } catch (err) {
       return err as ApiError;
     }

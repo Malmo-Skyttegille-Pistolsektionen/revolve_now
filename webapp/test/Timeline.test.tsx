@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Timeline } from '../src/components/Timeline';
 import type { Program, Series } from '../src/api/types';
@@ -303,16 +303,22 @@ describe('event detail (#125)', () => {
 });
 
 describe('centring the running series (#131)', () => {
-  /** happy-dom has no layout, so scrollIntoView is a stub worth recording. */
+  /**
+   * happy-dom has no layout, so scrollIntoView is a stub worth recording.
+   * Spied rather than assigned, so `restoreMocks` puts the original back.
+   */
   function recordScrolls(): Array<{ index: number; behavior?: ScrollBehavior }> {
     const calls: Array<{ index: number; behavior?: ScrollBehavior }> = [];
-    Element.prototype.scrollIntoView = function (this: Element, options?: boolean | ScrollIntoViewOptions) {
+    vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (
+      this: Element,
+      options?: boolean | ScrollIntoViewOptions,
+    ) {
       const all = Array.from(document.querySelectorAll('.series'));
       calls.push({
         index: all.indexOf(this),
         behavior: typeof options === 'object' ? options.behavior : undefined,
       });
-    };
+    });
     return calls;
   }
 

@@ -1,7 +1,7 @@
 import { useSettings } from '../context/SettingsContext';
 import { useT, type Messages } from '../i18n';
 import { createAuthenticatedClient } from './client';
-import type { AudioFile } from './types';
+import type { AudioFile, CreatedId } from './types';
 
 /** `kMaxUploadBytes` in `firmware/main/config.h`; see "Limits" in the contract. */
 export const MAX_UPLOAD_BYTES = 1024 * 1024;
@@ -23,10 +23,6 @@ export interface PlayResponse {
   audioId: number;
 }
 
-export interface CreatedId {
-  id: number;
-}
-
 export interface UploadRequest {
   file: File;
   title: string;
@@ -42,7 +38,7 @@ export function isAcceptedFilename(name: string): boolean {
   return name.length >= 5 && name.toLowerCase().endsWith('.wav');
 }
 
-export class UploadRejectedError extends Error {
+class UploadRejectedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'UploadRejectedError';
