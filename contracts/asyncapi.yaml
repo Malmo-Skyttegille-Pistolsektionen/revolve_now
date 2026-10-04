@@ -257,14 +257,14 @@ components:
             code: audio_playback_failed
             message: Audio clip could not be opened
             context:
-              clip: /storage/audio/50.wav
+              clip: /embedded/audio/50.wav
         - name: clip-is-not-a-wav
           summary: An uploaded file that the WAV header parser rejects.
           payload:
             code: audio_playback_failed
             message: Audio clip is not a playable WAV
             context:
-              clip: /storage/uploads/audio/103.wav
+              clip: /userdata/audio/1003.wav
         - name: program-will-not-parse
           summary: >-
             A stored program file skipped by the boot scan, so the program is
@@ -273,7 +273,7 @@ components:
             code: program_invalid
             message: Program file is malformed and was skipped
             context:
-              file: /storage/uploads/programs/20.json
+              file: /userdata/programs/1000.json
         - name: program-id-collides-with-shipped
           summary: >-
             An uploaded program landed on an id a shipped one already used -
@@ -283,7 +283,7 @@ components:
             code: program_id_collision
             message: An uploaded program's id collides with a shipped one; the shipped program was kept
             context:
-              file: /storage/uploads/programs/1001.json
+              file: /userdata/programs/100.json
 
     libraryChanged:
       name: libraryChanged
@@ -484,7 +484,7 @@ components:
             part instead of discarding it, so a client's playhead lands where
             the run actually is rather than up to a second behind.
 
-            Replaced `tickerSeconds` in contract version 3.0.0 — see D-16 in
+            Replaced `tickerSeconds` within `/sse/v2` — see D-16 in
             `docs/DECISIONS.md`. Whole seconds are a client-side derivation
             (`Math.floor(tickerMs / 1000)`); the retired MicroPython backend
             still emits the old field, and `contracts/history/` records it.
