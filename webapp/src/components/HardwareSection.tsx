@@ -6,6 +6,7 @@ import { useHardwareConfigApi, type HardwareConfigPatch } from '../api/hardwareC
 import type { HardwareConfig } from '../api/types';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { useT } from '../i18n';
 import styles from './HardwareSection.module.css';
 
 /**
@@ -33,13 +34,14 @@ import styles from './HardwareSection.module.css';
  * work through it one peripheral at a time.
  */
 
-/** Every numeric field is a GPIO or a port, and they behave identically. */
+/**
+ * Every numeric field is a GPIO or a port, and they behave identically. The
+ * label and hint live in the dictionary under the same key.
+ */
 type NumericField = {
   key: keyof HardwareConfigPatch &
     ('ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'httpPort' | 'wifiMaxRetries');
   testId: string;
-  label: string;
-  hint: React.ReactNode;
 };
 
 /**
@@ -57,58 +59,22 @@ const BANK_LETTERS = 'ABCDEFGH';
 
 type TargetBank = HardwareConfig['banks'][number];
 
-const LED_FIELDS: NumericField[] = [
-  {
-    key: 'ledGpio',
-    testId: 'hardware-led-gpio',
-    label: 'Status LED GPIO',
-    hint: 'The addressable LED’s data pin — 48 on a stock DevKitC-1. Kept even on a firmware built without the LED, so the value survives being flashed onto one that has it.',
-  },
-];
+const LED_FIELDS: NumericField[] = [{ key: 'ledGpio', testId: 'hardware-led-gpio' }];
 
 const AUDIO_FIELDS: NumericField[] = [
-  {
-    key: 'i2sPort',
-    testId: 'hardware-i2s-port',
-    label: 'I2S port',
-    hint: 'Which of the chip’s two I2S peripherals drives the DAC. 0 or 1 — a peripheral, not a pin.',
-  },
-  {
-    key: 'i2sBckGpio',
-    testId: 'hardware-i2s-bck',
-    label: 'I2S bit clock (BCK)',
-    hint: 'To BCLK on the amplifier board.',
-  },
-  {
-    key: 'i2sWsGpio',
-    testId: 'hardware-i2s-ws',
-    label: 'I2S word select (WS/LRCK)',
-    hint: 'To LRC on the amplifier board.',
-  },
-  {
-    key: 'i2sDoutGpio',
-    testId: 'hardware-i2s-dout',
-    label: 'I2S data out (DOUT)',
-    hint: 'To DIN on the amplifier board — the names cross over, which is the usual way to wire this wrong.',
-  },
+  { key: 'i2sPort', testId: 'hardware-i2s-port' },
+  { key: 'i2sBckGpio', testId: 'hardware-i2s-bck' },
+  { key: 'i2sWsGpio', testId: 'hardware-i2s-ws' },
+  { key: 'i2sDoutGpio', testId: 'hardware-i2s-dout' },
 ];
 
 const NETWORK_FIELDS: NumericField[] = [
-  {
-    key: 'httpPort',
-    testId: 'hardware-http-port',
-    label: 'HTTP port',
-    hint: 'Where the web app is served. Leave at 80 unless something else on the device needs it — mDNS advertises the port, but a browser typed at by hand does not, so a moved port has to be remembered.',
-  },
-  {
-    key: 'wifiMaxRetries',
-    testId: 'hardware-wifi-retries',
-    label: 'WiFi join attempts',
-    hint: 'How many times to try the stored network before raising the setup portal. About 2.4 seconds each, so 10 is roughly half a minute of trying.',
-  },
+  { key: 'httpPort', testId: 'hardware-http-port' },
+  { key: 'wifiMaxRetries', testId: 'hardware-wifi-retries' },
 ];
 
 export function HardwareSection(): React.ReactNode {
+  const t = useT().hardware;
   const { controlLockToken } = useSettings();
   const { controlLockEnabled } = useControlLockStatus();
   const api = useHardwareConfigApi();
@@ -159,8 +125,8 @@ export function HardwareSection(): React.ReactNode {
   if (!state) {
     return (
       <section className={styles.section} data-testid='hardware-section'>
-        <h2 className={styles.sectionTitle}>Hardware</h2>
-        <p className={styles.explain}>Asking the device…</p>
+        <h2 className={styles.sectionTitle}>{t.title}</h2>
+        <p className={styles.explain}>{t.loading}</p>
       </section>
     );
   }
@@ -215,8 +181,8 @@ export function HardwareSection(): React.ReactNode {
   const numeric = (field: NumericField): React.ReactNode => (
     <label className={styles.field} key={field.key}>
       <span className={styles.label}>
-        {field.label}
-        {overridden(field.key) && <span className={styles.badge}>changed</span>}
+        {t.fields[field.key].label}
+        {overridden(field.key) && <span className={styles.badge}>{t.changed}</span>}
       </span>
       <input
         className={styles.input}
@@ -229,7 +195,7 @@ export function HardwareSection(): React.ReactNode {
           set(field.key, Number(e.target.value));
         }}
       />
-      <span className={styles.hint}>{field.hint}</span>
+      <span className={styles.hint}>{t.fields[field.key].hint}</span>
     </label>
   );
 
@@ -243,25 +209,28 @@ export function HardwareSection(): React.ReactNode {
   return (
     <section className={clsx(styles.section, styles.expert)} data-testid='hardware-section'>
       <div className={styles.head}>
-        <h2 className={styles.sectionTitle}>Hardware</h2>
+        <h2 className={styles.sectionTitle}>{t.title}</h2>
       </div>
 
       <p className={styles.explain}>
-        Which pins this board uses, what this device calls itself, and how it joins the network.{' '}
-        <strong>Getting these wrong can make the device stop working, and the way back is a USB cable.</strong> Most
-        clubs never need to change them.
+        {t.explainBefore}
+        <strong>{t.explainWarning}</strong>
+        {t.explainAfter}
       </p>
 
       {state.restartRequired && (
         <p className={styles.pending} data-testid='hardware-restart-required'>
-          Saved, but <strong>not yet in use</strong> — the device is still running the configuration it started with.
-          Use <strong>Restart to apply</strong> at the top of this page.
+          {t.restartRequiredBefore}
+          <strong>{t.restartRequiredNotInUse}</strong>
+          {t.restartRequiredMiddle}
+          <strong>{t.restartRequiredAction}</strong>
+          {t.restartRequiredAfter}
         </p>
       )}
 
       <>
         {group(
-          'Targets',
+          t.groups.targets,
           'hardware-group-targets',
           <>
             {/* A table rather than a repeated field group: every bank has the
@@ -271,15 +240,15 @@ export function HardwareSection(): React.ReactNode {
               <table className={styles.bankTable} data-testid='hardware-bank-table'>
                 <thead>
                   <tr>
-                    <th scope='col'>Bank</th>
+                    <th scope='col'>{t.banks.columnBank}</th>
                     <th scope='col'>
-                      Name <span className={styles.thHint}>(shown to operators)</span>
+                      {t.banks.columnName} <span className={styles.thHint}>{t.banks.columnNameHint}</span>
                     </th>
-                    <th scope='col'>GPIO</th>
-                    <th scope='col'>Shown when low</th>
-                    <th scope='col'>Pad now</th>
+                    <th scope='col'>{t.banks.columnGpio}</th>
+                    <th scope='col'>{t.banks.columnShownWhenLow}</th>
+                    <th scope='col'>{t.banks.columnPadNow}</th>
                     <th scope='col'>
-                      <span className={styles.srOnly}>Remove</span>
+                      <span className={styles.srOnly}>{t.banks.columnRemove}</span>
                     </th>
                   </tr>
                 </thead>
@@ -306,7 +275,7 @@ export function HardwareSection(): React.ReactNode {
                           {letter}
                           {changed && (
                             <span className={styles.badge} data-testid={`hardware-bank-changed-${letter}`}>
-                              changed
+                              {t.changed}
                             </span>
                           )}
                         </th>
@@ -315,7 +284,7 @@ export function HardwareSection(): React.ReactNode {
                             className={styles.input}
                             type='text'
                             maxLength={MAX_BANK_NAME}
-                            aria-label={`Bank ${letter} name`}
+                            aria-label={t.banks.nameLabel(letter)}
                             data-testid={`hardware-bank-name-${letter}`}
                             disabled={!canManage || busy}
                             value={bank.name}
@@ -329,7 +298,7 @@ export function HardwareSection(): React.ReactNode {
                             className={clsx(styles.input, styles.gpioInput)}
                             type='text'
                             inputMode='numeric'
-                            aria-label={`Bank ${letter} GPIO`}
+                            aria-label={t.banks.gpioLabel(letter)}
                             data-testid={`hardware-bank-gpio-${letter}`}
                             disabled={!canManage || busy}
                             value={Number.isFinite(bank.gpio) ? String(bank.gpio) : ''}
@@ -347,7 +316,7 @@ export function HardwareSection(): React.ReactNode {
                         <td>
                           <input
                             type='checkbox'
-                            aria-label={`Bank ${letter} shown when low`}
+                            aria-label={t.banks.shownWhenLowLabel(letter)}
                             data-testid={`hardware-bank-active-low-${letter}`}
                             disabled={!canManage || busy}
                             checked={bank.activeLow}
@@ -361,7 +330,7 @@ export function HardwareSection(): React.ReactNode {
                               until diagnostics have been fetched, and for a
                               draft row past the last bank the device has. */}
                         <td className={styles.padCell} data-testid={`hardware-bank-pad-${letter}`}>
-                          {pad === undefined ? '—' : pad === 1 ? 'high' : 'low'}
+                          {pad === undefined ? '—' : pad === 1 ? t.banks.padHigh : t.banks.padLow}
                         </td>
                         <td>
                           <button
@@ -371,12 +340,12 @@ export function HardwareSection(): React.ReactNode {
                             disabled={!canManage || busy || !removable}
                             title={
                               index === 0
-                                ? 'Bank A cannot be removed'
+                                ? t.banks.cannotRemoveFirst
                                 : removable
-                                  ? `Remove bank ${letter}`
-                                  : 'Remove the last bank first: the letters cannot have gaps'
+                                  ? t.banks.removeLabel(letter)
+                                  : t.banks.removeLastFirst
                             }
-                            aria-label={`Remove bank ${letter}`}
+                            aria-label={t.banks.removeLabel(letter)}
                             onClick={() => {
                               setBanks(banks.slice(0, -1));
                             }}
@@ -393,7 +362,7 @@ export function HardwareSection(): React.ReactNode {
 
             {bankPinMissing && (
               <span className={styles.hint} data-testid='hardware-bank-pin-missing'>
-                Every bank needs a GPIO before this can be saved.
+                {t.banks.pinMissing}
               </span>
             )}
 
@@ -413,51 +382,49 @@ export function HardwareSection(): React.ReactNode {
                     setBanks([...banks, { gpio: NO_PIN, activeLow: banks[banks.length - 1].activeLow, name: '' }]);
                   }}
                 >
-                  Add bank {BANK_LETTERS[banks.length]}
+                  {t.banks.add(BANK_LETTERS[banks.length])}
                 </button>
               ) : (
                 <span className={styles.hint} data-testid='hardware-bank-limit'>
-                  Eight is the most this firmware drives.
+                  {t.banks.limit}
                 </span>
               )}
             </div>
 
-            <span className={styles.hint}>
-              One contact closure per bank. Each needs its own pin: 22&ndash;32 and 35&ndash;37 are refused &mdash; they
-              are absent from this chip or belong to its flash and PSRAM, and driving one stops the device booting
-              &mdash; and so are 43&ndash;44, which carry the serial console.
-            </span>
+            <span className={styles.hint}>{t.banks.pinsHint}</span>
 
             {/* Shown, not editable. An operator needs to know where the
                   targets rest at boot; changing it needs physical access,
                   because it is what protects somebody standing downrange
                   (D-31). */}
             <div className={styles.field}>
-              <span className={styles.label}>Targets at boot</span>
+              <span className={styles.label}>{t.bootTargets.label}</span>
               <p className={styles.readOnlyValue} data-testid='hardware-boot-targets'>
-                {state.active.targetsShownAtBoot ? 'Shown' : 'Hidden'}
+                {state.active.targetsShownAtBoot ? t.bootTargets.shown : t.bootTargets.hidden}
               </p>
               <span className={styles.hint}>
-                One setting for every bank, set from the serial console only &mdash; <code>boot-targets shown</code> or{' '}
-                <code>boot-targets hidden</code>. It decides what the targets do while somebody may be downrange, so
-                changing it needs a cable rather than a web page.
+                {t.bootTargets.hintBefore}
+                <code>boot-targets shown</code>
+                {t.bootTargets.hintOr}
+                <code>boot-targets hidden</code>
+                {t.bootTargets.hintAfter}
               </span>
             </div>
           </>,
         )}
 
-        {group('Status LED', 'hardware-group-led', LED_FIELDS.map(numeric))}
+        {group(t.groups.led, 'hardware-group-led', LED_FIELDS.map(numeric))}
 
-        {group('Audio', 'hardware-group-audio', AUDIO_FIELDS.map(numeric))}
+        {group(t.groups.audio, 'hardware-group-audio', AUDIO_FIELDS.map(numeric))}
 
         {group(
-          'Network',
+          t.groups.network,
           'hardware-group-network',
           <>
             <label className={styles.field}>
               <span className={styles.label}>
-                Hostname
-                {overridden('hostname') && <span className={styles.badge}>changed</span>}
+                {t.hostname.label}
+                {overridden('hostname') && <span className={styles.badge}>{t.changed}</span>}
               </span>
               <input
                 className={styles.input}
@@ -470,15 +437,18 @@ export function HardwareSection(): React.ReactNode {
                 }}
               />
               <span className={styles.hint}>
-                Reached at <code>{value('hostname') || '…'}.local</code>, and the setup network appears as{' '}
-                <code>{value('hostname') || '…'}-setup-XXXX</code>. Lower-case letters, digits and hyphens.
+                {t.hostname.hintBefore}
+                <code>{value('hostname') || '…'}.local</code>
+                {t.hostname.hintMiddle}
+                <code>{value('hostname') || '…'}-setup-XXXX</code>
+                {t.hostname.hintAfter}
               </span>
             </label>
 
             <label className={styles.field}>
               <span className={styles.label}>
-                Display name
-                {overridden('displayName') && <span className={styles.badge}>changed</span>}
+                {t.displayName.label}
+                {overridden('displayName') && <span className={styles.badge}>{t.changed}</span>}
               </span>
               <input
                 className={styles.input}
@@ -490,7 +460,7 @@ export function HardwareSection(): React.ReactNode {
                   set('displayName', e.target.value);
                 }}
               />
-              <span className={styles.hint}>What to call this device — “Bana 1”. Cosmetic; nothing depends on it.</span>
+              <span className={styles.hint}>{t.displayName.hint}</span>
             </label>
 
             {NETWORK_FIELDS.map(numeric)}
@@ -506,7 +476,7 @@ export function HardwareSection(): React.ReactNode {
               save.mutate(patch);
             }}
           >
-            Save
+            {t.save}
           </button>
           <button
             className={styles.button}
@@ -517,7 +487,7 @@ export function HardwareSection(): React.ReactNode {
               setNotice(null);
             }}
           >
-            Discard changes
+            {t.discard}
           </button>
           <button
             className={clsx(styles.button, styles.buttonDanger)}
@@ -527,20 +497,17 @@ export function HardwareSection(): React.ReactNode {
               reset.mutate();
             }}
           >
-            Reset to defaults
+            {t.resetDefaults}
           </button>
         </div>
 
         {!canManage && (
           <p className={styles.hint} data-testid='hardware-locked'>
-            The controls are locked — log in to change these.
+            {t.locked}
           </p>
         )}
 
-        <p className={styles.hint}>
-          Nothing here takes effect until the device restarts, which is one button at the top of this page rather than
-          one per section.
-        </p>
+        <p className={styles.hint}>{t.restartHint}</p>
       </>
 
       {notice && (

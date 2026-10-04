@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useOtaApi } from '../api/ota';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { useT } from '../i18n';
 import styles from './FirmwareSection.module.css';
 
 /**
@@ -20,6 +21,8 @@ export function FirmwareSection(): React.ReactNode {
   const { controlLockToken } = useSettings();
   const { controlLockEnabled } = useControlLockStatus();
   const otaApi = useOtaApi();
+  const t = useT();
+  const s = t.settings.firmware;
   // Same rule as the Programs page: the lock off means anyone may manage.
   const canManage = !controlLockEnabled || controlLockToken !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,24 +36,24 @@ export function FirmwareSection(): React.ReactNode {
     try {
       await otaApi.upload(file);
       setState('restarting');
-      setNotice('Firmware accepted. The device is restarting — it will be unreachable for a few seconds.');
+      setNotice(s.accepted);
     } catch (error) {
       // RFC 9457 (D-19): the device's `detail` is the sentence written for this
       // situation, so it is shown as-is rather than second-guessed here.
       const detail = error instanceof Error ? error.message : null;
-      setNotice(detail ?? 'The device refused the upload.');
+      setNotice(detail ?? s.refused);
       setState('idle');
     }
   };
 
   return (
     <section className={styles.section} data-testid='firmware-section'>
-      <h2 className={styles.sectionTitle}>Firmware</h2>
+      <h2 className={styles.sectionTitle}>{s.title}</h2>
 
       <p className={styles.explain}>
-        Uploading firmware <strong>restarts the device</strong>. It writes to the slot that is not running, so a bad
-        image rolls itself back rather than needing a cable. The web app and the shipped programs and audio update with
-        it; anything uploaded to the device is kept.
+        {s.explainBefore}
+        <strong>{s.restartsDevice}</strong>
+        {s.explainAfter}
       </p>
 
       <input
@@ -74,10 +77,10 @@ export function FirmwareSection(): React.ReactNode {
         disabled={!canManage || state !== 'idle'}
         onClick={() => fileInputRef.current?.click()}
       >
-        {state === 'uploading' ? 'Uploading…' : state === 'restarting' ? 'Restarting…' : 'Upload firmware…'}
+        {state === 'uploading' ? s.uploading : state === 'restarting' ? t.common.restarting : s.upload}
       </button>
 
-      {!canManage && <p className={styles.muted}>Log in to update the firmware.</p>}
+      {!canManage && <p className={styles.muted}>{s.logInToUpdate}</p>}
 
       {notice !== null && (
         <p className={styles.notice} data-testid='firmware-notice' role='status'>

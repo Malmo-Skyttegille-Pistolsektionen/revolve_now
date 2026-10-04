@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useRestartPending } from '../hooks/useRestartPending';
+import { useT } from '../i18n';
 import styles from './RestartPendingNotice.module.css';
 
 /**
@@ -11,11 +12,15 @@ import styles from './RestartPendingNotice.module.css';
  * button press that authorised the save. This only says where to go.
  */
 export function RestartPendingNotice(): React.ReactNode {
-  if (!useRestartPending()) return null;
+  const pending = useRestartPending();
+  const s = useT().settings.restartPending;
+  if (!pending) return null;
 
   return (
     <p className={styles.notice} data-testid='restart-pending-notice'>
-      Configuration saved but not applied; restart from <Link to='/hardware'>Expert mode</Link>.
+      {s.before}
+      <Link to='/hardware'>{s.expertMode}</Link>
+      {s.after}
     </p>
   );
 }

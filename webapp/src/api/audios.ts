@@ -1,4 +1,5 @@
 import { useSettings } from '../context/SettingsContext';
+import { useT, type Messages } from '../i18n';
 import { createAuthenticatedClient } from './client';
 import type { AudioFile } from './types';
 
@@ -48,13 +49,13 @@ export class UploadRejectedError extends Error {
   }
 }
 
-export function fileRejectionReason(file: File): string | null {
+export function fileRejectionReason(t: Messages['audios']['rejection'], file: File): string | null {
   if (!isAcceptedFilename(file.name)) {
-    return `"${file.name}" is not named .wav, and the device takes nothing else.`;
+    return t.notWav(file.name);
   }
 
   if (file.size > MAX_FILE_BYTES) {
-    return `"${file.name}" is ${file.size} bytes. The device accepts at most ${MAX_FILE_BYTES} bytes per clip.`;
+    return t.tooBig(file.name, file.size, MAX_FILE_BYTES);
   }
 
   return null;
@@ -62,6 +63,7 @@ export function fileRejectionReason(file: File): string | null {
 
 export function useAudiosApi() {
   const { controlLockToken, logoutControlLock } = useSettings();
+  const t = useT();
   const client = createAuthenticatedClient(controlLockToken, logoutControlLock);
 
   return {
@@ -77,7 +79,7 @@ export function useAudiosApi() {
     remove: (id: number): Promise<void> => client.request<void>(`/audios/${id}/delete`, { method: 'DELETE' }),
 
     upload: ({ file, title }: UploadRequest): Promise<CreatedId> => {
-      const rejection = fileRejectionReason(file);
+      const rejection = fileRejectionReason(t.audios.rejection, file);
       if (rejection !== null) {
         return Promise.reject(new UploadRejectedError(rejection));
       }

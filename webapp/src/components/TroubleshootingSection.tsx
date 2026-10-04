@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useDiagnosticsApi } from '../api/diagnostics';
 import { useConfigWindow } from '../hooks/useConfigWindow';
+import { useT } from '../i18n';
 import { datedFilename, downloadBlob } from '../lib/download';
 import styles from './TroubleshootingSection.module.css';
 
@@ -34,6 +35,7 @@ import styles from './TroubleshootingSection.module.css';
 export function TroubleshootingSection(): React.ReactNode {
   const { open: windowOpen } = useConfigWindow();
   const diagnosticsApi = useDiagnosticsApi();
+  const s = useT().settings.troubleshooting;
   const [state, setState] = useState<'idle' | 'downloading'>('idle');
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -53,12 +55,12 @@ export function TroubleshootingSection(): React.ReactNode {
       // The device names it; this side adds the date, which is the one part of
       // the name a device with no clock cannot know.
       downloadBlob(datedFilename(file.filename ?? 'revolve-now-diagnostics.zip', new Date()), file.blob);
-      setNotice('Downloaded.');
+      setNotice(s.downloaded);
     } catch (error) {
       // RFC 9457 (D-19): the device's `detail` is the sentence written for
       // this situation — including the one that says how to open the window.
       const detail = error instanceof Error ? error.message : null;
-      setNotice(detail ?? 'The device refused the download.');
+      setNotice(detail ?? s.refused);
     } finally {
       setState('idle');
     }
@@ -66,23 +68,18 @@ export function TroubleshootingSection(): React.ReactNode {
 
   return (
     <section className={styles.section} data-testid='troubleshooting-section'>
-      <h2 className={styles.sectionTitle}>Troubleshooting</h2>
+      <h2 className={styles.sectionTitle}>{s.title}</h2>
+
+      <p className={styles.explain}>{s.explain}</p>
 
       <p className={styles.explain}>
-        A zip holding the device details from Settings plus, if the device has crashed, the crash dump itself — enough
-        for somebody who is not standing here to work out what happened. Attach it to a message rather than describing
-        the symptoms.
-      </p>
-
-      <p className={styles.explain}>
-        A crash dump is a copy of the device&apos;s memory at the moment it failed, so it can contain{' '}
-        <strong>the WiFi password</strong>. Send it to somebody you would tell that to.
+        {s.sensitiveBefore}
+        <strong>{s.wifiPassword}</strong>
+        {s.sensitiveAfter}
       </p>
 
       <p className={styles.state} data-testid='troubleshooting-coredump'>
-        {diagnostics?.coredumpPresent === true
-          ? 'There is a crash dump waiting — it will be in the bundle.'
-          : 'No crash dump stored, so the bundle will be the device details only.'}
+        {diagnostics?.coredumpPresent === true ? s.coredumpPresent : s.coredumpAbsent}
       </p>
 
       <button
@@ -92,7 +89,7 @@ export function TroubleshootingSection(): React.ReactNode {
         disabled={state !== 'idle'}
         onClick={() => void download()}
       >
-        {state === 'downloading' ? 'Preparing…' : 'Download troubleshooting bundle'}
+        {state === 'downloading' ? s.preparing : s.download}
       </button>
 
       {notice !== null && (

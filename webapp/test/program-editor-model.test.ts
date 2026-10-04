@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Program } from '../src/api/types';
+import { en } from '../src/i18n/en';
 import { authoringIssues, authoringRegressions, parseProgramDocument } from '../src/lib/program-document';
 import {
   createEditorState,
@@ -596,22 +597,24 @@ describe('describeEvent', () => {
   });
 
   it('says what one bank does, without mentioning banks', () => {
-    expect(describeEvent(event(), 1)).toBe('Hide for 4 s.');
-    expect(describeEvent(event({ command: 'none' }), 1)).toBe('Leave the targets where they are for 4 s.');
+    expect(describeEvent(en.editor, event(), 1)).toBe('Hide for 4 s.');
+    expect(describeEvent(en.editor, event({ command: 'none' }), 1)).toBe('Leave the targets where they are for 4 s.');
   });
 
   it('separates the exceptions from the baseline', () => {
-    expect(describeEvent(event({ banks: { B: 'show' } }), 4)).toBe('On entry: show B; hide A, C, D. Hold 4 s.');
+    expect(describeEvent(en.editor, event({ banks: { B: 'show' } }), 4)).toBe(
+      'On entry: show B; hide A, C, D. Hold 4 s.',
+    );
   });
 
   it('says the rest are left alone when there is no baseline', () => {
-    expect(describeEvent(event({ command: 'none', banks: { A: 'show' } }), 3)).toBe(
+    expect(describeEvent(en.editor, event({ command: 'none', banks: { A: 'show' } }), 3)).toBe(
       'On entry: show A; leave B, C as they are. Hold 4 s.',
     );
   });
 
   it('does not invent a duration while one is being typed', () => {
-    expect(describeEvent(event({ duration: '' }), 2)).toContain('Hold its duration.');
+    expect(describeEvent(en.editor, event({ duration: '' }), 2)).toContain('Hold its duration.');
   });
 });
 
@@ -632,7 +635,7 @@ describe('an override on bank A alone', () => {
 
   it('is still described, rather than silently dropped from the sentence', () => {
     const event = createEditorState(ONLY_A).draft.series[0].events[0];
-    expect(describeEvent(event, 1)).toBe('On entry: hide A. Hold 4 s.');
+    expect(describeEvent(en.editor, event, 1)).toBe('On entry: hide A. Hold 4 s.');
   });
 
   it('survives a round trip through the document', () => {

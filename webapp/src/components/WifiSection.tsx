@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useWifiApi } from '../api/wifi';
+import { useT } from '../i18n';
 import styles from './WifiSection.module.css';
 
 /**
@@ -21,6 +22,8 @@ import styles from './WifiSection.module.css';
  */
 export function WifiSection(): React.ReactNode {
   const wifiApi = useWifiApi();
+  const t = useT();
+  const s = t.settings.wifi;
 
   const { data: wifi, isPending } = useQuery({
     queryKey: ['wifi'],
@@ -33,8 +36,8 @@ export function WifiSection(): React.ReactNode {
   if (isPending) {
     return (
       <section className={styles.section} data-testid='wifi-section'>
-        <h2 className={styles.sectionTitle}>WiFi</h2>
-        <p className={styles.muted}>Asking the device…</p>
+        <h2 className={styles.sectionTitle}>{s.title}</h2>
+        <p className={styles.muted}>{t.common.askingDevice}</p>
       </section>
     );
   }
@@ -44,9 +47,9 @@ export function WifiSection(): React.ReactNode {
   if (wifi?.radioPresent === false) {
     return (
       <section className={styles.section} data-testid='wifi-section'>
-        <h2 className={styles.sectionTitle}>WiFi</h2>
+        <h2 className={styles.sectionTitle}>{s.title}</h2>
         <p className={styles.muted} data-testid='wifi-no-radio'>
-          This firmware is built for a wired connection and has no WiFi radio.
+          {s.noRadio}
         </p>
       </section>
     );
@@ -54,41 +57,41 @@ export function WifiSection(): React.ReactNode {
 
   return (
     <section className={styles.section} data-testid='wifi-section'>
-      <h2 className={styles.sectionTitle}>WiFi</h2>
+      <h2 className={styles.sectionTitle}>{s.title}</h2>
 
       <dl className={styles.rows}>
-        <dt className={styles.label}>Network</dt>
+        <dt className={styles.label}>{s.network}</dt>
         <dd className={styles.value} data-testid='wifi-ssid'>
-          {wifi?.connected === true ? wifi.ssid : <span className={styles.muted}>Not connected</span>}
+          {wifi?.connected === true ? wifi.ssid : <span className={styles.muted}>{s.notConnected}</span>}
         </dd>
 
-        <dt className={styles.label}>Signal</dt>
+        <dt className={styles.label}>{s.signal}</dt>
         <dd className={styles.value} data-testid='wifi-signal'>
           {wifi?.connected === true ? (
             <>
-              <SignalBars bars={wifi.bars} />
+              <SignalBars bars={wifi.bars} label={s.signalBars(wifi.bars)} />
               <span className={styles.dbm}>{wifi.rssi} dBm</span>
             </>
           ) : (
-            <span className={styles.muted}>unknown</span>
+            <span className={styles.muted}>{t.common.unknown}</span>
           )}
         </dd>
 
-        <dt className={styles.label}>Address</dt>
+        <dt className={styles.label}>{s.address}</dt>
         <dd className={styles.value} data-testid='wifi-ip'>
           {wifi?.ipAddress !== undefined && wifi.ipAddress !== '' ? (
             wifi.ipAddress
           ) : (
-            <span className={styles.muted}>none yet</span>
+            <span className={styles.muted}>{s.noneYet}</span>
           )}
         </dd>
 
-        <dt className={styles.label}>MAC</dt>
+        <dt className={styles.label}>{s.mac}</dt>
         <dd className={styles.value} data-testid='wifi-mac'>
           {wifi?.macAddress !== undefined && wifi.macAddress !== '' ? (
             wifi.macAddress
           ) : (
-            <span className={styles.muted}>unknown</span>
+            <span className={styles.muted}>{t.common.unknown}</span>
           )}
         </dd>
       </dl>
@@ -98,13 +101,14 @@ export function WifiSection(): React.ReactNode {
           latter cannot be read back or changed without a rebuild. */}
       {wifi?.provisioned === false && (
         <p className={styles.note} data-testid='wifi-unprovisioned'>
-          No network has been saved on this device, so it is using the ones its firmware was built with.
+          {s.unprovisioned}
         </p>
       )}
 
       <p className={styles.note}>
-        Moving the device to a different network is in <strong>Expert mode</strong> — a once-per-site decision behind
-        the button press on the board.
+        {s.moveBefore}
+        <strong>{s.expertMode}</strong>
+        {s.moveAfter}
       </p>
     </section>
   );
@@ -119,9 +123,9 @@ export function WifiSection(): React.ReactNode {
  * something exact to whoever is diagnosing, and bars mean something immediate
  * to everybody else.
  */
-function SignalBars({ bars }: { bars: number }): React.ReactNode {
+function SignalBars({ bars, label }: { bars: number; label: string }): React.ReactNode {
   return (
-    <span className={styles.bars} role='img' aria-label={`Signal ${String(bars)} of 4`} data-testid='wifi-bars'>
+    <span className={styles.bars} role='img' aria-label={label} data-testid='wifi-bars'>
       {[1, 2, 3, 4].map((step) => (
         <span key={step} className={step <= bars ? styles.barOn : styles.barOff} />
       ))}

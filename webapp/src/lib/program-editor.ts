@@ -20,6 +20,7 @@
  *   validator as every other problem, rather than being silently coerced here.
  */
 import type { Event, Program, Series } from '../api/types';
+import type { Messages } from '../i18n/messages';
 import { BANK_LETTERS, banksRequired, type BankLetter } from './program-document';
 
 /** The three-way `command` control: the device's `show`, `hide`, or no key at all. */
@@ -94,7 +95,8 @@ export type EditorAction =
   /** Name the event the run clock starts on, or `null` to start with the series. */
   | { type: 'setSeriesTimerStart'; series: number; eventKey: string | null }
   | { type: 'moveSeries'; from: number; to: number }
-  | { type: 'duplicateSeries'; series: number }
+  /** `copySuffix` is the current language's " (copy)"; the reducer has no dictionary of its own. */
+  | { type: 'duplicateSeries'; series: number; copySuffix?: string }
   | { type: 'removeSeries'; series: number }
   | { type: 'toggleCollapsed'; key: string }
   | { type: 'setAllCollapsed'; collapsed: boolean }
@@ -204,9 +206,9 @@ function parseDuration(text: string): number | string | undefined {
  * check that catches "hide everything except B" written as "show everything
  * except B".
  */
-export function describeEvent(event: DraftEvent, bankCount: number): string {
+export function describeEvent(t: Messages['editor'], event: DraftEvent, bankCount: number): string {
   const ms = durationMs(event);
-  const hold = ms === null ? 'its duration' : `${String(Math.round(ms / 100) / 10)} s`;
+  const hold = ms === null ? t.describe.itsDuration : t.describe.seconds(Math.round(ms / 100) / 10);
 
   // An override on bank A alone leaves `banksRequired` at 1, so the letters to
   // describe are the ones the stepper offers *or* the ones the event names -
@@ -216,8 +218,8 @@ export function describeEvent(event: DraftEvent, bankCount: number): string {
 
   if (width <= 1 && named.length === 0) {
     const what =
-      event.command === 'show' ? 'Show' : event.command === 'hide' ? 'Hide' : 'Leave the targets where they are';
-    return `${what} for ${hold}.`;
+      event.command === 'show' ? t.describe.show : event.command === 'hide' ? t.describe.hide : t.describe.none;
+    return t.describe.single(what, hold);
   }
 
   const letters = BANK_LETTERS.slice(0, width);
@@ -226,15 +228,20 @@ export function describeEvent(event: DraftEvent, bankCount: number): string {
   const rest = letters.filter((letter) => event.banks[letter] === undefined);
 
   const parts: string[] = [];
-  if (shows.length > 0) parts.push(`show ${shows.join(', ')}`);
-  if (hides.length > 0) parts.push(`hide ${hides.join(', ')}`);
+  if (shows.length > 0) parts.push(t.describe.showBanks(shows.join(', ')));
+  if (hides.length > 0) parts.push(t.describe.hideBanks(hides.join(', ')));
   if (rest.length > 0) {
+    const letters = rest.join(', ');
     parts.push(
-      event.command === 'none' ? `leave ${rest.join(', ')} as they are` : `${event.command} ${rest.join(', ')}`,
+      event.command === 'none'
+        ? t.describe.leaveBanks(letters)
+        : event.command === 'show'
+          ? t.describe.showBanks(letters)
+          : t.describe.hideBanks(letters),
     );
   }
 
-  return `On entry: ${parts.join('; ')}. Hold ${hold}.`;
+  return t.describe.summary(parts, hold);
 }
 
 /** Milliseconds for a total or a preview, or `null` while the field is not a number. */
@@ -472,7 +479,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }));
       const copy: DraftSeries = {
         key: `k${nextKey++}`,
-        name: source.name === '' ? '' : `${source.name} (copy)`,
+        name: source.name === '' ? '' : `${source.name}${action.copySuffix ?? ' (copy)'}`,
         optional: source.optional,
         timerStartKey: anchorIndex > 0 ? (copiedEvents[anchorIndex]?.key ?? null) : null,
         events: copiedEvents,

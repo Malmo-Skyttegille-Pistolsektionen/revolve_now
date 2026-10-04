@@ -7,6 +7,7 @@ import type { AudioFile, BackendIssuePayload } from '../api/types';
 import { BackendIssueBanner } from '../components/BackendIssueBanner';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { useT } from '../i18n';
 import { ConversionError, convertToDeviceWav, maxConvertedSeconds } from '../lib/audio-convert';
 import styles from './audios.module.css';
 
@@ -32,6 +33,7 @@ function AudiosView(): React.ReactNode {
   const queryClient = useQueryClient();
   const { controlLockEnabled } = useControlLockStatus();
   const { controlLockToken } = useSettings();
+  const t = useT();
 
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -83,23 +85,23 @@ function AudiosView(): React.ReactNode {
 
   const playMutation = useMutation({
     mutationFn: (clip: AudioFile) => audiosApi.play(clip.id),
-    onSuccess: (_result, clip) => setFeedback({ kind: 'info', text: `Playing "${clip.title}" on the device.` }),
+    onSuccess: (_result, clip) => setFeedback({ kind: 'info', text: t.audios.feedback.playing(clip.title) }),
     onError: (mutationError: Error, clip) =>
-      setFeedback({ kind: 'error', text: `Could not play "${clip.title}": ${mutationError.message}` }),
+      setFeedback({ kind: 'error', text: t.audios.feedback.playFailed(clip.title, mutationError.message) }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (clip: AudioFile) => audiosApi.remove(clip.id),
     onSuccess: async (_result, clip) => {
       setPendingDeleteId(null);
-      setFeedback({ kind: 'info', text: `Deleted "${clip.title}".` });
+      setFeedback({ kind: 'info', text: t.audios.feedback.deleted(clip.title) });
       await queryClient.invalidateQueries({ queryKey: ['audios'] });
     },
     onError: (mutationError: Error, clip) => {
       setPendingDeleteId(null);
       // Includes the 409 "Audio is currently playing" — the one refusal a user
       // can act on, by waiting for the clip to finish.
-      setFeedback({ kind: 'error', text: `Could not delete "${clip.title}": ${mutationError.message}` });
+      setFeedback({ kind: 'error', text: t.audios.feedback.deleteFailed(clip.title, mutationError.message) });
     },
   });
 
@@ -107,10 +109,11 @@ function AudiosView(): React.ReactNode {
     mutationFn: audiosApi.upload,
     onSuccess: async (created, request) => {
       resetForm();
-      setFeedback({ kind: 'info', text: `Uploaded "${request.title}" as clip ${created.id}.` });
+      setFeedback({ kind: 'info', text: t.audios.feedback.uploaded(request.title, created.id) });
       await queryClient.invalidateQueries({ queryKey: ['audios'] });
     },
-    onError: (mutationError: Error) => setFeedback({ kind: 'error', text: `Upload failed: ${mutationError.message}` }),
+    onError: (mutationError: Error) =>
+      setFeedback({ kind: 'error', text: t.audios.feedback.uploadFailed(mutationError.message) }),
   });
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -127,25 +130,25 @@ function AudiosView(): React.ReactNode {
     // on `userdata`, and the upload cap holds four times the duration.
     setTitle(titleFromFilename(selected.name));
     setConverting(true);
-    setFeedback({ kind: 'info', text: `Converting "${selected.name}"…` });
+    setFeedback({ kind: 'info', text: t.audios.feedback.converting(selected.name) });
     // Sent unconverted: checked here so an oversized or misnamed file is named
     // now, rather than refused by the device after a round trip.
     const sendAsIs = (note: string): void => {
-      const rejection = fileRejectionReason(selected);
+      const rejection = fileRejectionReason(t.audios.rejection, selected);
       setFile(rejection === null ? selected : null);
       setFeedback(rejection === null ? { kind: 'info', text: note } : { kind: 'error', text: rejection });
     };
     try {
-      const prepared = await convertToDeviceWav(selected, MAX_FILE_BYTES);
+      const prepared = await convertToDeviceWav(selected, MAX_FILE_BYTES, t.audios);
       if (selection !== selectionRef.current) return;
       if (!prepared.converted) {
-        sendAsIs(`"${selected.name}" is already in the device's format and is sent as it is.`);
+        sendAsIs(t.audios.feedback.alreadyDeviceFormat(selected.name));
         return;
       }
       setFile(prepared.file);
       setFeedback({
         kind: 'info',
-        text: `Converted "${selected.name}": ${prepared.seconds?.toFixed(1)} s, ${prepared.file.size} bytes.`,
+        text: t.audios.feedback.converted(selected.name, prepared.seconds ?? 0, prepared.file.size),
       });
     } catch (conversionError) {
       if (selection !== selectionRef.current) return;
@@ -155,7 +158,7 @@ function AudiosView(): React.ReactNode {
         isAcceptedFilename(selected.name)
       ) {
         // A WAV this browser cannot read may still be one the device plays.
-        sendAsIs(`This browser could not convert "${selected.name}", so it is sent as it is for the device to check.`);
+        sendAsIs(t.audios.feedback.sentUnconverted(selected.name));
         return;
       }
       setFeedback({ kind: 'error', text: (conversionError as Error).message });
@@ -177,7 +180,7 @@ function AudiosView(): React.ReactNode {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Audios</h1>
+      <h1 className={styles.title}>{t.audios.title}</h1>
 
       {audioIssue && (
         <BackendIssueBanner
@@ -200,7 +203,7 @@ function AudiosView(): React.ReactNode {
             type='button'
             className={styles.feedbackDismiss}
             onClick={() => setFeedback(null)}
-            aria-label='Dismiss'
+            aria-label={t.audios.dismiss}
           >
             ×
           </button>
@@ -208,11 +211,11 @@ function AudiosView(): React.ReactNode {
       )}
 
       <section className={styles.panel}>
-        <h2 className={styles.panelTitle}>Upload a clip</h2>
+        <h2 className={styles.panelTitle}>{t.audios.upload.title}</h2>
         {canControl ? (
           <form className={styles.uploadForm} onSubmit={handleSubmit} data-testid='audios-upload-form'>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Audio file</span>
+              <span className={styles.fieldLabel}>{t.audios.upload.file}</span>
               <input
                 ref={fileInputRef}
                 className={styles.input}
@@ -223,12 +226,12 @@ function AudiosView(): React.ReactNode {
               />
             </label>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Title</span>
+              <span className={styles.fieldLabel}>{t.audios.upload.clipTitle}</span>
               <input
                 className={styles.input}
                 type='text'
                 value={title}
-                placeholder='Title'
+                placeholder={t.audios.upload.clipTitlePlaceholder}
                 onChange={(event) => setTitle(event.target.value)}
                 data-testid='audios-upload-title'
               />
@@ -239,39 +242,40 @@ function AudiosView(): React.ReactNode {
               disabled={!file || converting || title.trim().length === 0 || uploadMutation.isPending}
               data-testid='audios-upload-submit'
             >
-              {converting ? 'Converting…' : uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+              {converting
+                ? t.audios.upload.converting
+                : uploadMutation.isPending
+                  ? t.audios.upload.uploading
+                  : t.audios.upload.submit}
             </button>
-            <p className={styles.hint}>
-              WAV, M4A, MP3 or anything else this browser can play. It is converted here to the device's compressed
-              format before upload, up to {Math.floor(maxConvertedSeconds(MAX_FILE_BYTES))} s.
-            </p>
+            <p className={styles.hint}>{t.audios.upload.hint(Math.floor(maxConvertedSeconds(MAX_FILE_BYTES)))}</p>
           </form>
         ) : (
           <div className={styles.viewOnlyBadge} data-testid='audios-view-only'>
             <span className={styles.viewOnlyIcon}>👁</span>
-            <span>View only — log in to play, upload or delete</span>
+            <span>{t.audios.upload.viewOnly}</span>
           </div>
         )}
       </section>
 
       <section className={styles.panel}>
-        <h2 className={styles.panelTitle}>Audio library</h2>
+        <h2 className={styles.panelTitle}>{t.audios.library.title}</h2>
 
-        {isLoading && <p className={styles.empty}>Loading clips…</p>}
-        {listError && <p className={styles.empty}>Could not load clips: {(listError as Error).message}</p>}
-        {!isLoading && !listError && sorted.length === 0 && <p className={styles.empty}>No clips on the device.</p>}
+        {isLoading && <p className={styles.empty}>{t.audios.library.loading}</p>}
+        {listError && <p className={styles.empty}>{t.audios.library.loadFailed((listError as Error).message)}</p>}
+        {!isLoading && !listError && sorted.length === 0 && <p className={styles.empty}>{t.audios.library.empty}</p>}
 
         {sorted.length > 0 && (
           <div className={styles.tableScroll}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th scope='col'>ID</th>
-                  <th scope='col'>Title</th>
-                  <th scope='col'>Source</th>
-                  <th scope='col'>File</th>
+                  <th scope='col'>{t.audios.library.columns.id}</th>
+                  <th scope='col'>{t.audios.library.columns.title}</th>
+                  <th scope='col'>{t.audios.library.columns.source}</th>
+                  <th scope='col'>{t.audios.library.columns.file}</th>
                   <th scope='col' className={styles.actionsHeader}>
-                    Actions
+                    {t.audios.library.columns.actions}
                   </th>
                 </tr>
               </thead>
@@ -285,7 +289,7 @@ function AudiosView(): React.ReactNode {
                         className={clsx(styles.badge, clip.readonly ? styles.badgeShipped : styles.badgeUploaded)}
                         data-testid={`audios-source-${clip.id}`}
                       >
-                        {clip.readonly ? 'Shipped' : 'Uploaded'}
+                        {clip.readonly ? t.audios.library.shipped : t.audios.library.uploaded}
                       </span>
                     </td>
                     <td className={styles.fileCell}>{clip.filename}</td>
@@ -298,7 +302,7 @@ function AudiosView(): React.ReactNode {
                             onClick={() => playMutation.mutate(clip)}
                             data-testid={`audios-play-${clip.id}`}
                           >
-                            Play
+                            {t.audios.library.play}
                           </button>
                           {/* Shipped clips are flashed with the firmware:
                             there is no file behind them to remove, so the
@@ -319,7 +323,7 @@ function AudiosView(): React.ReactNode {
                                   onClick={() => setPendingDeleteId(null)}
                                   data-testid={`audios-delete-cancel-${clip.id}`}
                                 >
-                                  Cancel
+                                  {t.audios.library.cancel}
                                 </button>
                                 <button
                                   className={clsx(styles.button, styles.buttonDestructive)}
@@ -327,7 +331,7 @@ function AudiosView(): React.ReactNode {
                                   onClick={() => deleteMutation.mutate(clip)}
                                   data-testid={`audios-delete-confirm-${clip.id}`}
                                 >
-                                  Confirm
+                                  {t.audios.library.confirm}
                                 </button>
                               </>
                             ) : (
@@ -337,7 +341,7 @@ function AudiosView(): React.ReactNode {
                                 onClick={() => setPendingDeleteId(clip.id)}
                                 data-testid={`audios-delete-${clip.id}`}
                               >
-                                Delete
+                                {t.audios.library.delete}
                               </button>
                             ))}
                         </>

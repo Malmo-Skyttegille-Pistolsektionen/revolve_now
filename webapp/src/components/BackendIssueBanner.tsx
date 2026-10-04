@@ -1,4 +1,5 @@
 import type { BackendIssuePayload } from '../api/types';
+import { useT } from '../i18n';
 import styles from './BackendIssueBanner.module.css';
 
 interface BackendIssueBannerProps {
@@ -12,6 +13,7 @@ interface BackendIssueBannerProps {
  * dismissed it is gone.
  */
 export function BackendIssueBanner({ issue, onDismiss }: BackendIssueBannerProps): React.ReactNode {
+  const t = useT();
   const contextEntries = Object.entries(issue.context ?? {});
 
   return (
@@ -25,7 +27,7 @@ export function BackendIssueBanner({ issue, onDismiss }: BackendIssueBannerProps
           <span className={styles.context}>{contextEntries.map(([key, value]) => `${key}: ${value}`).join(' · ')}</span>
         )}
       </div>
-      <button type='button' className={styles.dismiss} onClick={onDismiss} aria-label='Dismiss'>
+      <button type='button' className={styles.dismiss} onClick={onDismiss} aria-label={t.common.dismiss}>
         ×
       </button>
     </div>

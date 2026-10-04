@@ -2,6 +2,7 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { useT } from '../i18n';
 import styles from './ControlLockSection.module.css';
 
 function getActionErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -14,6 +15,8 @@ function getActionErrorMessage(error: unknown, fallbackMessage: string): string 
 
 export function ControlLockSection(): React.ReactNode {
   const { controlLockToken } = useSettings();
+  const t = useT();
+  const s = t.settings.controlLock;
   const {
     controlLockEnabled,
     isLoading,
@@ -41,7 +44,7 @@ export function ControlLockSection(): React.ReactNode {
       await enable(password);
       setPassword('');
     } catch (error) {
-      setActionError(getActionErrorMessage(error, 'Could not turn the control lock on.'));
+      setActionError(getActionErrorMessage(error, s.enableFailed));
     }
   };
 
@@ -55,7 +58,7 @@ export function ControlLockSection(): React.ReactNode {
       await login(password);
       setPassword('');
     } catch (error) {
-      setActionError(getActionErrorMessage(error, 'Could not log in.'));
+      setActionError(getActionErrorMessage(error, s.loginFailed));
     }
   };
 
@@ -65,7 +68,7 @@ export function ControlLockSection(): React.ReactNode {
     try {
       await disable();
     } catch (error) {
-      setActionError(getActionErrorMessage(error, 'Could not turn the control lock off.'));
+      setActionError(getActionErrorMessage(error, s.disableFailed));
     }
   };
 
@@ -77,8 +80,8 @@ export function ControlLockSection(): React.ReactNode {
   if (isLoading) {
     return (
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Control lock</h2>
-        <div className={styles.loadingText}>Asking the device…</div>
+        <h2 className={styles.sectionTitle}>{s.title}</h2>
+        <div className={styles.loadingText}>{t.common.askingDevice}</div>
       </section>
     );
   }
@@ -87,15 +90,13 @@ export function ControlLockSection(): React.ReactNode {
   if (!controlLockEnabled) {
     return (
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Control lock</h2>
+        <h2 className={styles.sectionTitle}>{s.title}</h2>
         <div className={styles.form}>
           <div className={styles.statusRow}>
             <span className={clsx(styles.statusBadge, styles.statusOff)} data-testid='control-lock-status'>
-              OFF
+              {s.statusOff}
             </span>
-            <span className={styles.statusDescription}>
-              Full public access — anyone on the network can operate this device
-            </span>
+            <span className={styles.statusDescription}>{s.offDescription}</span>
           </div>
           <div className={styles.inputRow}>
             <input
@@ -103,7 +104,7 @@ export function ControlLockSection(): React.ReactNode {
               className={styles.input}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder='Choose a password'
+              placeholder={s.choosePassword}
               data-testid='control-lock-password'
             />
             <button
@@ -111,7 +112,7 @@ export function ControlLockSection(): React.ReactNode {
               onClick={handleEnable}
               disabled={!password.trim() || isPending}
             >
-              {isPending ? 'Locking…' : 'Turn the lock on'}
+              {isPending ? s.locking : s.turnOn}
             </button>
           </div>
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
@@ -124,13 +125,13 @@ export function ControlLockSection(): React.ReactNode {
   if (!isAuthenticated) {
     return (
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Control lock</h2>
+        <h2 className={styles.sectionTitle}>{s.title}</h2>
         <div className={styles.form}>
           <div className={styles.statusRow}>
             <span className={clsx(styles.statusBadge, styles.statusLocked)} data-testid='control-lock-status'>
-              ON 🔒
+              {s.statusLocked}
             </span>
-            <span className={styles.statusDescription}>View only — log in to start or change anything</span>
+            <span className={styles.statusDescription}>{s.lockedDescription}</span>
           </div>
           <div className={styles.inputRow}>
             <input
@@ -138,7 +139,7 @@ export function ControlLockSection(): React.ReactNode {
               className={styles.input}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder='Password'
+              placeholder={s.password}
               data-testid='control-lock-password'
             />
             <button
@@ -146,13 +147,10 @@ export function ControlLockSection(): React.ReactNode {
               onClick={handleLogin}
               disabled={!password.trim() || isPending}
             >
-              {isLoginPending ? 'Logging in…' : 'Log in'}
+              {isLoginPending ? s.loggingIn : s.logIn}
             </button>
           </div>
-          <div className={styles.infoText}>
-            Whoever turned the lock on chose this password. Logging in lets you operate the device; turning the lock off
-            returns it to full public access for everyone.
-          </div>
+          <div className={styles.infoText}>{s.lockedInfo}</div>
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
         </div>
       </section>
@@ -162,26 +160,24 @@ export function ControlLockSection(): React.ReactNode {
   // State C: the lock is on and this browser is holding it.
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>Control lock</h2>
+      <h2 className={styles.sectionTitle}>{s.title}</h2>
       <div className={styles.form}>
         <div className={styles.statusRow}>
           <span className={clsx(styles.statusBadge, styles.statusActive)} data-testid='control-lock-status'>
-            ON ✓
+            {s.statusHeld}
           </span>
-          <span className={styles.statusDescription}>
-            You are holding the lock — nobody else can start or change anything
-          </span>
+          <span className={styles.statusDescription}>{s.heldDescription}</span>
         </div>
         <div className={styles.buttonRow}>
           <button className={clsx(styles.button, styles.buttonSecondary)} onClick={handleLogout} disabled={isPending}>
-            Log out
+            {s.logOut}
           </button>
           <button
             className={clsx(styles.button, styles.buttonDestructive)}
             onClick={handleDisable}
             disabled={isPending}
           >
-            {isPending ? 'Unlocking…' : 'Turn the lock off'}
+            {isPending ? s.unlocking : s.turnOff}
           </button>
         </div>
         {actionError && <div className={styles.errorMessage}>{actionError}</div>}

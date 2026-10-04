@@ -3,6 +3,7 @@ import { useId, useState } from 'react';
 import { useDiagnosticsApi } from '../api/diagnostics';
 import type { BuildInfo } from '../api/types';
 import { APP_VERSION } from '../appVersion';
+import { useT } from '../i18n';
 import { Logo } from './Logo';
 import styles from './AboutSection.module.css';
 
@@ -38,6 +39,8 @@ import styles from './AboutSection.module.css';
  */
 export function AboutSection(): React.ReactNode {
   const diagnosticsApi = useDiagnosticsApi();
+  const t = useT();
+  const s = t.settings.about;
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
 
@@ -52,7 +55,7 @@ export function AboutSection(): React.ReactNode {
 
   return (
     <section className={styles.section} data-testid='about-section'>
-      <h2 className={styles.sectionTitle}>About</h2>
+      <h2 className={styles.sectionTitle}>{s.title}</h2>
 
       {/* The only place the app names itself: the tab bar stays free of brand (DESIGN.md). */}
       <p className={styles.product} data-testid='product-name'>
@@ -60,17 +63,19 @@ export function AboutSection(): React.ReactNode {
       </p>
 
       <dl className={styles.rows}>
-        <dt className={styles.label}>App</dt>
+        <dt className={styles.label}>{s.app}</dt>
         <dd className={styles.value} data-testid='version-app'>
           {APP_VERSION}
         </dd>
 
-        <dt className={styles.label}>Device</dt>
+        <dt className={styles.label}>{s.device}</dt>
         <dd className={styles.value} data-testid='version-firmware'>
-          {firmwareVersion ?? <span className={styles.muted}>{isPending ? 'Checking…' : 'unavailable'}</span>}
+          {firmwareVersion ?? (
+            <span className={styles.muted}>{isPending ? t.common.checking : t.common.unavailable}</span>
+          )}
           {build?.dirty === true && (
             <span className={styles.marker} data-testid='build-dirty'>
-              Modified build
+              {s.modifiedBuild}
             </span>
           )}
         </dd>
@@ -78,10 +83,9 @@ export function AboutSection(): React.ReactNode {
 
       {mismatch && (
         <p className={styles.mismatch} data-testid='version-mismatch'>
-          This app was built from a different commit than the firmware it is talking to. They ship as one image, so a
-          page served <em>by</em> the device always matches it. This page came from somewhere else — a development
-          server, or a copy on a laptop — pointed at a board built from a different commit. Reloading will not help; the
-          two really are different.
+          {s.mismatchBefore}
+          <em>{s.mismatchBy}</em>
+          {s.mismatchAfter}
         </p>
       )}
 
@@ -95,7 +99,7 @@ export function AboutSection(): React.ReactNode {
             onClick={() => setExpanded((open) => !open)}
             data-testid='build-details-toggle'
           >
-            {expanded ? 'Hide build details' : 'Build details'}
+            {expanded ? s.hideBuildDetails : s.buildDetails}
           </button>
           {expanded && <BuildDetails id={detailsId} build={build} />}
         </>
@@ -111,6 +115,8 @@ export function AboutSection(): React.ReactNode {
  * that grouping is more use than sorting would be.
  */
 function BuildDetails({ id, build }: { id: string; build: BuildInfo }): React.ReactNode {
+  const t = useT();
+  const s = t.settings.about;
   const [copied, setCopied] = useState<'idle' | 'copied' | 'manual'>('idle');
   const text = asPlainText(build);
 
@@ -127,9 +133,9 @@ function BuildDetails({ id, build }: { id: string; build: BuildInfo }): React.Re
   return (
     <div id={id} className={styles.details} data-testid='build-details'>
       <dl className={styles.rows}>
-        <Row label='Version' value={build.version} />
-        <Row label='Commit' value={build.commit === '' ? 'no repository' : build.commit} />
-        <Row label='Built' value={build.buildTime} />
+        <Row label={s.version} value={build.version} />
+        <Row label={s.commit} value={build.commit === '' ? s.noRepository : build.commit} />
+        <Row label={s.built} value={build.buildTime} />
         {Object.entries(build.details).map(([key, value]) => (
           <Row key={key} label={key} value={value} />
         ))}
@@ -137,11 +143,11 @@ function BuildDetails({ id, build }: { id: string; build: BuildInfo }): React.Re
 
       <div className={styles.actions}>
         <button type='button' className={styles.copy} onClick={() => void copy()} data-testid='build-copy'>
-          Copy
+          {t.common.copy}
         </button>
         <span role='status' className={styles.copyStatus}>
-          {copied === 'copied' && 'Copied'}
-          {copied === 'manual' && 'This browser would not let us copy — select the text below'}
+          {copied === 'copied' && t.common.copied}
+          {copied === 'manual' && s.copyFailed}
         </span>
       </div>
 

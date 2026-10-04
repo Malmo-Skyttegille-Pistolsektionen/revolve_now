@@ -4,6 +4,7 @@ import { WifiConfigSection } from '../components/WifiConfigSection';
 import { TroubleshootingSection } from '../components/TroubleshootingSection';
 import { RestartToApply } from '../components/RestartToApply';
 import { useConfigWindow } from '../hooks/useConfigWindow';
+import { useT } from '../i18n';
 import styles from './settings.module.css';
 
 /**
@@ -33,15 +34,16 @@ export const Route = createFileRoute('/hardware')({
 
 export function HardwarePage(): React.ReactNode {
   const { open, remainingSeconds } = useConfigWindow();
+  const t = useT().hardware.page;
 
   return (
     <div className={styles.container}>
       <Link to='/settings' className={styles.backLink} data-testid='hardware-back'>
-        ← Settings
+        {t.back}
       </Link>
       {/* Outside the window gate below, deliberately - D-42. */}
       <div className={styles.titleRow}>
-        <h1 className={styles.title}>Expert mode</h1>
+        <h1 className={styles.title}>{t.title}</h1>
         <RestartToApply />
       </div>
 
@@ -50,15 +52,25 @@ export function HardwarePage(): React.ReactNode {
           while looking at the navigation. */}
       {open ? (
         <p className={styles.window} data-testid='config-window'>
-          Configuration is unlocked for <strong>{formatRemaining(remainingSeconds)}</strong>. Press the device&rsquo;s{' '}
-          <strong>BOOT</strong> button three times again for a fresh five minutes.
+          {t.unlockedBefore}
+          <strong>{formatRemaining(remainingSeconds)}</strong>
+          {t.unlockedPress}
+          <strong>BOOT</strong>
+          {t.unlockedAfter}
         </p>
       ) : (
         <p className={styles.windowShut} data-testid='config-window-shut'>
-          Configuration is <strong>locked</strong>. Press the <strong>BOOT</strong> button on the device{' '}
-          <strong>three times within ten seconds</strong> &mdash; it is next to the USB sockets, marked{' '}
-          <code>BOOT</code> or <code>FLASH</code> &mdash; to unlock it for five minutes. Three rather than one so it
-          cannot happen by accident.
+          {t.lockedBefore}
+          <strong>{t.locked}</strong>
+          {t.lockedPress}
+          <strong>BOOT</strong>
+          {t.lockedOnDevice}
+          <strong>{t.lockedThreeTimes}</strong>
+          {t.lockedWhere}
+          <code>BOOT</code>
+          {t.lockedOr}
+          <code>FLASH</code>
+          {t.lockedAfter}
         </p>
       )}
 

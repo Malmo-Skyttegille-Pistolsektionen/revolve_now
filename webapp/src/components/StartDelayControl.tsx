@@ -1,10 +1,7 @@
 import clsx from 'clsx';
 import { START_DELAY_OPTIONS, useSettings } from '../context/SettingsContext';
+import { useT } from '../i18n';
 import styles from './StartDelayControl.module.css';
-
-const HINT =
-  'Seconds counted down before the program starts; No delay starts it at once. ' +
-  'Saved in this browser only - another phone or tablet keeps its own.';
 
 interface StartDelayControlProps {
   /** A running countdown already has its length; see the call site in `run.tsx`. */
@@ -17,13 +14,14 @@ interface StartDelayControlProps {
  */
 export function StartDelayControl({ disabled = false }: StartDelayControlProps): React.ReactNode {
   const { settings, setStartDelaySeconds } = useSettings();
+  const t = useT();
 
   const immediate = settings.startDelaySeconds === 0;
 
   return (
-    <div className={clsx(styles.control, immediate && styles.controlImmediate)} title={HINT}>
+    <div className={clsx(styles.control, immediate && styles.controlImmediate)} title={t.run.startDelay.hint}>
       <label className={styles.label} htmlFor='run-start-delay'>
-        Start delay
+        {t.run.startDelay.label}
       </label>
       {/* A select rather than a number field (#195): one tap on the tablet the
           range uses instead of a keyboard over the Start button beside it, and
@@ -42,7 +40,7 @@ export function StartDelayControl({ disabled = false }: StartDelayControlProps):
       >
         {START_DELAY_OPTIONS.map((seconds) => (
           <option key={seconds} value={String(seconds)}>
-            {seconds === 0 ? 'No delay' : String(seconds)}
+            {seconds === 0 ? t.run.startDelay.noDelay : String(seconds)}
           </option>
         ))}
       </select>
@@ -53,7 +51,7 @@ export function StartDelayControl({ disabled = false }: StartDelayControlProps):
         id='run-start-delay-unit'
         data-testid='run-start-delay-unit'
       >
-        {immediate ? 'no delay - Start begins the program at once' : 'seconds'}
+        {immediate ? t.run.startDelay.immediate : t.run.startDelay.seconds}
       </span>
     </div>
   );

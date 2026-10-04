@@ -8,6 +8,7 @@
  * report a generic failure.
  */
 import type { AudioFile } from '../api/types';
+import type { Messages } from '../i18n/messages';
 import { PROGRAMS_PATH } from './pr-url';
 
 /** Where the shipped audio catalogue lives in the repository. */
@@ -42,6 +43,9 @@ interface ContentsApiEntry {
   download_url: string | null;
 }
 
+/** The wording of the errors: this is not a component, so the caller passes its dictionary in. */
+export type GitHubMessages = Messages['standalone']['github'];
+
 export class GitHubApiError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
@@ -51,16 +55,11 @@ export class GitHubApiError extends Error {
   }
 }
 
-async function githubJson<T>(url: string): Promise<T> {
+async function githubJson<T>(url: string, t: GitHubMessages): Promise<T> {
   const response = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
   if (!response.ok) {
     const rateLimited = response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0';
-    throw new GitHubApiError(
-      response.status,
-      rateLimited
-        ? 'GitHub API rate limit reached for unauthenticated requests — try again in a few minutes.'
-        : `GitHub returned ${String(response.status)} for ${url}.`,
-    );
+    throw new GitHubApiError(response.status, rateLimited ? t.rateLimited : t.status(response.status, url));
   }
   return (await response.json()) as T;
 }
@@ -81,11 +80,11 @@ export function idFromFilename(name: string): number | null {
  * any directory (#221), "every .json here is a program" stops being a
  * reasonable assumption at all.
  */
-export async function listRepoProgramFiles(location: RepoLocation): Promise<RepoProgramFile[]> {
+export async function listRepoProgramFiles(location: RepoLocation, t: GitHubMessages): Promise<RepoProgramFile[]> {
   const path = (location.path ?? PROGRAMS_PATH).replace(/^\/+|\/+$/g, '');
   const refQuery = location.ref ? `?ref=${encodeURIComponent(location.ref)}` : '';
   const url = `https://api.github.com/repos/${location.owner}/${location.repo}/contents/${path}${refQuery}`;
-  const entries = await githubJson<ContentsApiEntry[]>(url);
+  const entries = await githubJson<ContentsApiEntry[]>(url, t);
   return entries
     .filter(
       (entry): entry is ContentsApiEntry & { download_url: string } =>
@@ -139,10 +138,10 @@ export async function fetchRepoProgramSummary(
 }
 
 /** Fetches one program file's raw text — from `raw.githubusercontent.com`, also CORS-enabled. */
-export async function fetchRepoProgramFile(file: RepoProgramFile): Promise<string> {
+export async function fetchRepoProgramFile(file: RepoProgramFile, t: GitHubMessages): Promise<string> {
   const response = await fetch(file.downloadUrl);
   if (!response.ok) {
-    throw new GitHubApiError(response.status, `GitHub returned ${String(response.status)} fetching ${file.path}.`);
+    throw new GitHubApiError(response.status, t.fetchStatus(response.status, file.path));
   }
   return response.text();
 }
@@ -160,12 +159,12 @@ export async function fetchRepoProgramFile(file: RepoProgramFile): Promise<strin
  * them: everything in the repository is shipped by definition, and an uploaded
  * clip only exists on a device.
  */
-export async function fetchRepoAudioCatalogue(location: RepoLocation): Promise<AudioFile[]> {
+export async function fetchRepoAudioCatalogue(location: RepoLocation, t: GitHubMessages): Promise<AudioFile[]> {
   const ref = location.ref ?? 'main';
   const url = `https://raw.githubusercontent.com/${location.owner}/${location.repo}/${ref}/${AUDIOS_PATH}`;
   const response = await fetch(url);
   if (!response.ok) {
-    throw new GitHubApiError(response.status, `GitHub returned ${String(response.status)} fetching ${AUDIOS_PATH}.`);
+    throw new GitHubApiError(response.status, t.fetchStatus(response.status, AUDIOS_PATH));
   }
   const raw: unknown = await response.json();
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return [];

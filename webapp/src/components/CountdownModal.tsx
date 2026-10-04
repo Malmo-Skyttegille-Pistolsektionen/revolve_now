@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
+import { useT } from '../i18n';
 import styles from './CountdownModal.module.css';
 
 interface CountdownModalProps {
@@ -9,6 +10,7 @@ interface CountdownModalProps {
 }
 
 export function CountdownModal({ seconds, onCancel, onStartNow }: CountdownModalProps): React.ReactNode {
+  const t = useT();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -43,16 +45,16 @@ export function CountdownModal({ seconds, onCancel, onStartNow }: CountdownModal
   return (
     <dialog ref={dialogRef} className={styles.dialog} onKeyDown={handleKeyDown} onClick={handleBackdropClick}>
       <div className={styles.content}>
-        <div className={styles.label}>Starting in...</div>
+        <div className={styles.label}>{t.run.countdown.startingIn}</div>
         <div className={styles.countdown} data-testid='countdown-seconds' key={seconds}>
           {seconds}
         </div>
         <div className={styles.buttonRow}>
           <button className={clsx(styles.button, styles.buttonStartNow)} onClick={onStartNow}>
-            Start Now
+            {t.run.countdown.startNow}
           </button>
           <button className={clsx(styles.button, styles.buttonCancel)} onClick={onCancel} autoFocus>
-            Cancel
+            {t.run.countdown.cancel}
           </button>
         </div>
       </div>

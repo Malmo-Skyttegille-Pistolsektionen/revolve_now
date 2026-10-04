@@ -108,7 +108,12 @@ export function deviceBankCount(state: { targetBanks?: Record<string, unknown> }
  * ASCII (`A-D`) because problem details are read off a serial console as often
  * as a screen; this is the same sentence set properly for the browser.
  */
-export function bankRangeLabel(count: number): string {
-  if (count <= 1) return 'one bank (A)';
-  return `A–${BANK_LETTERS[Math.min(count, BANK_LETTERS.length) - 1]}`;
+export interface BankRangeWords {
+  oneBank: string;
+  bankRange: (last: string) => string;
+}
+
+export function bankRangeLabel(t: BankRangeWords, count: number): string {
+  if (count <= 1) return t.oneBank;
+  return t.bankRange(BANK_LETTERS[Math.min(count, BANK_LETTERS.length) - 1]);
 }

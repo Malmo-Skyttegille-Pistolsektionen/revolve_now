@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError, client, problemType } from '../src/api/client';
 import type { Problem } from '../src/api/types';
+import { en } from '../src/i18n/en';
 import { failureNotice, unloadFailureNotice, updateFailureNotice } from '../src/lib/program-notices';
+
+const T = en.programs.notices;
 
 /**
  * RFC 9457 problem details (D-19).
@@ -47,7 +50,7 @@ describe('updateFailureNotice branches on type, not on wording', () => {
     // The detail says nothing about being shipped. Under the old regex this
     // fell through to the "loaded" explanation - the exact silent
     // mis-explanation D-19 exists to end.
-    const notice = updateFailureNotice(apiError('/problems/program_readonly', 'Nope.', 409), 7);
+    const notice = updateFailureNotice(T, apiError('/problems/program_readonly', 'Nope.', 409), 7);
     expect(notice.message).toContain('shipped with the firmware');
     expect(notice.message).toContain('Upload the file as a new program instead');
   });
@@ -55,18 +58,18 @@ describe('updateFailureNotice branches on type, not on wording', () => {
   it('explains a loaded program from the type alone', () => {
     // And this detail *does* say "read-only", which the old regex would have
     // matched, showing the shipped explanation for a loaded program.
-    const notice = updateFailureNotice(apiError('/problems/program_loaded', 'read-only, sort of', 409), 7);
+    const notice = updateFailureNotice(T, apiError('/problems/program_loaded', 'read-only, sort of', 409), 7);
     expect(notice.message).toContain('currently loaded on the device');
     expect(notice.message).toContain('Unload it first');
   });
 
   it('reports a program that is gone', () => {
-    const notice = updateFailureNotice(apiError('/problems/program_not_found', 'Program not found', 404), 7);
+    const notice = updateFailureNotice(T, apiError('/problems/program_not_found', 'Program not found', 404), 7);
     expect(notice.message).toBe('Program 7 is no longer on the device.');
   });
 
   it('falls back to detail for a 409 type it has no explanation for', () => {
-    const notice = updateFailureNotice(apiError('/problems/program_invalid', 'Invalid program', 400), 7);
+    const notice = updateFailureNotice(T, apiError('/problems/program_invalid', 'Invalid program', 400), 7);
     expect(notice.message).toContain('Could not replace program 7.');
     expect(notice.message).toContain('Invalid program');
   });
@@ -74,12 +77,12 @@ describe('updateFailureNotice branches on type, not on wording', () => {
 
 describe('unloadFailureNotice', () => {
   it('names the escape for a run in progress', () => {
-    const notice = unloadFailureNotice(apiError('/problems/program_running', 'A program is running', 409));
+    const notice = unloadFailureNotice(T, apiError('/problems/program_running', 'A program is running', 409));
     expect(notice.message).toContain('Pause the run first');
   });
 
   it('falls back to detail for any other refusal', () => {
-    const notice = unloadFailureNotice(apiError('/problems/control_lock_credentials_required', 'Nope', 401));
+    const notice = unloadFailureNotice(T, apiError('/problems/control_lock_credentials_required', 'Nope', 401));
     expect(notice.message).toContain('Could not unload the program.');
   });
 });
@@ -87,6 +90,7 @@ describe('unloadFailureNotice', () => {
 describe('failureNotice', () => {
   it('sends an unauthenticated caller to Settings', () => {
     const notice = failureNotice(
+      T,
       apiError('/problems/control_lock_credentials_required', 'Nope', 401),
       'Could not load.',
     );
@@ -95,6 +99,7 @@ describe('failureNotice', () => {
 
   it('shows detail for everything else', () => {
     const notice = failureNotice(
+      T,
       apiError('/problems/audio_playing', 'Audio is currently playing', 409),
       'Could not delete.',
     );
@@ -113,9 +118,9 @@ describe('a type this client has never heard of', () => {
   });
 
   it('falls back to showing detail rather than matching a branch by accident', () => {
-    expect(updateFailureNotice(unknown, 7).message).toBe('Could not replace program 7. The flux capacitor jammed.');
-    expect(unloadFailureNotice(unknown).message).toBe('Could not unload the program. The flux capacitor jammed.');
-    expect(failureNotice(unknown, 'Could not do it.').message).toBe('Could not do it. The flux capacitor jammed.');
+    expect(updateFailureNotice(T, unknown, 7).message).toBe('Could not replace program 7. The flux capacitor jammed.');
+    expect(unloadFailureNotice(T, unknown).message).toBe('Could not unload the program. The flux capacitor jammed.');
+    expect(failureNotice(T, unknown, 'Could not do it.').message).toBe('Could not do it. The flux capacitor jammed.');
   });
 });
 

@@ -7,6 +7,10 @@ import {
   idFromFilename,
   listRepoProgramFiles,
 } from '../src/lib/github-contents';
+import { en } from '../src/i18n/en';
+
+/** The wording of the errors; the tests match on the English. */
+const t = en.standalone.github;
 
 describe('idFromFilename', () => {
   it('reads the id out of a program filename', () => {
@@ -51,7 +55,7 @@ describe('listRepoProgramFiles', () => {
       ),
     );
 
-    const files = await listRepoProgramFiles({ owner: 'acme', repo: 'revolve_now' });
+    const files = await listRepoProgramFiles({ owner: 'acme', repo: 'revolve_now' }, t);
 
     expect(files.map((f) => f.name)).toEqual(['2.json', '20.json']);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -62,12 +66,12 @@ describe('listRepoProgramFiles', () => {
 
   it('raises a plain error for a repo that does not exist', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 404 }));
-    await expect(listRepoProgramFiles({ owner: 'acme', repo: 'nope' })).rejects.toThrow(GitHubApiError);
+    await expect(listRepoProgramFiles({ owner: 'acme', repo: 'nope' }, t)).rejects.toThrow(GitHubApiError);
   });
 
   it('names rate limiting specifically, since unauthenticated requests are capped at 60/hour', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } }));
-    await expect(listRepoProgramFiles({ owner: 'acme', repo: 'revolve_now' })).rejects.toThrow(/rate limit/i);
+    await expect(listRepoProgramFiles({ owner: 'acme', repo: 'revolve_now' }, t)).rejects.toThrow(/rate limit/i);
   });
 
   // #221: the path was hardcoded to *our* layout, which is a fact about this
@@ -78,13 +82,13 @@ describe('listRepoProgramFiles', () => {
     // lists twice.
     fetchMock.mockImplementation(() => Promise.resolve(new Response('[]', { status: 200 })));
 
-    await listRepoProgramFiles({ owner: 'acme', repo: 'r', path: 'programs' });
+    await listRepoProgramFiles({ owner: 'acme', repo: 'r', path: 'programs' }, t);
     expect(fetchMock).toHaveBeenLastCalledWith(
       'https://api.github.com/repos/acme/r/contents/programs',
       expect.anything(),
     );
 
-    await listRepoProgramFiles({ owner: 'acme', repo: 'r' });
+    await listRepoProgramFiles({ owner: 'acme', repo: 'r' }, t);
     expect(fetchMock).toHaveBeenLastCalledWith(
       'https://api.github.com/repos/acme/r/contents/resources/programs/files',
       expect.anything(),
@@ -94,7 +98,7 @@ describe('listRepoProgramFiles', () => {
   // Somebody typing a path will type a slash on one end or the other.
   it('tolerates leading and trailing slashes on the path', async () => {
     fetchMock.mockResolvedValue(new Response('[]', { status: 200 }));
-    await listRepoProgramFiles({ owner: 'acme', repo: 'r', path: '/programs/files/' });
+    await listRepoProgramFiles({ owner: 'acme', repo: 'r', path: '/programs/files/' }, t);
     expect(fetchMock).toHaveBeenLastCalledWith(
       'https://api.github.com/repos/acme/r/contents/programs/files',
       expect.anything(),
@@ -105,7 +109,7 @@ describe('listRepoProgramFiles', () => {
   // the UI simply never passed one, so you always got the default branch.
   it('asks for a ref when given one', async () => {
     fetchMock.mockResolvedValue(new Response('[]', { status: 200 }));
-    await listRepoProgramFiles({ owner: 'acme', repo: 'r', ref: 'release/2.0' });
+    await listRepoProgramFiles({ owner: 'acme', repo: 'r', ref: 'release/2.0' }, t);
     expect(fetchMock).toHaveBeenLastCalledWith(
       'https://api.github.com/repos/acme/r/contents/resources/programs/files?ref=release%2F2.0',
       expect.anything(),
@@ -126,7 +130,7 @@ describe('listRepoProgramFiles', () => {
         { status: 200 },
       ),
     );
-    const files = await listRepoProgramFiles({ owner: 'acme', repo: 'r' });
+    const files = await listRepoProgramFiles({ owner: 'acme', repo: 'r' }, t);
     expect(files.map((f) => f.name)).toEqual(['7.json']);
   });
 });
@@ -193,11 +197,14 @@ describe('fetchRepoProgramFile', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('{"title":"x"}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const text = await fetchRepoProgramFile({
-      name: '42.json',
-      path: 'resources/programs/files/42.json',
-      downloadUrl: 'https://raw.githubusercontent.com/acme/revolve_now/main/resources/programs/files/42.json',
-    });
+    const text = await fetchRepoProgramFile(
+      {
+        name: '42.json',
+        path: 'resources/programs/files/42.json',
+        downloadUrl: 'https://raw.githubusercontent.com/acme/revolve_now/main/resources/programs/files/42.json',
+      },
+      t,
+    );
 
     expect(text).toBe('{"title":"x"}');
     vi.unstubAllGlobals();
@@ -232,7 +239,7 @@ describe('fetchRepoAudioCatalogue', () => {
       '1': { title: '1', phrase: '1', filename: '1.wav' },
     });
 
-    expect(await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' })).toEqual([
+    expect(await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' }, t)).toEqual([
       { id: 1, title: '1', filename: '1.wav', readonly: true },
       { id: 28, title: '10 sekunder', filename: '28.wav', readonly: true },
     ]);
@@ -242,23 +249,23 @@ describe('fetchRepoAudioCatalogue', () => {
   // exists only on a device, so nothing here can be anything else.
   it('marks every entry read-only', async () => {
     serving({ '5': { title: '5', filename: '5.wav' } });
-    const [clip] = await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' });
+    const [clip] = await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' }, t);
     expect(clip.readonly).toBe(true);
   });
 
   it('skips entries whose key is not an id, rather than failing the whole list', async () => {
     serving({ '7': { title: 'Sju', filename: '7.wav' }, notAnId: { title: 'x', filename: 'x.wav' } });
-    expect(await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' })).toEqual([
+    expect(await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' }, t)).toEqual([
       { id: 7, title: 'Sju', filename: '7.wav', readonly: true },
     ]);
   });
 
   it('reads the default branch unless a ref is given', async () => {
     serving({});
-    await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' });
+    await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' }, t);
     expect(fetchMock.mock.calls[0][0]).toBe('https://raw.githubusercontent.com/o/r/main/resources/audios/audios.json');
 
-    await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r', ref: 'some-branch' });
+    await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r', ref: 'some-branch' }, t);
     expect(fetchMock.mock.calls[1][0]).toBe(
       'https://raw.githubusercontent.com/o/r/some-branch/resources/audios/audios.json',
     );
@@ -266,13 +273,13 @@ describe('fetchRepoAudioCatalogue', () => {
 
   it('raises rather than returning a half-list when the file is missing', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 });
-    await expect(fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' })).rejects.toBeInstanceOf(GitHubApiError);
+    await expect(fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' }, t)).rejects.toBeInstanceOf(GitHubApiError);
   });
 
   // A JSON array, or a string, is not the shape this file has - treat it as
   // "no catalogue" rather than throwing, since the editor works without one.
   it('is empty for a document that is not an object', async () => {
     serving([1, 2, 3]);
-    expect(await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' })).toEqual([]);
+    expect(await fetchRepoAudioCatalogue({ owner: 'o', repo: 'r' }, t)).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Program } from '../api/types';
 import { downloadJson, programFilename } from '../lib/download';
 import { PROGRAMS_PATH, buildNewFileUrl, prCommitMessage, prDescription, type PrContext } from '../lib/pr-url';
+import { useT } from '../i18n';
 import styles from './ExportPanel.module.css';
 
 interface ExportPanelProps {
@@ -21,6 +22,7 @@ const DEFAULT_REPO = 'revolve_now';
  * device save.
  */
 export function ExportPanel({ program, origin, onClose }: ExportPanelProps): React.ReactNode {
+  const t = useT().editor.export;
   const [owner, setOwner] = useState(DEFAULT_OWNER);
   const [repo, setRepo] = useState(DEFAULT_REPO);
   const [copied, setCopied] = useState<'message' | 'description' | null>(null);
@@ -51,13 +53,13 @@ export function ExportPanel({ program, origin, onClose }: ExportPanelProps): Rea
 
   return (
     <section className={styles.panel} data-testid='export-panel'>
-      <h3 className={styles.title}>Get program {program.id} onto GitHub</h3>
+      <h3 className={styles.title}>{t.title(program.id)}</h3>
       <p className={styles.hint}>
-        No device is involved from here on — this authors{' '}
+        {t.hintBefore}{' '}
         <code>
           {PROGRAMS_PATH}/{filename}
         </code>{' '}
-        for review as a pull request.
+        {t.hintAfter}
       </p>
 
       <button
@@ -67,12 +69,12 @@ export function ExportPanel({ program, origin, onClose }: ExportPanelProps): Rea
           downloadJson(filename, json);
         }}
       >
-        Download {filename}
+        {t.download(filename)}
       </button>
 
       <div className={styles.repoRow}>
         <label className={styles.field}>
-          <span>Repo owner</span>
+          <span>{t.owner}</span>
           <input
             className={styles.input}
             value={owner}
@@ -81,7 +83,7 @@ export function ExportPanel({ program, origin, onClose }: ExportPanelProps): Rea
           />
         </label>
         <label className={styles.field}>
-          <span>Repo name</span>
+          <span>{t.repo}</span>
           <input
             className={styles.input}
             value={repo}
@@ -93,23 +95,18 @@ export function ExportPanel({ program, origin, onClose }: ExportPanelProps): Rea
 
       {overBudget ? (
         <p className={styles.warning} data-testid='export-oversized'>
-          As a link this program is {String(Math.ceil(byteLength / 1024))} KB — over the roughly 8 KB that GitHub and
-          browsers cap a URL at in practice, so a prefilled link would break rather than open. Use Download above, then
-          add the file to the repo through GitHub's own file uploader (Add file → Upload files) instead.
+          {t.oversized(String(Math.ceil(byteLength / 1024)))}
         </p>
       ) : (
         <a className={styles.button} data-testid='export-pr-link' href={url} target='_blank' rel='noreferrer noopener'>
-          Open a pull request on GitHub
+          {t.openPr}
         </a>
       )}
 
       <div className={styles.copyRow}>
-        <p className={styles.hint}>
-          The link tries to prefill the commit title and description too, which GitHub does not document — if the form
-          it opens is blank, paste these in:
-        </p>
+        <p className={styles.hint}>{t.prefillHint}</p>
         <label className={styles.field}>
-          <span>Commit title</span>
+          <span>{t.commitTitle}</span>
           <div className={styles.copyLine}>
             <input className={styles.input} readOnly value={message} data-testid='export-title-text' />
             <button
@@ -119,12 +116,12 @@ export function ExportPanel({ program, origin, onClose }: ExportPanelProps): Rea
                 copy(message, 'message');
               }}
             >
-              {copied === 'message' ? 'Copied' : 'Copy'}
+              {copied === 'message' ? t.copied : t.copy}
             </button>
           </div>
         </label>
         <label className={styles.field}>
-          <span>Description</span>
+          <span>{t.description}</span>
           <div className={styles.copyLine}>
             <textarea className={styles.textarea} readOnly value={description} data-testid='export-description-text' />
             <button
@@ -134,14 +131,14 @@ export function ExportPanel({ program, origin, onClose }: ExportPanelProps): Rea
                 copy(description, 'description');
               }}
             >
-              {copied === 'description' ? 'Copied' : 'Copy'}
+              {copied === 'description' ? t.copied : t.copy}
             </button>
           </div>
         </label>
       </div>
 
       <button className={styles.button} data-testid='export-close' onClick={onClose}>
-        Close
+        {t.close}
       </button>
     </section>
   );

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useDiagnosticsApi } from '../api/diagnostics';
+import { useT } from '../i18n';
 import styles from './StartupIssuesSection.module.css';
 
 /**
@@ -27,6 +28,8 @@ const MAX_STARTUP_ISSUES = 8;
  */
 export function StartupIssuesSection(): React.ReactNode {
   const diagnosticsApi = useDiagnosticsApi();
+  const t = useT();
+  const s = t.settings.startupIssues;
 
   const {
     data: diagnostics,
@@ -47,7 +50,7 @@ export function StartupIssuesSection(): React.ReactNode {
   return (
     <section className={styles.section} data-testid='startup-issues'>
       <div className={styles.header}>
-        <h2 className={styles.sectionTitle}>Startup Issues</h2>
+        <h2 className={styles.sectionTitle}>{s.title}</h2>
         <button
           type='button'
           className={styles.button}
@@ -55,22 +58,18 @@ export function StartupIssuesSection(): React.ReactNode {
           disabled={isFetching}
           data-testid='startup-issues-refresh'
         >
-          {isFetching ? 'Checking…' : 'Check again'}
+          {isFetching ? t.common.checking : s.checkAgain}
         </button>
       </div>
 
-      <p className={styles.explanation}>
-        Problems the device hit while starting up — today, a stored program it could not read. Such a program is
-        skipped, so it is missing from the Programs list. The device reports them here because they happen before it can
-        push anything to a browser, and the list does not change until it restarts.
-      </p>
+      <p className={styles.explanation}>{s.explanation}</p>
 
-      {isPending && <p className={styles.message}>Asking the device…</p>}
-      {error && <p className={styles.message}>Could not read the device diagnostics: {error.message}</p>}
+      {isPending && <p className={styles.message}>{t.common.askingDevice}</p>}
+      {error && <p className={styles.message}>{s.readFailed(error.message)}</p>}
 
       {!isPending && !error && issues.length === 0 && (
         <p className={clsx(styles.message, styles.messageClean)} data-testid='startup-issues-empty'>
-          The device reported no problems at startup.
+          {s.none}
         </p>
       )}
 
@@ -99,8 +98,7 @@ export function StartupIssuesSection(): React.ReactNode {
 
       {issues.length >= MAX_STARTUP_ISSUES && (
         <p className={styles.truncation} data-testid='startup-issues-truncated'>
-          The device keeps at most {MAX_STARTUP_ISSUES} of these and drops the oldest, so this list may be incomplete —
-          there may have been more. The device’s own log is the full record.
+          {s.truncated(MAX_STARTUP_ISSUES)}
         </p>
       )}
     </section>

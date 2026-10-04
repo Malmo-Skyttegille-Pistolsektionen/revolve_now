@@ -7,12 +7,13 @@ import { useAudiosApi } from '../api/audios';
 import { useHardwareConfigApi } from '../api/hardwareConfig';
 import type { ProgramSummary, StateUpdatePayload } from '../api/types';
 import { Timeline } from '../components/Timeline';
-import { deviceBankCount } from '../lib/bank-state';
+import { bankRangeLabel, deviceBankCount } from '../lib/bank-state';
 import { banksRequired } from '../lib/program-document';
 import { CountdownModal } from '../components/CountdownModal';
 import { StartDelayControl } from '../components/StartDelayControl';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { useT, type Messages } from '../i18n';
 import { unloadFailureNotice } from '../lib/program-notices';
 import styles from './run.module.css';
 
@@ -30,6 +31,8 @@ export const Route = createFileRoute('/run')({
 
 /** `rt::bank_letter` - the letter a bank's position gives it. */
 const BANK_LETTERS = 'ABCDEFGH';
+
+type RunMessages = Messages['run'];
 
 /**
  * Where the targets are (#207, D-41). One bank renders exactly the badge this
@@ -56,13 +59,14 @@ function TargetStrip({
   statusTestId?: string;
   onToggle?: (letter: string) => void;
 }): React.ReactNode {
+  const t = useT().run;
   // No frame yet: neutral and "-", never a red "hidden". Claiming a position
   // the device has not reported is the one thing this badge must not do -
   // somebody reads it before walking downrange.
   if (banks.length === 0) {
     return (
       <div className={styles.infoBadge}>
-        <span className={styles.badgeLabel}>Targets:</span>
+        <span className={styles.badgeLabel}>{t.targetsLabel}</span>
         <strong data-testid={statusTestId}>-</strong>
       </div>
     );
@@ -77,8 +81,8 @@ function TargetStrip({
           [styles.badgeRed]: status === 'hidden',
         })}
       >
-        <span className={styles.badgeLabel}>Targets:</span>
-        <strong data-testid={statusTestId}>{status}</strong>
+        <span className={styles.badgeLabel}>{t.targetsLabel}</span>
+        <strong data-testid={statusTestId}>{t.targetsState[status]}</strong>
       </div>
     );
   }
@@ -87,13 +91,13 @@ function TargetStrip({
     <div
       className={styles.bankStrip}
       role={buttons ? 'group' : 'status'}
-      aria-label='Target banks'
+      aria-label={t.targetBanks}
       data-testid={statusTestId}
     >
       {banks.map((status, index) => {
         const letter = BANK_LETTERS[index];
         const name = names[index] ?? '';
-        const label = `Bank ${letter}${name ? ` ${name}` : ''} ${status}`;
+        const label = t.bankLabel(letter, name, t.bankState[status]);
         const content = (
           <>
             {letter}
@@ -110,7 +114,7 @@ function TargetStrip({
             type='button'
             className={clsx(className, styles.bankButton)}
             title={label}
-            aria-label={`${label}, toggle`}
+            aria-label={t.bankToggle(label)}
             data-testid={`run-bank-toggle-${letter}`}
             onClick={() => onToggle?.(letter)}
           >
@@ -126,17 +130,12 @@ function TargetStrip({
   );
 }
 
-const CONTACT_LOST_NOTICE =
-  'Start cancelled: lost contact with the device during the countdown. Check the connection and start again.';
-
-function cancelledNotice(deviceProgramId: number | null): string {
-  return deviceProgramId === null
-    ? 'Start cancelled: the device unloaded the program during the countdown. Load one and start again.'
-    : `Start cancelled: the device loaded program ${deviceProgramId} during the countdown. Check the program and start again.`;
+function cancelledNotice(t: RunMessages, deviceProgramId: number | null): string {
+  return deviceProgramId === null ? t.cancelledUnloaded : t.cancelledLoaded(deviceProgramId);
 }
 
-function programTitle(programs: ProgramSummary[] | undefined, id: number): string {
-  return programs?.find((program) => program.id === id)?.title ?? `program ${id}`;
+function programTitle(t: RunMessages, programs: ProgramSummary[] | undefined, id: number): string {
+  return programs?.find((program) => program.id === id)?.title ?? t.programFallback(id);
 }
 
 /**
@@ -155,18 +154,18 @@ function programTitle(programs: ProgramSummary[] | undefined, id: number): strin
  *
  * Module scope, so the countdown effect can call it without depending on it.
  */
-function refuseStart(queryClient: QueryClient, expectedProgramId: number): string | null {
+function refuseStart(t: RunMessages, queryClient: QueryClient, expectedProgramId: number): string | null {
   const latest = queryClient.getQueryData<StateUpdatePayload | null>(['state']);
   const deviceProgramId = latest?.loadedProgramId ?? null;
 
   if (deviceProgramId !== expectedProgramId) {
-    return cancelledNotice(deviceProgramId);
+    return cancelledNotice(t, deviceProgramId);
   }
 
   // A dropped stream means the last state we hold may be minutes old, and the
   // reconnect backoff is longer than a short start delay.
   if (queryClient.getQueryData<string>(['sse-status']) !== 'connected') {
-    return CONTACT_LOST_NOTICE;
+    return t.contactLost;
   }
 
   return null;
@@ -174,6 +173,8 @@ function refuseStart(queryClient: QueryClient, expectedProgramId: number): strin
 
 /** Exported for the unit tests; the route renders it through `Route`. */
 export function RunView(): React.ReactNode {
+  const messages = useT();
+  const t = messages.run;
   const [timelineMode, setTimelineMode] = useState<'auto' | 'default' | 'field'>('auto');
 
   // A sticky bar permanently spends ~50px of vertical space, which is the space
@@ -290,7 +291,7 @@ export function RunView(): React.ReactNode {
       // Without this Start stays disabled forever, waiting for a confirmation
       // the device is never going to send.
       setPendingLoad(null);
-      setNotice(`Could not load ${programTitle(programs, id)}: ${error.message}`);
+      setNotice(t.couldNotLoad(programTitle(t, programs, id), error.message));
     },
   });
 
@@ -321,7 +322,7 @@ export function RunView(): React.ReactNode {
   if (armedProgramId !== null && armedProgramId !== loadedProgramId) {
     setCountdown(null);
     setArmedProgramId(null);
-    setNotice(cancelledNotice(loadedProgramId));
+    setNotice(cancelledNotice(t, loadedProgramId));
   }
 
   // Start and Reset act on the device's loaded program, so they are offered
@@ -368,8 +369,8 @@ export function RunView(): React.ReactNode {
     // cancellation is the half the operator cannot see for themselves.
     // `handleUnload` clears the notice first, so the ordinary unload still
     // reports itself.
-    onSuccess: () => setNotice((current) => current ?? 'Nothing is loaded on the device now.'),
-    onError: (error: Error) => setNotice(unloadFailureNotice(error).message),
+    onSuccess: () => setNotice((current) => current ?? t.nothingLoaded),
+    onError: (error: Error) => setNotice(unloadFailureNotice(messages.programs.notices, error).message),
   });
 
   const toggleTargetsMutation = useMutation({
@@ -407,7 +408,7 @@ export function RunView(): React.ReactNode {
     // id-less start to fall back to, so a null is dropped rather than sent.
     if (expectedProgramId === null) return;
 
-    const refusal = refuseStart(queryClient, expectedProgramId);
+    const refusal = refuseStart(t, queryClient, expectedProgramId);
     if (refusal !== null) {
       setNotice(refusal);
       return;
@@ -481,7 +482,7 @@ export function RunView(): React.ReactNode {
       setArmedProgramId(null);
       if (armedProgramId === null) return;
 
-      const refusal = refuseStart(queryClient, armedProgramId);
+      const refusal = refuseStart(t, queryClient, armedProgramId);
       if (refusal !== null) {
         setNotice(refusal);
         return;
@@ -490,18 +491,18 @@ export function RunView(): React.ReactNode {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [countdown, armedProgramId, queryClient, startProgram]);
+  }, [countdown, armedProgramId, queryClient, startProgram, t]);
 
   return (
     <div className={styles.container}>
       <div className={styles.controlBoard} ref={controlBoardRef}>
         <div className={styles.boardHeader}>
           <div className={styles.headerLeft}>
-            <h2 className={styles.title}>Run Program</h2>
+            <h2 className={styles.title}>{t.title}</h2>
 
             {tickerMs != null && (
               <div className={clsx(styles.infoBadge, styles.badgeTime)}>
-                <span className={styles.badgeLabel}>{tickerMs < 0 ? 'Starts in:' : 'Time:'}</span>
+                <span className={styles.badgeLabel}>{tickerMs < 0 ? t.startsIn : t.time}</span>
                 {/* Seconds are the client's derivation now - the wire carries ms.
                     A negative ticker is the preamble counting down to the series'
                     timer anchor (#126); it is shown as a plain countdown rather
@@ -519,7 +520,7 @@ export function RunView(): React.ReactNode {
 
           <div className={styles.statusDisplay}>
             <span className={styles.statusItem}>
-              Program ID: <strong data-testid='run-program-id'>{loadedProgramId ?? '-'}</strong>
+              {t.programId} <strong data-testid='run-program-id'>{loadedProgramId ?? '-'}</strong>
             </span>
           </div>
         </div>
@@ -534,9 +535,8 @@ export function RunView(): React.ReactNode {
             start is refused, with `/problems/program_banks_unavailable`. */}
         {banksUnavailable && activeProgram !== null && knownBankCount !== null && (
           <div className={styles.banksNotice} data-testid='run-banks-notice' role='status'>
-            <strong>{activeProgram.title}</strong> needs banks A–{BANK_LETTERS[banksNeeded - 1]}. This device has{' '}
-            {knownBankCount === 1 ? 'one bank (A)' : `A–${BANK_LETTERS[knownBankCount - 1]}`}, so it cannot be started
-            here.
+            <strong>{activeProgram.title}</strong>{' '}
+            {t.banksUnavailable(bankRangeLabel(t, banksNeeded), bankRangeLabel(t, knownBankCount))}
           </div>
         )}
 
@@ -552,11 +552,11 @@ export function RunView(): React.ReactNode {
                   disabled={loadMutation.isPending}
                 >
                   <option value='' disabled>
-                    Choose program
+                    {t.chooseProgram}
                   </option>
                   {programs?.map((program) => (
                     <option key={program.id} value={program.id}>
-                      {program.title} {program.id === loadedProgramId ? '(Loaded)' : ''}
+                      {program.title} {program.id === loadedProgramId ? t.loadedSuffix : ''}
                     </option>
                   ))}
                 </select>
@@ -569,11 +569,11 @@ export function RunView(): React.ReactNode {
                     disabled={isRunning}
                   >
                     <option value='' disabled>
-                      Choose a series
+                      {t.chooseSeries}
                     </option>
                     {activeProgram.series.map((series, index) => (
                       <option key={index} value={index}>
-                        {series.name} {series.optional ? '(optional)' : ''}
+                        {series.name} {series.optional ? t.optionalSuffix : ''}
                       </option>
                     ))}
                   </select>
@@ -584,32 +584,30 @@ export function RunView(): React.ReactNode {
                   value={timelineMode}
                   onChange={(e) => setTimelineMode(e.target.value as 'auto' | 'default' | 'field')}
                 >
-                  <option value='auto'>Timeline: Auto</option>
-                  <option value='default'>Timeline: Event-based</option>
-                  <option value='field'>Timeline: Time-scaled</option>
+                  <option value='auto'>{t.timelineOption(t.timelineMode.auto)}</option>
+                  <option value='default'>{t.timelineOption(t.timelineMode.default)}</option>
+                  <option value='field'>{t.timelineOption(t.timelineMode.field)}</option>
                 </select>
               </>
             ) : (
               <div className={styles.readOnlyInfo}>
                 <div className={styles.readOnlyItem}>
-                  <span className={styles.readOnlyLabel}>Program:</span>
+                  <span className={styles.readOnlyLabel}>{t.program}</span>
                   <span className={styles.readOnlyValue}>
-                    {programs?.find((p) => p.id === loadedProgramId)?.title ?? 'None loaded'}
+                    {programs?.find((p) => p.id === loadedProgramId)?.title ?? t.noneLoaded}
                   </span>
                 </div>
                 {activeProgram && currentSeriesIndex != null && (
                   <div className={styles.readOnlyItem}>
-                    <span className={styles.readOnlyLabel}>Series:</span>
+                    <span className={styles.readOnlyLabel}>{t.series}</span>
                     <span className={styles.readOnlyValue}>
                       {activeProgram.series[currentSeriesIndex]?.name ?? '-'}
                     </span>
                   </div>
                 )}
                 <div className={styles.readOnlyItem}>
-                  <span className={styles.readOnlyLabel}>Timeline:</span>
-                  <span className={styles.readOnlyValue}>
-                    {timelineMode === 'auto' ? 'Auto' : timelineMode === 'default' ? 'Event-based' : 'Time-scaled'}
-                  </span>
+                  <span className={styles.readOnlyLabel}>{t.timeline}</span>
+                  <span className={styles.readOnlyValue}>{t.timelineMode[timelineMode]}</span>
                 </div>
               </div>
             )}
@@ -631,11 +629,11 @@ export function RunView(): React.ReactNode {
                     disabled={!programConfirmed || banksUnavailable}
                     data-testid='run-start'
                   >
-                    Start
+                    {t.start}
                   </button>
                 ) : (
                   <button className={clsx(styles.button, styles.buttonPause)} onClick={handlePause}>
-                    Pause
+                    {t.pause}
                   </button>
                 )}
 
@@ -644,7 +642,7 @@ export function RunView(): React.ReactNode {
                   onClick={handleReset}
                   disabled={!programConfirmed || isRunning}
                 >
-                  Reset
+                  {t.reset}
                 </button>
 
                 {/* Offered while a run is in progress too, rather than
@@ -657,7 +655,7 @@ export function RunView(): React.ReactNode {
                   onClick={handleUnload}
                   disabled={loadedProgramId === null || unloadMutation.isPending}
                 >
-                  Unload
+                  {t.unload}
                 </button>
 
                 {/* One bank keeps the single button it has always had; with
@@ -665,11 +663,11 @@ export function RunView(): React.ReactNode {
                     follows are in `firmware/docs/api-v2.md`. */}
                 {bankCount <= 1 ? (
                   <button className={clsx(styles.button, styles.buttonSecondary)} onClick={handleToggleTargets}>
-                    Toggle Targets
+                    {t.toggleTargets}
                   </button>
                 ) : (
                   <div className={styles.targetGroup} data-testid='run-target-group'>
-                    <span className={styles.badgeLabel}>Targets</span>
+                    <span className={styles.badgeLabel}>{t.targets}</span>
                     <TargetStrip banks={bankStates} names={bankNames} buttons onToggle={handleToggleBank} />
                     <button
                       className={clsx(styles.button, styles.buttonSecondary)}
@@ -678,7 +676,7 @@ export function RunView(): React.ReactNode {
                         showTargetsMutation.mutate();
                       }}
                     >
-                      Show all
+                      {t.showAll}
                     </button>
                     <button
                       className={clsx(styles.button, styles.buttonSecondary)}
@@ -687,7 +685,7 @@ export function RunView(): React.ReactNode {
                         hideTargetsMutation.mutate();
                       }}
                     >
-                      Hide all
+                      {t.hideAll}
                     </button>
                   </div>
                 )}
@@ -695,7 +693,7 @@ export function RunView(): React.ReactNode {
             ) : (
               <div className={styles.viewOnlyBadge} data-testid='run-view-only'>
                 <span className={styles.viewOnlyIcon}>👁</span>
-                <span>View only — log in to control</span>
+                <span>{t.viewOnly}</span>
               </div>
             )}
           </div>
@@ -724,7 +722,7 @@ export function RunView(): React.ReactNode {
                 disabled={!programConfirmed || banksUnavailable}
                 data-testid='run-sticky-start'
               >
-                Start
+                {t.start}
               </button>
             ) : (
               <button
@@ -732,7 +730,7 @@ export function RunView(): React.ReactNode {
                 onClick={handlePause}
                 data-testid='run-sticky-pause'
               >
-                Pause
+                {t.pause}
               </button>
             ))}
         </div>
