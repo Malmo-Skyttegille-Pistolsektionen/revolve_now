@@ -34,7 +34,7 @@ The targets rest **shown** at boot, deliberately: a target that turns of its own
 accord when a board is powered is the failure this project is most concerned
 with. That resting state can be changed to suit a target system wired the other
 way round, but only over a USB cable, never from the web app — see
-[Settings](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/settings/).
+[Expert mode](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/expert-mode/).
 
 **Do not rely on this software to protect anyone.** It is a convenience for
 running programs, not a safety device, and it has no interlock, no sensor, and

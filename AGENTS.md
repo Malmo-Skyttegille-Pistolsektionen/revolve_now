@@ -44,9 +44,10 @@ Three numbers exist and only one of them is a version anybody should read:
 **Changes within a major must be additive** — a new endpoint, a new optional
 field, a new enum member a client can ignore. Anything a deployed client could
 break on (a removed field, a narrowed type, a changed status code) is a new
-path prefix, not a version bump. `docs/DECISIONS.md` records four exceptions
-(D-16, D-19, D-23, D-27) taken while no release had been cut; **they stop being
-available once 1.0.0 ships**, because from then on there is a deployed client.
+path prefix, not a version bump. The exceptions taken while no release had
+been cut are listed in [`contracts/README.md`](contracts/README.md); **they stop
+being available once 1.0.0 ships**, because from then on there is a deployed
+client.
 
 **An API change reaches the release version only through the commit.** The
 product tag is semver, and git-cliff derives it from the Conventional Commits
@@ -99,12 +100,11 @@ prose: the check catches it late, at PR time, not while you are writing it.
 > applying the moment 1.0.0 is cut, which is also when the additive rule starts
 > having a deployed client to protect.
 
-Nothing enforces the additive rule today — it is prose. `contracts/validate.sh`
-lints both documents (Redocly and the AsyncAPI CLI) but is not wired into CI,
-and lint is not breaking-change detection. Tools that would close this exist
-(`oasdiff` for OpenAPI, the AsyncAPI CLI's `diff --type=breaking`); both can
-fail a PR on a breaking change, which is the check that would tie the two steps
-above together.
+`.github/workflows/contracts.yml` enforces the additive rule: it runs
+`contracts/validate.sh` on every PR, and its `breaking change detection` job
+(`oasdiff` for OpenAPI, the AsyncAPI CLI's `diff --type=breaking`) fails a PR
+that breaks either spec, so a breaking change is always a deliberate decision.
+It does not check the commit: the second step above is still yours.
 
 `contracts/history/` holds the v1 documents as an archaeological record. They
 are unmaintained and nothing implements them.

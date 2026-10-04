@@ -1,7 +1,7 @@
 # Running the firmware in QEMU
 
 The firmware boots unmodified in Espressif's QEMU fork, serves the real REST
-API, the real SSE stream and the real webapp out of the real LittleFS image,
+API, the real SSE stream and the real webapp out of the real application image,
 and answers on `http://localhost:8080`. That makes a browser session or an E2E
 suite possible without a board on the desk, against the same code that ships —
 not a mock.
@@ -41,8 +41,9 @@ budget — exactly as the board has it.
 |---|---|
 | REST `/api/v2/*` | All of it, including the control lock and `diagnostics/info` |
 | SSE `/sse/v2` | `stateUpdate` and `heartbeat`, real timing |
-| The webapp | Served from LittleFS at `http://localhost:8080` when `webapp/dist` exists at build time, `.gz` assets included |
-| LittleFS | Mounts the flashed image: 7 shipped programs, 77 audio entries, uploads |
+| The webapp | Served from the app image at `http://localhost:8080` when `webapp/dist` exists at build time, `.gz` assets included |
+| Shipped content | The shipped programs and audio, read from the app image as on a board |
+| LittleFS | Mounts `userdata` for uploads |
 | Executor timing | Tracks host wall-clock — `tickerMs` advances once a second and series boundaries land where the program says |
 | Watchdogs | Disabled by the runner (`wdt_disable`); nothing feeds them under emulation |
 

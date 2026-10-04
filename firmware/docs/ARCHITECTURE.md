@@ -153,5 +153,5 @@ receives without an edge in between (D-31, #145).
 This is a port of `rotation_target_backend_esp32_micropython` at its
 "SSE-first API v2" revision, route for route and semantic for semantic. Where
 behaviour is subtle, the host tests name the MicroPython test they came from.
-Both backends are meant to be interchangeable from the webapp's point of view;
-`docs/api-v2.md` is the contract that has to stay true of both.
+The MicroPython backend is retired; the contract is `contracts/`, and
+`docs/api-v2.md` is the prose behind it.

@@ -136,9 +136,9 @@ stämmer alltid med den, hur enheten än har uppdaterats.
 Det gäller även en uppdatering som skickats över nätet, som förr var det
 krångliga fallet: den bytte ut firmwaren och lämnade webbappen kvar, så en
 enhet kunde servera en sida som var äldre än firmwaren som körde den tills
-någon flashade över den via USB. Det kan inte hända längre. De medföljande
-programmen och ljuden lagras fortfarande separat och uppdateras fortfarande
-inte över nätet.
+någon flashade över den via USB. Det kan inte hända längre, och de medföljande
+programmen och ljuden ligger i samma avbild, så de uppdateras tillsammans med
+den.
 
 Så en avvikelse betyder numera en enda sak: **den här sidan kom inte från den
 enheten.** Ett utvecklingsbygge, eller en kopia som serveras från en bärbar

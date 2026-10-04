@@ -350,7 +350,7 @@ jobs:
           import json, sys
           d = json.load(open(sys.argv[1]))
           assert isinstance(d, list), f"/api/v2/programs is not a JSON array: {d!r:.200}"
-          assert d, "/api/v2/programs is empty - the LittleFS image carries no shipped programs"
+          assert d, "/api/v2/programs is empty - the app image carries no shipped programs"
           for p in d:
               assert isinstance(p.get("id"), int) and p.get("title"), f"malformed entry: {p}"
           print(f"{len(d)} program(s): " + ", ".join(f"{p['id']} {p['title']}" for p in d))

@@ -36,7 +36,7 @@ Node 22+. Nothing else, and no device:
 ```bash
 cd webapp
 npm ci
-npm run dev            # http://localhost:5173, against the mock server
+npm run dev            # http://localhost:8080, against the mock server
 ```
 
 ### The firmware
@@ -96,7 +96,7 @@ wiring and the partition layout are in
 Two ways, and they answer different questions.
 
 **QEMU** runs the real firmware — the real REST API, the real SSE stream, the
-real web app out of the same LittleFS image a board is flashed with:
+real web app out of the same application image a board is flashed with:
 
 ```bash
 . <esp-idf>/export.sh
@@ -116,8 +116,10 @@ web app's tests run against:
 cd webapp
 npm run dev            # dev server, mock server started for you
 npm run test           # vitest, against the mock
-npm run e2e:local      # Playwright, against the mock
 ```
+
+`npm run e2e:local` is not a mock run: it is the Playwright suite against the
+firmware in QEMU, above.
 
 If you change run behaviour in `firmware/lib/rt_logic/executor.cpp`, change
 `webapp/test/mock-server/server.ts` with it — see

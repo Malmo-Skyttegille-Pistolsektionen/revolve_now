@@ -5,9 +5,8 @@ Native ESP-IDF firmware for Malmö Skyttegille Pistolsektionen's
 It runs shooting programs — turning the targets and playing the commands — and
 serves the React webapp over REST and Server-Sent Events.
 
-This is the ESP-IDF port of
-[`rotation_target_backend_esp32_micropython`](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_backend_esp32_micropython)
-at its API v2 revision. Both speak the same contract; see
+It began as an ESP-IDF port of the now-retired MicroPython backend
+(`rotation_target_backend_esp32_micropython`) at its API v2 revision; see
 [`docs/adr/0001-esp-idf-port.md`](docs/adr/0001-esp-idf-port.md) for why the
 port exists.
 
@@ -52,8 +51,8 @@ elsewhere to override.
 The webapp is embedded in the **application image** when `../webapp/dist`
 exists, so run `npm run build` in `webapp/` first — see
 [*The seams*](../AGENTS.md#the-seams). Because it rides in the app slot, an OTA
-updates it along with the firmware (#227); the shipped audio and programs are
-still on the filesystem and still do not.
+updates it along with the firmware (#227), and the shipped audio and programs
+with it.
 
 `idf.py flash` no longer touches what has been uploaded to the device: no image
 is built for the `userdata` partition at all (#227), so there is nothing to
@@ -151,19 +150,13 @@ locking rules and the storage layout.
 
 | Document | Covers |
 |---|---|
-| [`docs/api-v2.md`](docs/api-v2.md) | The REST + SSE contract, shared with the MicroPython backend |
+| [`docs/api-v2.md`](docs/api-v2.md) | The prose behind the REST + SSE contract in [`../contracts/`](../contracts/README.md) |
 | [`docs/HARDWARE.md`](docs/HARDWARE.md) | Boards, pin configuration, flashing, partitions |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Task model, locking, storage layout |
 | [`docs/QEMU.md`](docs/QEMU.md) | Running the firmware in the emulator, and what it does not emulate |
 | [`docs/adr/0001-esp-idf-port.md`](docs/adr/0001-esp-idf-port.md) | Why this port exists |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, tests, commit conventions |
 | [`SECURITY.md`](SECURITY.md) | Threat model and reporting |
-
-## Related
-
-- [Frontend webapp](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_frontend_webapp)
-- [MicroPython backend](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_backend_esp32_micropython)
-- [Resources](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_backend_resources) — programs, audio, API specs
 
 ## License
 

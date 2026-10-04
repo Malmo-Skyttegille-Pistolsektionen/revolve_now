@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * The suite drives the real firmware, not a mock: `e2e/run-local.sh` builds
- * this webapp, bakes `dist` into the LittleFS image via `RT_WEBAPP_DIR`, boots
+ * this webapp, bakes `dist` into the application image via `RT_WEBAPP_DIR`, boots
  * that image in QEMU and points the browser at the forwarded guest port. There
  * is exactly one device and its state persists between tests, which is what
  * the worker and retry settings below are about.
