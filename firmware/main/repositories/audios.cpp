@@ -260,12 +260,16 @@ RemoveResult remove(int32_t id) {
 
   // LittleFS has no unlink-while-open, so deleting the clip the audio task is
   // reading corrupts the read rather than deferring the unlink.
-  if (audio::is_playing(it->second.path)) return RemoveResult::kPlaying;
+  const std::string &path = it->second.path;
+  bool unlinked = false;
+  if (!audio::run_unless_playing(path, [&] { unlinked = ::remove(path.c_str()) == 0; })) {
+    return RemoveResult::kPlaying;
+  }
 
   // Said out loud rather than ignored: the entry goes from the map either way -
   // leaving it would list a clip the client has been told is gone - so a failed
   // unlink means a file on flash that nothing will ever reference or clean up.
-  if (::remove(it->second.path.c_str()) != 0) {
+  if (!unlinked) {
     ESP_LOGE(TAG, "Deleted audio %d from the index but could not remove %s; it is now orphaned",
              static_cast<int>(id), it->second.path.c_str());
   }
