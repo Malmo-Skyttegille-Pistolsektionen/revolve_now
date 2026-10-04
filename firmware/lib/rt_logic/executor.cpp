@@ -132,6 +132,24 @@ StartResult Executor::start(int32_t expected_program_id) {
 bool Executor::stop() {
   if (!state_.running) return false;
 
+  // Capture where the run actually is. ticker_ms otherwise holds the last
+  // published frame - up to a second back, often on an event boundary - and a
+  // resume from a boundary replays that event's audio.
+  const Series *series = series_at(state_.current_series_index);
+  if (state_.has_series_start && series != nullptr) {
+    const int64_t elapsed = clock_.now_ms() - state_.series_start_ms;
+    // Never past the end of the entered event: a late wake-up can leave elapsed
+    // in the next one, and resuming mid-way into it would skip its audio. The
+    // boundary resumes onto it instead (offset 0 plays it, once).
+    int64_t entered_end = 0;
+    const int32_t entered = state_.current_event_index.value_or(0);
+    for (size_t i = 0; i < series->events.size() && static_cast<int32_t>(i) <= entered; i++) {
+      entered_end += series->events[i].duration_ms;
+    }
+    const int64_t at = elapsed < 0 ? 0 : (elapsed > entered_end ? entered_end : elapsed);
+    state_.ticker_ms.set(static_cast<int32_t>(at));
+  }
+
   state_.running = false;
   clear_run_anchor();
 

@@ -226,6 +226,21 @@ describe('simulation on a fake clock', () => {
     });
   });
 
+  it('stop captures the run mid-second, not the last published frame', async () => {
+    // Mirrors Executor::stop. The last frame went out at 12 000 ms.
+    await api('/programs/40/load', { method: 'POST' });
+    await start(40);
+    clock.advance(12_500);
+    await api('/programs/stop', { method: 'POST' });
+    await flushIO();
+
+    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState).toMatchObject({
+      running: false,
+      tickerMs: 12_500,
+      currentEventIndex: 1,
+    });
+  });
+
   it('reset rewinds to the top of the series', async () => {
     await api('/programs/40/load', { method: 'POST' });
     await start(40);
