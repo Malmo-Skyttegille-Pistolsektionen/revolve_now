@@ -16,8 +16,9 @@ namespace rt {
 // failure.
 inline bool parse_decimal_u31(std::string_view text, int32_t &out) {
   uint32_t value = 0;
-  const char *end = text.data() + text.size();
-  const std::from_chars_result r = std::from_chars(text.data(), end, value);
+  const char *begin = text.data();
+  const char *end = begin + text.size();
+  const std::from_chars_result r = std::from_chars(begin, end, value);
   if (r.ec != std::errc() || r.ptr != end || value > static_cast<uint32_t>(INT32_MAX)) return false;
   out = static_cast<int32_t>(value);
   return true;
