@@ -21,7 +21,8 @@ _LISTS_PAGE = re.compile(r"^lists(\.[a-z]{2})?\.md$")
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 # `## Heading { #anchor }` - attr_list pins the anchor, which is how a
 # translated heading keeps the id the other pages link to.
-_HEADING_ID = re.compile(r"\s*\{\s*#([^\s}]+)[^}]*\}\s*$")
+_HEADING_ID = re.compile(r"\s*\{:?[^}]*?#([^\s}]+)[^}]*\}\s*$")
+_ATTR_BLOCK = re.compile(r"\s*\{[^}]*\}\s*$")
 
 _WORDS = {
     "en": {"figures": "Figures", "tables": "Tables", "figure": "Figure", "table": "Table",
@@ -35,7 +36,7 @@ _TABLE_RULE = re.compile(r"^\|?\s*:?-{3,}")
 
 def _plain(text):
     """Heading text as the toc extension slugifies it: no links, emphasis or code ticks."""
-    text = _HEADING_ID.sub("", text)
+    text = _ATTR_BLOCK.sub("", text)
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     return re.sub(r"[*_`]", "", text).strip()
 
@@ -100,7 +101,7 @@ def _nav_files(nav):
 
 def _source(docs_dir, src, locale):
     """The page the i18n plugin builds for this locale: its translation if there is one."""
-    localized = docs_dir / src.replace(".md", f".{locale}.md")
+    localized = docs_dir / Path(src).with_suffix(f".{locale}.md")
     return localized if localized.exists() else docs_dir / src
 
 
@@ -120,7 +121,7 @@ def on_page_markdown(markdown, page, config, files):
     if not _LISTS_PAGE.match(page.file.src_uri):
         return markdown
     locale = getattr(page.file, "locale", "en")
-    words = _WORDS[locale]
+    words = _WORDS.get(locale, _WORDS["en"])
     docs_dir = Path(config["docs_dir"])
     entries = []
     for src in _nav_files(config["nav"] or []):

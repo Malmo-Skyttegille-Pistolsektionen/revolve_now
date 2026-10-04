@@ -14,7 +14,7 @@ import {
   type RepoProgramSummary,
 } from '../lib/github-contents';
 import { useT } from '../i18n';
-import type { Messages } from '../i18n/messages';
+import type { Messages } from '../i18n';
 import { PROGRAMS_PATH } from '../lib/pr-url';
 import { fetchRepoAudioCatalogue } from '../lib/github-contents';
 import { parseProgramDocument } from '../lib/program-document';

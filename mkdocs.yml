@@ -39,7 +39,7 @@ nav:
   - Troubleshooting: troubleshooting.md
   - Figures and tables: lists.md
 
-# Fills lists.md from the other pages at build time.
+# Fills lists.md, and its translations, from the other pages at build time.
 hooks:
   - docs/hooks/lists.py
 

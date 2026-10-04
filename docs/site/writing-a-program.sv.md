@@ -126,7 +126,7 @@ har betytt.
 
 Det finns högst åtta tavelgrupper, `A` till `H`.
 
-Redigerarens stegväljare **Tavelgrupper programmet använder** avgör hur många
+Redigerarens stegväljare **Tavelgrupper som programmet använder** avgör hur många
 bokstäver händelseraderna erbjuder; den lagras inte i filen.
 
 Ett program som namnger tavelgrupp `D` behöver en enhet med grupperna A–D.
@@ -168,7 +168,7 @@ och en förifylld pull request mot det här repot.
 
 ### Öppna ett program från ett repo { #opening-a-program-from-a-repository }
 
-**Öppna från repo** är redan ifyllt med det här projektet: tryck på **Bläddra
+**Öppna från ett repo** är redan ifyllt med det här projektet: tryck på **Bläddra
 bland program** så visas den medföljande uppsättningen, listad efter titel i
 stället för filnamn, så att du kan skilja *Provserie* från *Fältträning* utan
 att öppna båda.

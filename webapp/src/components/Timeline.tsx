@@ -743,7 +743,7 @@ function FieldTimelineSeries({
             }}
             title={t.segmentTitle(
               event.durationSec,
-              event.command ?? '-',
+              event.command ? commandDescription(t, event.command) : '-',
               event.audio_ids ? event.audio_ids.join(', ') : null,
             )}
           >

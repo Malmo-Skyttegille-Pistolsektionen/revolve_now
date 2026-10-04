@@ -41,7 +41,7 @@ När körningen är igång:
   program — bra för att kontrollera att inkopplingen fungerar över huvud taget.
 
 På en enhet med mer än en [tavelgrupp](hardware.md#target-banks) blir
-`TARGETS`-indikatorn högst upp på sidan en **remsa**: en cell per tavelgrupp,
+`TAVLOR`-indikatorn högst upp på sidan en **remsa**: en cell per tavelgrupp,
 med bokstäver från A och uppåt, grön för visad och röd för dold, och gruppens
 namn under bokstaven på en skärm som är bred nog. En skjutbana som visar en
 bana i taget läses alltså med en blick, och en tavelgrupp som inte rörde sig

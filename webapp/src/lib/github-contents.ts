@@ -8,7 +8,7 @@
  * report a generic failure.
  */
 import type { AudioFile } from '../api/types';
-import type { Messages } from '../i18n/messages';
+import type { Messages } from '../i18n';
 import { PROGRAMS_PATH } from './pr-url';
 
 /** Where the shipped audio catalogue lives in the repository. */
@@ -44,7 +44,7 @@ interface ContentsApiEntry {
 }
 
 /** The wording of the errors: this is not a component, so the caller passes its dictionary in. */
-export type GitHubMessages = Messages['standalone']['github'];
+type GitHubMessages = Messages['standalone']['github'];
 
 export class GitHubApiError extends Error {
   readonly status: number;

@@ -11,6 +11,8 @@ which is which before changing anything:
 | Section | Kind | What it is |
 |---|---|---|
 | Server Base URL | browser | Which device this browser talks to |
+| Theme | browser | Light or dark, or whatever this phone or computer is set to |
+| Language | browser | English or Swedish, or whatever this phone or computer is set to |
 | Address | device | The address the device says it is reachable on |
 | Control lock | device | Whether control is open to everyone or needs a login |
 | Startup Issues | device | What the device could not read when it booted |

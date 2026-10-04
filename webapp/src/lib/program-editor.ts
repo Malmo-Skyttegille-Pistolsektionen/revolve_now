@@ -20,7 +20,7 @@
  *   validator as every other problem, rather than being silently coerced here.
  */
 import type { Event, Program, Series } from '../api/types';
-import type { Messages } from '../i18n/messages';
+import type { Messages } from '../i18n';
 import { BANK_LETTERS, banksRequired, type BankLetter } from './program-document';
 
 /** The three-way `command` control: the device's `show`, `hide`, or no key at all. */
@@ -96,7 +96,7 @@ export type EditorAction =
   | { type: 'setSeriesTimerStart'; series: number; eventKey: string | null }
   | { type: 'moveSeries'; from: number; to: number }
   /** `copySuffix` is the current language's " (copy)"; the reducer has no dictionary of its own. */
-  | { type: 'duplicateSeries'; series: number; copySuffix?: string }
+  | { type: 'duplicateSeries'; series: number; copySuffix: string }
   | { type: 'removeSeries'; series: number }
   | { type: 'toggleCollapsed'; key: string }
   | { type: 'setAllCollapsed'; collapsed: boolean }
@@ -479,7 +479,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }));
       const copy: DraftSeries = {
         key: `k${nextKey++}`,
-        name: source.name === '' ? '' : `${source.name}${action.copySuffix ?? ' (copy)'}`,
+        name: source.name === '' ? '' : `${source.name}${action.copySuffix}`,
         optional: source.optional,
         timerStartKey: anchorIndex > 0 ? (copiedEvents[anchorIndex]?.key ?? null) : null,
         events: copiedEvents,

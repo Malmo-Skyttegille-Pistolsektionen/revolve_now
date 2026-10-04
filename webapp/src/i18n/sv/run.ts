@@ -1,4 +1,5 @@
 import type { Messages } from '../messages';
+import { decimal } from './format';
 
 export const run: Messages['run'] = {
   title: 'Kör program',
@@ -62,9 +63,9 @@ export const run: Messages['run'] = {
     label: 'Startfördröjning',
     hint:
       'Sekunder som räknas ner innan programmet startar; Ingen fördröjning startar det direkt. ' +
-      'Sparas bara i den här webbläsaren – en annan telefon eller surfplatta har sin egen.',
+      'Sparas bara i den här webbläsaren — en annan telefon eller surfplatta har sin egen.',
     noDelay: 'Ingen fördröjning',
-    immediate: 'ingen fördröjning – Starta kör igång programmet direkt',
+    immediate: 'ingen fördröjning — Starta kör igång programmet direkt',
     seconds: 'sekunder',
   },
   timelineView: {
@@ -83,13 +84,13 @@ export const run: Messages['run'] = {
     none: 'inget',
     clip: (id) => `klipp ${id}`,
     unchanged: ' (oförändrad)',
-    laneSegment: (letter, state, seconds) => `${letter} ${state} · ${seconds}s`,
+    laneSegment: (letter, state, seconds) => `${letter} ${state} · ${decimal(seconds)}s`,
     audioLane: 'ljud',
     show: 'Visa',
     hide: 'Dölj',
     timedPause: 'Oförändrat — en tidsatt paus',
     segmentTitle: (seconds, command, audioIds) =>
-      `Varaktighet: ${seconds}s\nKommando: ${command}${audioIds === null ? '' : `\nLjud: ${audioIds}`}`,
+      `Varaktighet: ${decimal(seconds)}s\nKommando: ${command}${audioIds === null ? '' : `\nLjud: ${audioIds}`}`,
     audioSegment: 'Ljud',
     targetsShown: 'Tavlorna visas',
     targetsHidden: 'Tavlorna döljs',
@@ -103,7 +104,7 @@ export const run: Messages['run'] = {
     couldNotLoad: (message) => `Kunde inte ladda programmet: ${message}`,
     meta: (series, events, duration) =>
       `${series} ${series === 1 ? 'serie' : 'serier'} · ${events} ${events === 1 ? 'händelse' : 'händelser'} · ${duration}`,
-    minutes: (minutes, seconds) => `${minutes} min ${seconds} s`,
-    seconds: (seconds) => `${seconds} s`,
+    minutes: (minutes, seconds) => `${minutes} min ${decimal(seconds)} s`,
+    seconds: (seconds) => `${decimal(seconds)} s`,
   },
 };

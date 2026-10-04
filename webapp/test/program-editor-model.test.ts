@@ -125,7 +125,7 @@ describe('series operations', () => {
   });
 
   it('duplicates one in place, marked as a copy, with its own keys', () => {
-    const copied = editorReducer(base, { type: 'duplicateSeries', series: 1 });
+    const copied = editorReducer(base, { type: 'duplicateSeries', series: 1, copySuffix: en.editor.copySuffix });
 
     expect(seriesNames(copied)).toEqual(['A', 'B', 'B (copy)', 'C']);
     expect(copied.draft.series[2].key).not.toBe(copied.draft.series[1].key);
@@ -135,7 +135,7 @@ describe('series operations', () => {
 
   it('copies the audio list rather than sharing it with the original', () => {
     const withAudio = editorReducer(base, { type: 'addAudio', series: 0, event: 0, audioId: 26 });
-    const copied = editorReducer(withAudio, { type: 'duplicateSeries', series: 0 });
+    const copied = editorReducer(withAudio, { type: 'duplicateSeries', series: 0, copySuffix: en.editor.copySuffix });
 
     const added = editorReducer(copied, { type: 'addAudio', series: 1, event: 0, audioId: 33 });
 
@@ -490,7 +490,7 @@ describe('the timer anchor in the editor (#196)', () => {
 
   it('carries the anchor into a duplicated series, by position', () => {
     let state = createEditorState(anchoredProgram);
-    state = editorReducer(state, { type: 'duplicateSeries', series: 0 });
+    state = editorReducer(state, { type: 'duplicateSeries', series: 0, copySuffix: en.editor.copySuffix });
     expect(toDocument(state.draft)).toMatchObject({
       series: [{ timer_start_index: 2 }, { timer_start_index: 2 }],
     });

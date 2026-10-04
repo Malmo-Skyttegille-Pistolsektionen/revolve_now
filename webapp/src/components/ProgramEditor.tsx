@@ -146,10 +146,10 @@ export function ProgramEditor({
   // navigation blocker, in silence. D-24 is what made that reachable:
   // `libraryChanged` invalidates `['program', id]` under an open editor, and
   // its ordinary cause is another client deleting the program being edited.
-  if (error && source === undefined) {
+  if (error && source === undefined && sourceId !== null) {
     return (
       <section className={styles.editor} data-testid='program-editor'>
-        <p className={styles.message}>{t.editor.openFailed(sourceId as number, error.message)}</p>
+        <p className={styles.message}>{t.editor.openFailed(sourceId, error.message)}</p>
         <button className={styles.button} onClick={onClose}>
           {t.editor.close}
         </button>

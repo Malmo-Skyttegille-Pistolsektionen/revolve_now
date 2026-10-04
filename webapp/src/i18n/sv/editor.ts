@@ -1,4 +1,5 @@
 import type { Messages } from '../messages';
+import { decimal } from './format';
 
 export const editor: Messages['editor'] = {
   loading: (id) => `Laddar program ${id}…`,
@@ -66,7 +67,8 @@ export const editor: Messages['editor'] = {
     namePlaceholder: 'Seriens namn',
     nameLabel: (number) => `Namn på serie ${number}`,
     optional: 'Valfri',
-    meta: (eventCount, seconds) => `${eventCount} ${eventCount === 1 ? 'händelse' : 'händelser'} · ${seconds} s`,
+    meta: (eventCount, seconds) =>
+      `${eventCount} ${eventCount === 1 ? 'händelse' : 'händelser'} · ${decimal(seconds)} s`,
     what: (number) => `serie ${number}`,
     addEvent: 'Lägg till händelse',
   },
@@ -74,7 +76,7 @@ export const editor: Messages['editor'] = {
     select: (number, series) => `Markera händelse ${number} i serie ${series}`,
     durationLabel: 'Varaktighet (ms)',
     durationAria: (number, series) => `Varaktighet för händelse ${number} i serie ${series}, i millisekunder`,
-    seconds: (seconds) => `${seconds} s`,
+    seconds: (seconds) => `${decimal(seconds)} s`,
     allBanks: 'Alla tavelgrupper',
     targets: 'Tavlor',
     commands: {
@@ -130,7 +132,7 @@ export const editor: Messages['editor'] = {
     none: 'Lämna tavlorna som de är',
     single: (what, hold) => `${what} i ${hold}.`,
     itsDuration: 'händelsens varaktighet',
-    seconds: (seconds) => `${seconds} s`,
+    seconds: (seconds) => `${decimal(seconds)} s`,
     showBanks: (letters) => `visa ${letters}`,
     hideBanks: (letters) => `dölj ${letters}`,
     leaveBanks: (letters) => `lämna ${letters} som de är`,

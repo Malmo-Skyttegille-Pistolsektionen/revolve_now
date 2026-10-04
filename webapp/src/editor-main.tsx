@@ -12,11 +12,13 @@ import {
 import { SettingsProvider } from './context/SettingsContext';
 import { StandaloneEditorApp } from './standalone/StandaloneEditorApp';
 import { applyTheme, readStoredTheme } from './lib/theme';
+import { applyLanguage, readStoredLanguagePreference, resolveLanguage } from './i18n/language';
 import './index.css';
 
 // Before the first render, so an explicit choice that differs from the OS does
 // not flash the other theme while React mounts.
 applyTheme(readStoredTheme());
+applyLanguage(resolveLanguage(readStoredLanguagePreference()));
 
 /**
  * The GitHub Pages entry (#140): the same `ProgramEditor` the device build

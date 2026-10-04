@@ -1,7 +1,8 @@
 import type { Messages } from '../messages';
+import { decimal } from './format';
 
 function seconds(value: number): string {
-  return `${value.toFixed(1).replace('.', ',')} s`;
+  return `${decimal(value.toFixed(1))} s`;
 }
 
 export const audios: Messages['audios'] = {

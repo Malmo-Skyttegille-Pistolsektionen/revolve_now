@@ -60,7 +60,7 @@ som är kopplad tvärtom, men bara över en seriekabel — se
 
 ## Programredigeraren { #program-editor }
 
-[**Öppna programredigeraren**](editor/){ .md-button } — skriv och redigera
+[**Öppna programredigeraren**](../editor/){ .md-button } — skriv och redigera
 program i en webbläsare **utan någon enhet ansluten**, ladda sedan ner filen
 eller öppna en pull request. Också det enklaste sättet att läsa ett
 medföljande program utan ett kort framför dig.

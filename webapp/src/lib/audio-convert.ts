@@ -6,7 +6,7 @@
  * The decoding is the browser's own, so it costs the bundle nothing and the
  * device no flash; an on-device decoder measured 182 KB per app slot.
  */
-import type { Messages } from '../i18n/messages';
+import type { Messages } from '../i18n';
 import { encodeImaAdpcmWav, isDeviceAdpcmWav, maxSamplesFor } from './ima-adpcm';
 
 /** The rate of the shipped clips. Plenty for speech, and a quarter of a 48 kHz recording. */

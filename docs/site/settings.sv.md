@@ -12,6 +12,8 @@ veta vilken som är vilken innan du ändrar något:
 | Avsnitt | Sort | Vad det är |
 |---|---|---|
 | Serveradress (Server Base URL) | webbläsare | Vilken enhet den här webbläsaren pratar med |
+| Tema | webbläsare | Ljust eller mörkt, eller det som den här telefonen eller datorn är inställd på |
+| Språk | webbläsare | Engelska eller svenska, eller det som den här telefonen eller datorn är inställd på |
 | Adress | enhet | Adressen enheten säger att den kan nås på |
 | Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |

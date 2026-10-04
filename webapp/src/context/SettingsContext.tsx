@@ -6,6 +6,7 @@ import {
   applyLanguage,
   parseLanguagePreference,
   resolveLanguage,
+  useBrowserLanguages,
   type LanguagePreference,
 } from '../i18n/language';
 
@@ -188,9 +189,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     applyTheme(settings.theme);
   }, [settings.theme]);
 
+  const language = resolveLanguage(settings.language, useBrowserLanguages());
   useEffect(() => {
-    applyLanguage(resolveLanguage(settings.language));
-  }, [settings.language]);
+    applyLanguage(language);
+  }, [language]);
 
   const value: SettingsContextType = {
     settings,

@@ -7,11 +7,11 @@
  * in two versions that can drift apart.
  */
 import { problemType } from '../api/client';
-import type { Messages } from '../i18n/messages';
+import type { Messages } from '../i18n';
 import type { DocumentIssue } from './program-document';
 
 /** The `programs.notices` dictionary, passed in because this module is not a component. */
-export type NoticeMessages = Messages['programs']['notices'];
+type NoticeMessages = Messages['programs']['notices'];
 
 export interface Notice {
   kind: 'error' | 'success' | 'warning';

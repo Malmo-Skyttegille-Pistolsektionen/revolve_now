@@ -108,7 +108,7 @@ export function deviceBankCount(state: { targetBanks?: Record<string, unknown> }
  * ASCII (`A-D`) because problem details are read off a serial console as often
  * as a screen; this is the same sentence set properly for the browser.
  */
-export interface BankRangeWords {
+interface BankRangeWords {
   oneBank: string;
   bankRange: (last: string) => string;
 }

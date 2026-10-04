@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import clsx from 'clsx';
+import { ApiError } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT } from '../i18n';
 import styles from './ControlLockSection.module.css';
 
-function getActionErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return fallbackMessage;
+/** The translated sentence, then the device's own `detail` when it sent one (D-45). */
+function getActionErrorMessage(error: unknown, failed: string): string {
+  const detail = error instanceof ApiError ? error.problem?.detail : undefined;
+  return detail ? `${failed} ${detail}` : failed;
 }
 
 export function ControlLockSection(): React.ReactNode {
