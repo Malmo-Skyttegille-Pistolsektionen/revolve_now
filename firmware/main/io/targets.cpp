@@ -70,6 +70,10 @@ void init() {
   set(rt::kAllBanksMask, s_shown_at_boot);
 }
 
+bool shown_at_boot() {
+  return s_shown_at_boot;
+}
+
 size_t count() {
   return s_banks.size();
 }
