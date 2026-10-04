@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ExportPanel } from '../components/ExportPanel';
 import { Logo } from '../components/Logo';
 import { ProgramEditor, type EditorTarget } from '../components/ProgramEditor';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { ThemePicker } from '../components/ThemePicker';
 import {
   GitHubApiError,
@@ -12,6 +13,8 @@ import {
   type RepoProgramFile,
   type RepoProgramSummary,
 } from '../lib/github-contents';
+import { useT } from '../i18n';
+import type { Messages } from '../i18n';
 import { PROGRAMS_PATH } from '../lib/pr-url';
 import { fetchRepoAudioCatalogue } from '../lib/github-contents';
 import { parseProgramDocument } from '../lib/program-document';
@@ -24,8 +27,10 @@ const CANONICAL_REPO = 'revolve_now';
 interface Opened {
   /** Raw file text, or `null` for a brand-new, empty document. */
   text: string | null;
-  /** One line of "where this came from", carried into the pull request body. */
+  /** One line of "where this came from", carried into the pull request body - so always English. */
   origin: string;
+  /** The same line as shown on this page, in the page's language. */
+  originLabel: string;
   /** The id the source suggested — a filename or a `declaredId` in the JSON — if any. */
   suggestedId: number | null;
 }
@@ -39,6 +44,7 @@ interface Opened {
 export function StandaloneEditorApp(): React.ReactNode {
   const [opened, setOpened] = useState<Opened | null>(null);
   const [target, setTarget] = useState<EditorTarget | null>(null);
+  const t = useT();
 
   return (
     <main className={styles.page}>
@@ -46,14 +52,14 @@ export function StandaloneEditorApp(): React.ReactNode {
         <div className={styles.headingRow}>
           <h1 className={styles.heading}>
             <Logo />
-            Program Editor
+            {t.standalone.heading}
           </h1>
-          <ThemePicker />
+          <div className={styles.pickers}>
+            <LanguagePicker />
+            <ThemePicker />
+          </div>
         </div>
-        <p className={styles.hint}>
-          Runs entirely in this browser tab, with no device attached. Open a program, edit it, then download it or send
-          it back as a pull request.
-        </p>
+        <p className={styles.hint}>{t.standalone.intro}</p>
       </header>
 
       {target ? (
@@ -70,7 +76,9 @@ export function StandaloneEditorApp(): React.ReactNode {
           // The canonical repo's catalogue, not the one a program was opened
           // from: clip ids are the shipped set's, and a fork's copy of
           // audios.json is the same file until somebody changes it.
-          loadAudios={() => fetchRepoAudioCatalogue({ owner: CANONICAL_OWNER, repo: CANONICAL_REPO })}
+          loadAudios={() =>
+            fetchRepoAudioCatalogue({ owner: CANONICAL_OWNER, repo: CANONICAL_REPO }, t.standalone.github)
+          }
         />
       ) : opened ? (
         <ConfirmOpen
@@ -135,6 +143,7 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
   const [summaries, setSummaries] = useState<Record<string, RepoProgramSummary>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   // Abandons the title fetches from a previous browse. Without it, a slow
   // response from the repository somebody has just navigated away from writes
@@ -170,12 +179,15 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
     setFiles(null);
     setSummaries({});
     try {
-      const found = await listRepoProgramFiles({
-        owner: owner.trim(),
-        repo: repo.trim(),
-        path: path.trim() === '' ? undefined : path.trim(),
-        ref: ref.trim() === '' ? undefined : ref.trim(),
-      });
+      const found = await listRepoProgramFiles(
+        {
+          owner: owner.trim(),
+          repo: repo.trim(),
+          path: path.trim() === '' ? undefined : path.trim(),
+          ref: ref.trim() === '' ? undefined : ref.trim(),
+        },
+        t.standalone.github,
+      );
       setFiles(found);
       loadTitles(found);
     } catch (err) {
@@ -189,8 +201,9 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
     setBusy(true);
     setError(null);
     try {
-      const text = await fetchRepoProgramFile(file);
-      onOpened({ text, origin: repoOrigin(owner, repo, ref, file), suggestedId: idFromFilename(file.name) });
+      const text = await fetchRepoProgramFile(file, t.standalone.github);
+      const origin = repoOrigin(owner, repo, ref, file);
+      onOpened({ text, origin, originLabel: origin, suggestedId: idFromFilename(file.name) });
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -200,28 +213,25 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
 
   return (
     <section className={styles.card} data-testid='picker-repo'>
-      <h2 className={styles.cardTitle}>Open from repo</h2>
-      <p className={styles.hint}>
-        Pre-filled with this project&rsquo;s own repository — press Browse to see its programs, or point the fields at
-        another club&rsquo;s.
-      </p>
+      <h2 className={styles.cardTitle}>{t.standalone.repo.title}</h2>
+      <p className={styles.hint}>{t.standalone.repo.hint}</p>
       <div className={styles.repoRow}>
         <label className={styles.field}>
-          <span>Owner</span>
+          <span>{t.standalone.repo.owner}</span>
           <input
             className={styles.input}
             value={owner}
-            placeholder='owner'
+            placeholder={t.standalone.repo.ownerPlaceholder}
             data-testid='picker-repo-owner'
             onChange={(event) => setOwner(event.target.value)}
           />
         </label>
         <label className={styles.field}>
-          <span>Repo</span>
+          <span>{t.standalone.repo.repo}</span>
           <input
             className={styles.input}
             value={repo}
-            placeholder='repo'
+            placeholder={t.standalone.repo.repoPlaceholder}
             data-testid='picker-repo-repo'
             onChange={(event) => setRepo(event.target.value)}
           />
@@ -229,7 +239,7 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
       </div>
       <div className={styles.repoRow}>
         <label className={styles.field}>
-          <span>Path</span>
+          <span>{t.standalone.repo.path}</span>
           <input
             className={styles.input}
             value={path}
@@ -239,11 +249,11 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
           />
         </label>
         <label className={styles.field}>
-          <span>Ref</span>
+          <span>{t.standalone.repo.ref}</span>
           <input
             className={styles.input}
             value={ref}
-            placeholder='branch, tag or commit — blank for the default branch'
+            placeholder={t.standalone.repo.refPlaceholder}
             data-testid='picker-repo-ref'
             onChange={(event) => setRef(event.target.value)}
           />
@@ -255,7 +265,7 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
         data-testid='picker-repo-browse'
         onClick={() => void browse()}
       >
-        {busy && files === null ? 'Loading…' : 'Browse programs'}
+        {busy && files === null ? t.standalone.repo.loading : t.standalone.repo.browse}
       </button>
       {error && (
         <p className={styles.error} data-testid='picker-repo-error'>
@@ -264,7 +274,7 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
       )}
       {files && (
         <ul className={styles.fileList} data-testid='picker-repo-files'>
-          {files.length === 0 && <li className={styles.hint}>No program files found at that path.</li>}
+          {files.length === 0 && <li className={styles.hint}>{t.standalone.repo.noFiles}</li>}
           {files.map((file) => (
             <li key={file.path}>
               <button
@@ -273,7 +283,7 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
                 data-testid={`picker-repo-file-${file.name}`}
                 onClick={() => void open(file)}
               >
-                {fileLabel(file, summaries[file.path])}
+                {fileLabel(file, summaries[file.path], t.standalone.repo)}
               </button>
             </li>
           ))}
@@ -293,12 +303,16 @@ function RepoBrowser({ onOpened }: PickerProps): React.ReactNode {
  * explicitly), and a document declaring a different one is a discrepancy worth
  * seeing rather than hiding.
  */
-function fileLabel(file: RepoProgramFile, summary: RepoProgramSummary | undefined): string {
+function fileLabel(
+  file: RepoProgramFile,
+  summary: RepoProgramSummary | undefined,
+  t: Messages['standalone']['repo'],
+): string {
   const id = idFromFilename(file.name);
   if (!summary?.title) return file.name;
-  const label = id === null ? summary.title : `${String(id)} — ${summary.title}`;
+  const label = id === null ? summary.title : t.fileLabel(id, summary.title);
   return summary.declaredId !== null && summary.declaredId !== id
-    ? `${label} (document says id ${String(summary.declaredId)})`
+    ? t.declaredIdDiffers(label, summary.declaredId)
     : label;
 }
 
@@ -310,6 +324,7 @@ function repoOrigin(owner: string, repo: string, ref: string, file: RepoProgramF
 
 function LocalFileOpener({ onOpened }: PickerProps): React.ReactNode {
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   async function handleChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.target.files?.[0];
@@ -318,15 +333,20 @@ function LocalFileOpener({ onOpened }: PickerProps): React.ReactNode {
     setError(null);
     try {
       const text = await file.text();
-      onOpened({ text, origin: `local file "${file.name}"`, suggestedId: idFromFilename(file.name) });
+      onOpened({
+        text,
+        origin: `local file "${file.name}"`,
+        originLabel: t.standalone.localFile.origin(file.name),
+        suggestedId: idFromFilename(file.name),
+      });
     } catch {
-      setError('Could not read that file.');
+      setError(t.standalone.localFile.readFailed);
     }
   }
 
   return (
     <section className={styles.card} data-testid='picker-file'>
-      <h2 className={styles.cardTitle}>Open a local file</h2>
+      <h2 className={styles.cardTitle}>{t.standalone.localFile.title}</h2>
       <input
         className={styles.input}
         type='file'
@@ -340,15 +360,23 @@ function LocalFileOpener({ onOpened }: PickerProps): React.ReactNode {
 }
 
 function NewDocument({ onOpened }: PickerProps): React.ReactNode {
+  const t = useT();
   return (
     <section className={styles.card} data-testid='picker-new'>
-      <h2 className={styles.cardTitle}>Start a new program</h2>
+      <h2 className={styles.cardTitle}>{t.standalone.newDocument.title}</h2>
       <button
         className={styles.button}
         data-testid='picker-new-start'
-        onClick={() => onOpened({ text: null, origin: 'new, not opened from anywhere', suggestedId: null })}
+        onClick={() =>
+          onOpened({
+            text: null,
+            origin: 'new, not opened from anywhere',
+            originLabel: t.standalone.newDocument.origin,
+            suggestedId: null,
+          })
+        }
       >
-        New program
+        {t.standalone.newDocument.button}
       </button>
     </section>
   );
@@ -375,12 +403,13 @@ interface ConfirmOpenProps {
 function ConfirmOpen({ opened, onCancel, onConfirm }: ConfirmOpenProps): React.ReactNode {
   const parsed = opened.text === null ? null : parseProgramDocument(opened.text);
   const [idText, setIdText] = useState(opened.suggestedId !== null ? String(opened.suggestedId) : '');
+  const t = useT();
 
   if (parsed && !parsed.ok) {
     return (
       <section className={styles.card} data-testid='picker-confirm-invalid'>
-        <h2 className={styles.cardTitle}>This is not a program the editor can open</h2>
-        <p className={styles.hint}>{opened.origin}:</p>
+        <h2 className={styles.cardTitle}>{t.standalone.confirm.invalidTitle}</h2>
+        <p className={styles.hint}>{opened.originLabel}:</p>
         <ul className={styles.issues}>
           {parsed.errors.map((issue) => (
             <li key={`${issue.path}:${issue.message}`}>
@@ -389,7 +418,7 @@ function ConfirmOpen({ opened, onCancel, onConfirm }: ConfirmOpenProps): React.R
           ))}
         </ul>
         <button className={styles.button} onClick={onCancel}>
-          Back
+          {t.standalone.confirm.back}
         </button>
       </section>
     );
@@ -400,9 +429,9 @@ function ConfirmOpen({ opened, onCancel, onConfirm }: ConfirmOpenProps): React.R
 
   return (
     <section className={styles.card} data-testid='picker-confirm'>
-      <h2 className={styles.cardTitle}>Open {opened.origin}</h2>
+      <h2 className={styles.cardTitle}>{t.standalone.confirm.openTitle(opened.originLabel)}</h2>
       <label className={styles.field}>
-        <span>Program id</span>
+        <span>{t.standalone.confirm.idLabel}</span>
         <input
           className={styles.input}
           inputMode='numeric'
@@ -412,13 +441,15 @@ function ConfirmOpen({ opened, onCancel, onConfirm }: ConfirmOpenProps): React.R
         />
       </label>
       <p className={styles.hint}>
-        Used as the filename in a pull request — <code>resources/programs/files/{idText || '<id>'}.json</code>. Shipped
-        programs keep ids below 1000 (uploads start there; see
-        <code> resources/programs/validate_programs.sh</code>).
+        {t.standalone.confirm.idHintBefore}
+        <code>resources/programs/files/{idText || '<id>'}.json</code>
+        {t.standalone.confirm.idHintBetween}
+        <code>resources/programs/validate_programs.sh</code>
+        {t.standalone.confirm.idHintAfter}
       </p>
       <div className={styles.buttonRow}>
         <button className={styles.button} data-testid='picker-confirm-back' onClick={onCancel}>
-          Back
+          {t.standalone.confirm.back}
         </button>
         <button
           className={styles.buttonPrimary}
@@ -430,10 +461,11 @@ function ConfirmOpen({ opened, onCancel, onConfirm }: ConfirmOpenProps): React.R
               id,
               document: parsed && parsed.ok ? parsed.program : null,
               origin: opened.origin,
+              originLabel: opened.originLabel,
             })
           }
         >
-          Open in editor
+          {t.standalone.confirm.open}
         </button>
       </div>
     </section>

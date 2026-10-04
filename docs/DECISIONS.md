@@ -55,6 +55,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-42 | A save never restarts; one restart applies everything, from the page | Decided | 2026-09-09 |
 | D-43 | Uploads are converted to IMA ADPCM in the browser | Decided | 2026-10-03 |
 | D-44 | The product is Revolve Now, down to the firmware project name | Decided | 2026-10-03 |
+| D-45 | Swedish in the web app and the docs; the device keeps speaking English | Decided | 2026-10-04 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -1908,6 +1909,58 @@ release has been cut. The commit is marked `!`.
 which would leave the old name in every build and release artifact.
 *Accepting both names in OTA*: the old firmware runs the check, so it would
 not spare a single flash.
+
+## D-45 — Swedish in the web app and the docs; the device keeps speaking English *(Decided 2026-10-04)*
+
+**Decision:** the web app and the documentation site are available in Swedish
+beside English (#443). The web app gets a **Language** setting under Settings
+— System / English / Svenska — stored in the browser like the theme, where
+System follows the browser's own language list and falls back to English. The
+docs site is built once per language by `mkdocs-static-i18n`, with a page's
+translation beside it as `<page>.sv.md` and Material's language switcher in
+the header.
+
+**Where the line is:** only what the *app* says is translated. Text the
+*device* produces — a problem `detail`, a parse error, a console line — is
+shown as the device said it, in English, inside whatever sentence the app
+wraps around it. The web app's program validator (`program-document.ts`)
+mirrors the firmware's parser word for word (D-18) and stays English with it.
+Program and audio names are data, not interface, and are never translated.
+
+**How:** hand-written dictionaries, one per area of the app, under
+`webapp/src/i18n/`. English is the source: `Messages` is `typeof en`, and the
+Swedish dictionary is declared as that type, so a string added without its
+translation fails `tsc`, and so does a translation nobody reads any more. A
+string with a value in it is a function, so the translation chooses the word
+order. Components read the dictionary through `useT()`; a helper outside React
+takes it as a parameter.
+
+**Why not i18next or the like:** the app has a few hundred strings in two
+languages, and a library would add more to the on-device bundle than the
+second language does, for interpolation and plural rules the dictionaries
+express as plain functions. The type check is the thing a library would not
+give: completeness of the translation is a compile error, not a runtime
+fallback to English that nobody notices.
+
+**Why System rather than Swedish as the default:** the club is Swedish, but the
+device may be driven from a member's phone set to English, and a page in a
+language the reader did not choose is the one failure a language setting
+exists to prevent. The language names are shown in themselves — *English*,
+*Svenska* — so the option is readable to the person it is for.
+
+**Docs:** the suffix layout keeps images, snippets and the figures-and-tables
+hook shared between languages. A page without a translation is served in
+English under `/sv/`, so a half-translated site still has every page. A
+translated heading pins the English anchor with attr_list
+(`## Köra ett program { #running-a-program }`), so a cross-page link does not
+move with the wording. Screenshots stay English until somebody regenerates them
+in Swedish; their alt text is translated.
+
+**Rejected:** *the docs in a `docs/site/sv/` folder* (the folder layout breaks
+the shared `img/` and `snippets/` paths); *translating device text in the
+client* (string-matching English prose is the failure D-19 was decided to
+end); *a Swedish-only app* (the English the tests and the e2e suite assert on
+would have become a second-class translation of itself).
 
 ## Open questions
 

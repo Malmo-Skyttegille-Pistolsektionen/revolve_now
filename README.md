@@ -49,7 +49,8 @@ operating this system. You build and use it entirely at your own risk.
 
 ## Documentation
 
-Everything an operator needs is on the documentation site:
+Everything an operator needs is on the documentation site, in English and
+Swedish (the language menu in the header switches):
 
 - **[Operator documentation](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/)**
   — wiring, connecting, running a program, settings, and what the status LED is

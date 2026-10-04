@@ -60,7 +60,7 @@ jobs:
           python-version: '3.14.8'
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material
+        run: pip install mkdocs-material mkdocs-static-i18n
 
       - name: Build docs
         run: mkdocs build --strict

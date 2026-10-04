@@ -1,5 +1,14 @@
 import { createContext, use, useState, useEffect } from 'react';
 import { DEFAULT_THEME, THEME_STORAGE_KEY, applyTheme, parseTheme, type ThemePreference } from '../lib/theme';
+import {
+  DEFAULT_LANGUAGE_PREFERENCE,
+  LANGUAGE_STORAGE_KEY,
+  applyLanguage,
+  parseLanguagePreference,
+  resolveLanguage,
+  useBrowserLanguages,
+  type LanguagePreference,
+} from '../i18n/language';
 
 const STORAGE_PREFIX = 'rt_settings_';
 const STORAGE_KEYS = {
@@ -7,6 +16,7 @@ const STORAGE_KEYS = {
   startDelaySeconds: `${STORAGE_PREFIX}start_delay_seconds`,
   controlLockToken: `${STORAGE_PREFIX}control_lock_token`,
   theme: THEME_STORAGE_KEY,
+  language: LANGUAGE_STORAGE_KEY,
 } as const;
 
 import { DEFAULT_BASE_URL } from '../api/base-url';
@@ -17,6 +27,7 @@ const DEFAULT_VALUES = {
   serverBaseUrl: DEFAULT_BASE_URL,
   startDelaySeconds: 10,
   theme: DEFAULT_THEME,
+  language: DEFAULT_LANGUAGE_PREFERENCE,
 } as const satisfies Settings;
 
 /**
@@ -62,6 +73,7 @@ export interface Settings {
   serverBaseUrl: string;
   startDelaySeconds: number;
   theme: ThemePreference;
+  language: LanguagePreference;
 }
 
 export interface SettingsContextType {
@@ -70,11 +82,12 @@ export interface SettingsContextType {
   setServerBaseUrl: (url: string) => void;
   setStartDelaySeconds: (seconds: number) => void;
   setTheme: (theme: ThemePreference) => void;
+  setLanguage: (language: LanguagePreference) => void;
   setControlLockToken: (token: string | null) => void;
   logoutControlLock: () => void;
 }
 
-const SettingsContext = createContext<SettingsContextType | null>(null);
+export const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export function useSettings(): SettingsContextType {
   const context = use(SettingsContext);
@@ -93,12 +106,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     const storedUrl = localStorage.getItem(STORAGE_KEYS.serverBaseUrl);
     const storedDelay = localStorage.getItem(STORAGE_KEYS.startDelaySeconds);
     const storedTheme = localStorage.getItem(STORAGE_KEYS.theme);
+    const storedLanguage = localStorage.getItem(STORAGE_KEYS.language);
 
     return {
       serverBaseUrl: storedUrl ?? DEFAULT_VALUES.serverBaseUrl,
       startDelaySeconds:
         storedDelay === null ? DEFAULT_VALUES.startDelaySeconds : clampStartDelaySeconds(Number(storedDelay)),
       theme: parseTheme(storedTheme),
+      language: parseLanguagePreference(storedLanguage),
     };
   });
 
@@ -128,6 +143,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     setSettings((prev) => ({ ...prev, theme }));
   }
 
+  function setLanguage(language: LanguagePreference): void {
+    localStorage.setItem(STORAGE_KEYS.language, language);
+    setSettings((prev) => ({ ...prev, language }));
+  }
+
   function setControlLockToken(token: string | null): void {
     if (token) {
       localStorage.setItem(STORAGE_KEYS.controlLockToken, token);
@@ -154,6 +174,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
         setSettings((prev) => ({ ...prev, startDelaySeconds: clampStartDelaySeconds(Number(e.newValue)) }));
       } else if (e.key === STORAGE_KEYS.theme) {
         setSettings((prev) => ({ ...prev, theme: parseTheme(e.newValue) }));
+      } else if (e.key === STORAGE_KEYS.language) {
+        setSettings((prev) => ({ ...prev, language: parseLanguagePreference(e.newValue) }));
       } else if (e.key === STORAGE_KEYS.controlLockToken) {
         setControlLockTokenState(e.newValue);
       }
@@ -167,12 +189,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     applyTheme(settings.theme);
   }, [settings.theme]);
 
+  const language = resolveLanguage(settings.language, useBrowserLanguages());
+  useEffect(() => {
+    applyLanguage(language);
+  }, [language]);
+
   const value: SettingsContextType = {
     settings,
     controlLockToken,
     setServerBaseUrl,
     setStartDelaySeconds,
     setTheme,
+    setLanguage,
     setControlLockToken,
     logoutControlLock,
   };

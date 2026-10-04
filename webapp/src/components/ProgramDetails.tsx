@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useProgramsApi } from '../api/programs';
+import { useT, type Messages } from '../i18n';
 import { programTotalMs } from '../lib/program-document';
 import { Timeline } from './Timeline';
 import styles from './ProgramDetails.module.css';
@@ -9,10 +10,10 @@ type ProgramDetailsProps = {
   onClose: () => void;
 };
 
-function formatDuration(totalMs: number): string {
+function formatDuration(t: Messages['run']['programDetails'], totalMs: number): string {
   const seconds = Math.round(totalMs / 1000);
   const minutes = Math.floor(seconds / 60);
-  return minutes > 0 ? `${minutes} min ${seconds % 60} s` : `${seconds} s`;
+  return minutes > 0 ? t.minutes(minutes, seconds % 60) : t.seconds(seconds);
 }
 
 /**
@@ -22,6 +23,7 @@ function formatDuration(totalMs: number): string {
  */
 export function ProgramDetails({ id, onClose }: ProgramDetailsProps): React.ReactNode {
   const programsApi = useProgramsApi();
+  const t = useT().run.programDetails;
 
   const {
     data: program,
@@ -49,27 +51,30 @@ export function ProgramDetails({ id, onClose }: ProgramDetailsProps): React.Reac
     <section className={styles.panel} data-testid='program-details'>
       <header className={styles.header}>
         <div>
-          <h2 className={styles.title}>{program?.title ?? `Program ${id}`}</h2>
+          <h2 className={styles.title}>{program?.title ?? t.title(id)}</h2>
           {program && <p className={styles.description}>{program.description}</p>}
         </div>
         <div className={styles.headerActions}>
           <button className={styles.button} onClick={handleDownload} disabled={!program}>
-            Download JSON
+            {t.downloadJson}
           </button>
           <button className={styles.button} onClick={onClose}>
-            Close
+            {t.close}
           </button>
         </div>
       </header>
 
-      {isPending && <p className={styles.message}>Loading…</p>}
-      {error && <p className={styles.message}>Could not load this program: {error.message}</p>}
+      {isPending && <p className={styles.message}>{t.loading}</p>}
+      {error && <p className={styles.message}>{t.couldNotLoad(error.message)}</p>}
 
       {program && (
         <>
           <p className={styles.meta} data-testid='program-details-meta'>
-            {program.series.length} series · {program.series.reduce((count, series) => count + series.events.length, 0)}{' '}
-            events · {formatDuration(programTotalMs(program))}
+            {t.meta(
+              program.series.length,
+              program.series.reduce((count, series) => count + series.events.length, 0),
+              formatDuration(t, programTotalMs(program)),
+            )}
           </p>
           <Timeline program={program} currentSeriesIndex={null} currentEventIndex={null} tickerMs={null} />
         </>

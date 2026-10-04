@@ -23,6 +23,9 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: {
+    // The suite asserts the English dictionary; the app follows the browser's
+    // language by default, so the browser is told which one it is.
+    locale: 'en-US',
     baseURL: process.env.RT_E2E_BASE_URL ?? 'http://localhost:8080',
     trace: 'on-first-retry',
     // The device is on a LAN-ish origin with no TLS; nothing here needs a

@@ -6,6 +6,7 @@
  * The decoding is the browser's own, so it costs the bundle nothing and the
  * device no flash; an on-device decoder measured 182 KB per app slot.
  */
+import type { Messages } from '../i18n';
 import { encodeImaAdpcmWav, isDeviceAdpcmWav, maxSamplesFor } from './ima-adpcm';
 
 /** The rate of the shipped clips. Plenty for speech, and a quarter of a 48 kHz recording. */
@@ -44,10 +45,6 @@ export class ConversionError extends Error {
 
 export function maxConvertedSeconds(maxBytes: number): number {
   return maxSamplesFor(maxBytes) / CONVERTED_SAMPLE_RATE;
-}
-
-function formatSeconds(seconds: number): string {
-  return `${seconds.toFixed(1)} s`;
 }
 
 function isWavName(name: string): boolean {
@@ -96,12 +93,11 @@ export interface PreparedClip {
   seconds: number | null;
 }
 
-export async function convertToDeviceWav(source: File, maxBytes: number): Promise<PreparedClip> {
+/** `t` words the refusals: this is not a component, so the caller passes its dictionary in. */
+export async function convertToDeviceWav(source: File, maxBytes: number, t: Messages['audios']): Promise<PreparedClip> {
   const maxSeconds = maxConvertedSeconds(maxBytes);
   const tooLong = (seconds: number): ConversionError =>
-    new ConversionError(
-      `"${source.name}" is ${formatSeconds(seconds)} long. A converted clip can be at most ${formatSeconds(maxSeconds)}.`,
-    );
+    new ConversionError(t.convert.tooLong(source.name, seconds, maxSeconds));
 
   let bytes: ArrayBuffer;
   try {
@@ -112,12 +108,10 @@ export async function convertToDeviceWav(source: File, maxBytes: number): Promis
     }
     const cap = isWavName(source.name) ? MAX_WAV_SOURCE_BYTES : MAX_COMPRESSED_SOURCE_BYTES;
     if (source.size > cap) {
-      throw new ConversionError(
-        `"${source.name}" is ${source.size} bytes. Files to convert can be at most ${cap} bytes.`,
-      );
+      throw new ConversionError(t.convert.tooBig(source.name, source.size, cap));
     }
     if (typeof OfflineAudioContext === 'undefined') {
-      throw new ConversionError('This browser cannot convert audio. Upload a WAV instead.', true);
+      throw new ConversionError(t.convert.unsupported, true);
     }
     if (source.size > PROBE_ABOVE_BYTES) {
       // Metadata can be an estimate (VBR MP3 without a header); the margin
@@ -128,7 +122,7 @@ export async function convertToDeviceWav(source: File, maxBytes: number): Promis
     bytes = await source.arrayBuffer();
   } catch (error) {
     if (error instanceof ConversionError) throw error;
-    throw new ConversionError(`Could not read "${source.name}". Pick it again.`);
+    throw new ConversionError(t.convert.unreadable(source.name));
   }
 
   let decoded: AudioBuffer;
@@ -138,15 +132,12 @@ export async function convertToDeviceWav(source: File, maxBytes: number): Promis
     // because an engine refusing the rate is as undecodable as a bad file.
     decoded = await new OfflineAudioContext(1, 1, CONVERTED_SAMPLE_RATE).decodeAudioData(bytes);
   } catch {
-    throw new ConversionError(
-      `This browser could not read "${source.name}" as audio. Try a WAV, M4A or MP3 file.`,
-      true,
-    );
+    throw new ConversionError(t.convert.undecodable(source.name), true);
   }
 
   const seconds = decoded.length / decoded.sampleRate;
   if (decoded.length === 0) {
-    throw new ConversionError(`"${source.name}" holds no audio.`);
+    throw new ConversionError(t.convert.silent(source.name));
   }
   // The encoded size depends on the sample count alone, whatever the rate.
   if (decoded.length > maxSamplesFor(maxBytes)) {

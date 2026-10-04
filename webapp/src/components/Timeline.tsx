@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Program, Series, Event } from '../api/types';
+import { useT, type Messages } from '../i18n';
 import { aggregateBankState, simulateBanks, type EventBankState } from '../lib/bank-state';
 import { BANK_LETTERS } from '../lib/program-document';
 import { seriesTotalMs } from '../lib/run-position';
@@ -37,6 +38,9 @@ type EventRef = { seriesIndex: number; eventIndex: number };
 
 const FIELD_TIMELINE_THRESHOLD_MS = 30000; // 30s
 
+/** The strings this file reads, so the helpers below can take them without a hook. */
+type TimelineMessages = Messages['run']['timelineView'];
+
 export function Timeline({
   program,
   currentSeriesIndex,
@@ -47,6 +51,7 @@ export function Timeline({
   audioTitles,
   onSkipSeries,
 }: TimelineProps): React.ReactNode {
+  const t = useT().run.timelineView;
   // Null on a one-bank device, so nothing downstream has to ask twice whether
   // this is the multi-bank rendering.
   const bankStates = useMemo(() => (bankCount > 1 ? simulateBanks(program, bankCount) : null), [program, bankCount]);
@@ -152,7 +157,7 @@ export function Timeline({
               {/* Badge and dimming together, never dimming alone: which series
                   are skippable has to be readable at arm's length, on a phone,
                   in daylight. */}
-              {series.optional === true && <span className={styles.optionalBadge}>Optional</span>}
+              {series.optional === true && <span className={styles.optionalBadge}>{t.optional}</span>}
 
               {/* Only on optional series, and only on the one the run is
                   sitting at. Skipping a scoring series by mistake is worse
@@ -168,7 +173,7 @@ export function Timeline({
                     onSkipSeries(sIdx + 1);
                   }}
                 >
-                  Skip
+                  {t.skip}
                 </button>
               )}
             </div>
@@ -244,6 +249,7 @@ function DefaultTimelineSeries({
   onPreview,
   onTogglePin,
 }: DefaultTimelineSeriesProps): React.ReactNode {
+  const t = useT().run.timelineView;
   const eventsWithAccumulated = series.events.reduce(
     (acc, event) => {
       const previousAccumulated = acc.length > 0 ? acc[acc.length - 1].accumulated : 0;
@@ -326,7 +332,7 @@ function DefaultTimelineSeries({
               <span
                 className={styles.anchorMark}
                 data-testid={`timeline-anchor-${String(seriesIndex)}`}
-                title='The run clock reaches zero here'
+                title={t.anchor}
               >
                 0:00
               </span>
@@ -360,6 +366,7 @@ type EventDetailProps = {
  * page is read.
  */
 function EventDetail({ program, reference, pinned, audioTitles, bankState, onDismiss }: EventDetailProps): ReactNode {
+  const t = useT().run.timelineView;
   const series = program.series?.[reference.seriesIndex];
   const event = series?.events[reference.eventIndex];
   if (series === undefined || event === undefined) return null;
@@ -374,42 +381,42 @@ function EventDetail({ program, reference, pinned, audioTitles, bankState, onDis
     <div className={styles.detail} data-testid='timeline-event-detail'>
       <div className={styles.detailHead}>
         <span className={styles.detailTitle}>
-          {series.name} · event {reference.eventIndex + 1} of {series.events.length}
+          {t.eventOf(series.name, reference.eventIndex + 1, series.events.length)}
         </span>
         {pinned && (
           <button type='button' className={styles.detailDismiss} onClick={onDismiss}>
-            Close
+            {t.close}
           </button>
         )}
       </div>
 
       <dl className={styles.detailRows}>
-        <dt>Targets</dt>
-        <dd>{bankState === null ? commandDescription(event.command) : <BankList banks={bankState} />}</dd>
+        <dt>{t.targets}</dt>
+        <dd>{bankState === null ? commandDescription(t, event.command) : <BankList banks={bankState} />}</dd>
 
-        <dt>Duration</dt>
+        <dt>{t.duration}</dt>
         <dd>{formatSeconds(event.duration)}</dd>
 
-        <dt>Starts at</dt>
+        <dt>{t.startsAt}</dt>
         <dd>
           {anchorRelativeSeconds(series, startsAtMs)} s{' '}
-          {anchorMs(series) === 0 ? `into ${series.name}` : 'on the run clock'}
+          {anchorMs(series) === 0 ? t.intoSeries(series.name) : t.onRunClock}
         </dd>
 
-        <dt>Ends at</dt>
+        <dt>{t.endsAt}</dt>
         <dd>{formatRunClock(series, startsAtMs + event.duration)}</dd>
 
-        <dt>Audio</dt>
+        <dt>{t.audio}</dt>
         <dd>
           {audioIds.length === 0 ? (
-            <span className={styles.detailNone}>none</span>
+            <span className={styles.detailNone}>{t.none}</span>
           ) : (
             // Listed, not joined with commas: clip titles are things like
             // "Provserie", "1" and "10 sekunder", and a comma-separated string
             // of those reads as one title rather than three.
             <ol className={styles.detailClips}>
               {audioIds.map((id, index) => (
-                <li key={`${String(id)}-${String(index)}`}>{audioTitles?.[id] ?? `clip ${String(id)}`}</li>
+                <li key={`${String(id)}-${String(index)}`}>{audioTitles?.[id] ?? t.clip(id)}</li>
               ))}
             </ol>
           )}
@@ -455,6 +462,7 @@ function BankGlyph({ banks }: { banks: EventBankState }): ReactNode {
 
 /** The same information in words, for the detail panel. */
 function BankList({ banks }: { banks: EventBankState }): ReactNode {
+  const t = useT().run;
   return (
     <div className={styles.bankList} data-testid='timeline-event-banks'>
       {banks.state.map((state, index) => (
@@ -467,8 +475,8 @@ function BankList({ banks }: { banks: EventBankState }): ReactNode {
             )}
             aria-hidden='true'
           />
-          {BANK_LETTERS[index]} {state}
-          {!banks.addressed[index] && <span className={styles.bankCarried}> (unchanged)</span>}
+          {BANK_LETTERS[index]} {t.bankState[state]}
+          {!banks.addressed[index] && <span className={styles.bankCarried}>{t.timelineView.unchanged}</span>}
         </span>
       ))}
     </div>
@@ -502,6 +510,7 @@ function BankLaneSeries({
   showCursor,
   bankStates,
 }: BankLaneSeriesProps): ReactNode {
+  const t = useT().run;
   const totalMs = seriesTotalMs(series);
   if (totalMs === 0) return null;
 
@@ -539,7 +548,11 @@ function BankLaneSeries({
                     left: `${String((starts[index] / totalMs) * 100)}%`,
                     width: `${String((event.duration / totalMs) * 100)}%`,
                   }}
-                  title={`${BANK_LETTERS[bank]} ${state} · ${String(Math.round(event.duration / 1000))}s`}
+                  title={t.timelineView.laneSegment(
+                    BANK_LETTERS[bank],
+                    t.bankState[state],
+                    Math.round(event.duration / 1000),
+                  )}
                 />
               );
             })}
@@ -554,7 +567,7 @@ function BankLaneSeries({
         </Fragment>
       ))}
 
-      <div className={styles.laneLabel}>audio</div>
+      <div className={styles.laneLabel}>{t.timelineView.audioLane}</div>
       <div className={styles.audioLane}>
         {series.events.map((event, index) =>
           hasAudio(event) ? (
@@ -607,10 +620,10 @@ function laneAxisTicks(series: Series, totalMs: number): Array<{ ms: number; lab
 }
 
 /** Said in words, because the chip says it in colour and an icon. */
-function commandDescription(command?: string): string {
-  if (command === 'show') return 'Show';
-  if (command === 'hide') return 'Hide';
-  return 'Unchanged — a timed pause';
+function commandDescription(t: TimelineMessages, command?: string): string {
+  if (command === 'show') return t.show;
+  if (command === 'hide') return t.hide;
+  return t.timedPause;
 }
 
 /**
@@ -676,6 +689,7 @@ function FieldTimelineSeries({
   elapsedMs,
   showCursor,
 }: FieldTimelineSeriesProps): React.ReactNode {
+  const t = useT().run.timelineView;
   // Calculate total duration for percentage-based positioning
   const totalDurationMs = seriesTotalMs(series);
 
@@ -705,7 +719,7 @@ function FieldTimelineSeries({
           className={styles.anchorLine}
           style={{ left: `${String(anchorPercent)}%` }}
           data-testid={`timeline-anchor-line-${String(seriesIndex)}`}
-          title='The run clock reaches zero here'
+          title={t.anchor}
         >
           <span className={styles.anchorLineLabel}>0:00</span>
         </div>
@@ -727,13 +741,17 @@ function FieldTimelineSeries({
               left: `${event.leftPercent}%`,
               width: `${event.widthPercent}%`,
             }}
-            title={`Duration: ${event.durationSec}s\nCommand: ${event.command ?? '-'}${event.audio_ids ? '\nAudios: ' + event.audio_ids.join(', ') : ''}`}
+            title={t.segmentTitle(
+              event.durationSec,
+              event.command ? commandDescription(t, event.command) : '-',
+              event.audio_ids ? event.audio_ids.join(', ') : null,
+            )}
           >
             {/* The label is wrapped so it can ellipsise: a segment is drawn to
                 scale, and at 3 s out of 28 on a phone there is no room for
                 "3s Show". The full text is in the segment's tooltip. */}
             <span className={styles.segmentLabel}>
-              {event.durationSec}s {segmentSymbol(event)}
+              {event.durationSec}s {segmentSymbol(t, event)}
             </span>
           </div>
         );
@@ -772,9 +790,9 @@ function hasAudio(event: Event): boolean {
    show whichever came first, audio winning - which hid the command on exactly
    the events that matter most: Militär Snabbmatch's "Load!" event carries audio
    26 *and* presents the targets, and read on the card as audio only. */
-function commandLabel(event: Event): string {
-  if (event.command === 'show') return 'Show';
-  if (event.command === 'hide') return 'Hide';
+function commandLabel(t: TimelineMessages, event: Event): string {
+  if (event.command === 'show') return t.show;
+  if (event.command === 'hide') return t.hide;
   return hasAudio(event) ? '' : '-';
 }
 
@@ -788,6 +806,7 @@ function commandLabel(event: Event): string {
    asks that colour never be the only channel. The aria-label carries the word
    for anyone who cannot see either. */
 function CommandIcon({ command }: { command?: string }): ReactNode {
+  const t = useT().run.timelineView;
   if (command === 'show') {
     return (
       <svg
@@ -795,7 +814,7 @@ function CommandIcon({ command }: { command?: string }): ReactNode {
         viewBox='0 0 16 16'
         width='13'
         height='13'
-        aria-label='Targets shown'
+        aria-label={t.targetsShown}
         role='img'
       >
         <circle cx='8' cy='8' r='6.2' fill='none' stroke='currentColor' strokeWidth='1.6' />
@@ -810,7 +829,7 @@ function CommandIcon({ command }: { command?: string }): ReactNode {
         viewBox='0 0 16 16'
         width='13'
         height='13'
-        aria-label='Targets hidden'
+        aria-label={t.targetsHidden}
         role='img'
         fill='currentColor'
       >
@@ -823,23 +842,24 @@ function CommandIcon({ command }: { command?: string }): ReactNode {
 
 /* The scaled timeline ellipsises its labels, so it gets a word rather than the
    icon: at 3 s out of 28 on a phone there is barely room for the word either. */
-function segmentSymbol(event: Event): string {
-  const command = commandLabel(event);
+function segmentSymbol(t: TimelineMessages, event: Event): string {
+  const command = commandLabel(t, event);
   if (command !== '' && command !== '-') return command;
-  return hasAudio(event) ? 'Audio' : '-';
+  return hasAudio(event) ? t.audioSegment : '-';
 }
 
 /* Inline rather than an emoji: emoji render differently on Android, iOS and
    desktop, arrive in their own colours next to a palette where colour means
    something, and go muddy at this size. This inherits currentColor. */
 function AudioIcon(): ReactNode {
+  const t = useT().run.timelineView;
   return (
     <svg
       className={styles.audioIcon}
       viewBox='0 0 16 16'
       width='12'
       height='12'
-      aria-label='Plays audio'
+      aria-label={t.playsAudio}
       role='img'
       fill='currentColor'
     >

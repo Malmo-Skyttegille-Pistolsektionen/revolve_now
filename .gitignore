@@ -8,3 +8,6 @@
 
 # Extracted by the contracts workflow to diff a PR against the base branch.
 .contracts-base/
+
+# Python bytecode from the MkDocs hooks
+__pycache__/

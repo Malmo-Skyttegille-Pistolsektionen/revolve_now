@@ -27,6 +27,7 @@ import {
   type EditorAction,
 } from '../lib/program-editor';
 import { BANK_LETTERS, type BankLetter } from '../lib/program-document';
+import { useT } from '../i18n';
 import {
   failureNotice,
   isGoneFromDevice,
@@ -56,7 +57,15 @@ export type EditorTarget =
   | { kind: 'new' }
   | { kind: 'copy'; sourceId: number; sourceTitle: string }
   | { kind: 'edit'; id: number }
-  | { kind: 'standalone'; id: number; document: Program | null; origin: string };
+  | {
+      kind: 'standalone';
+      id: number;
+      document: Program | null;
+      /** Where the document came from, for the pull-request body: English, like the rest of it. */
+      origin: string;
+      /** The same, as the page shows it. */
+      originLabel: string;
+    };
 
 interface ProgramEditorProps {
   target: EditorTarget;
@@ -103,6 +112,7 @@ export function ProgramEditor({
   renderExport,
   loadAudios,
 }: ProgramEditorProps): React.ReactNode {
+  const t = useT();
   const programsApi = useProgramsApi();
   // `standalone` already holds its document - see the type doc above - so it
   // takes the `new` branch here too: no device fetch, ever.
@@ -123,7 +133,7 @@ export function ProgramEditor({
   if (sourceId !== null && isPending) {
     return (
       <section className={styles.editor} data-testid='program-editor'>
-        <p className={styles.message}>Loading program {sourceId}…</p>
+        <p className={styles.message}>{t.editor.loading(sourceId)}</p>
       </section>
     );
   }
@@ -136,14 +146,12 @@ export function ProgramEditor({
   // navigation blocker, in silence. D-24 is what made that reachable:
   // `libraryChanged` invalidates `['program', id]` under an open editor, and
   // its ordinary cause is another client deleting the program being edited.
-  if (error && source === undefined) {
+  if (error && source === undefined && sourceId !== null) {
     return (
       <section className={styles.editor} data-testid='program-editor'>
-        <p className={styles.message}>
-          Could not open program {sourceId}: {error.message}
-        </p>
+        <p className={styles.message}>{t.editor.openFailed(sourceId, error.message)}</p>
         <button className={styles.button} onClick={onClose}>
-          Close
+          {t.editor.close}
         </button>
       </section>
     );
@@ -194,6 +202,7 @@ function ProgramEditorForm({
   renderExport,
   loadAudios,
 }: FormProps): React.ReactNode {
+  const t = useT();
   const queryClient = useQueryClient();
   const programsApi = useProgramsApi();
   const audiosApi = useAudiosApi();
@@ -206,7 +215,9 @@ function ProgramEditorForm({
       // A copy carries the shipped document's content and none of its identity:
       // the title says so, because two rows reading "Fältträning" with only the
       // Shipped badge between them is the accident waiting to happen.
-      program !== null && target.kind === 'copy' ? { ...program, title: `${program.title} (copy)` } : program,
+      program !== null && target.kind === 'copy'
+        ? { ...program, title: `${program.title}${t.editor.copySuffix}` }
+        : program,
     ),
   );
   const [tab, setTab] = useState<Tab>('editor');
@@ -251,7 +262,7 @@ function ProgramEditorForm({
       void queryClient.invalidateQueries({ queryKey: ['programs'] });
       onCreated(created.id, program.title);
     },
-    onError: (err, program) => setNotice(failureNotice(err, `Could not save "${program.title}".`)),
+    onError: (err, program) => setNotice(failureNotice(t.programs.notices, err, t.editor.saveFailed(program.title))),
   });
 
   const updateMutation = useMutation({
@@ -263,11 +274,11 @@ function ProgramEditorForm({
       // rather than what was sent — and is clean against it.
       dispatch({ type: 'saved', program: stored });
       setJson(null);
-      setNotice({ kind: 'success', message: `Saved program ${upload.id} — "${stored.title}".` });
+      setNotice({ kind: 'success', message: t.editor.saved(upload.id, stored.title) });
     },
     // Left open on purpose: a 409 means the save has to be retried after
     // loading something else, and closing would throw the edits away.
-    onError: (err, upload) => setNotice(updateFailureNotice(err, upload.id)),
+    onError: (err, upload) => setNotice(updateFailureNotice(t.programs.notices, err, upload.id)),
   });
 
   const busy = createMutation.isPending || updateMutation.isPending;
@@ -275,7 +286,9 @@ function ProgramEditorForm({
   // A `copy` seeds a new program either way, so a failed re-read of its source
   // changes nothing; only an `edit` has a target that can stop existing.
   const staleSource =
-    target.kind === 'edit' && sourceError !== null ? sourceReloadNotice(sourceError, target.id) : null;
+    target.kind === 'edit' && sourceError !== null
+      ? sourceReloadNotice(t.programs.notices, sourceError, target.id)
+      : null;
   // Save has to become a create: `PUT` on an id the device does not hold is a
   // 404, so the alternative is an editor whose only button is guaranteed to
   // fail. The banner above says this is what will happen; the button says
@@ -303,7 +316,7 @@ function ProgramEditorForm({
     if (!result.ok) {
       setNotice({
         kind: 'error',
-        message: 'The JSON is not a program the device will accept, so the form was left as it was.',
+        message: t.editor.jsonRejected,
         details: issueLines(result.errors),
       });
       return false;
@@ -314,7 +327,7 @@ function ProgramEditorForm({
       result.warnings.length > 0
         ? {
             kind: 'warning',
-            message: 'Applied as the device would store it:',
+            message: t.editor.jsonApplied,
             details: issueLines(result.warnings),
           }
         : null,
@@ -359,7 +372,7 @@ function ProgramEditorForm({
     if (!result.ok) {
       setNotice({
         kind: 'error',
-        message: 'This program cannot be saved yet.',
+        message: t.editor.cannotSaveYet,
         details: issueLines(result.errors),
       });
       return;
@@ -379,7 +392,7 @@ function ProgramEditorForm({
     const introduced = authoringRegressions(stored.ok ? authoringIssues(stored.program) : [], authoring);
 
     if (introduced.length > 0) {
-      setNotice({ kind: 'error', message: 'This program cannot be saved yet.', details: issueLines(introduced) });
+      setNotice({ kind: 'error', message: t.editor.cannotSaveYet, details: issueLines(introduced) });
       return;
     }
 
@@ -402,12 +415,12 @@ function ProgramEditorForm({
 
   const heading =
     target.kind === 'edit'
-      ? `Editing program ${target.id}`
+      ? t.editor.heading.edit(target.id)
       : target.kind === 'copy'
-        ? `New program, copied from "${target.sourceTitle}"`
+        ? t.editor.heading.copy(target.sourceTitle)
         : target.kind === 'standalone'
-          ? `Program ${target.id} (no device — ${target.origin})`
-          : 'New program';
+          ? t.editor.heading.standalone(target.id, target.originLabel)
+          : t.editor.heading.new;
 
   const eventCount = state.draft.series.reduce((count, series) => count + series.events.length, 0);
 
@@ -419,12 +432,12 @@ function ProgramEditorForm({
             {heading}
           </h2>
           <p className={styles.meta} data-testid='editor-meta'>
-            {state.draft.series.length} series · {eventCount} events
+            {t.editor.meta(state.draft.series.length, eventCount)}
             {dirty && (
               <>
                 {' · '}
                 <span className={styles.dirty} data-testid='editor-dirty'>
-                  unsaved changes
+                  {t.editor.unsavedChanges}
                 </span>
               </>
             )}
@@ -442,7 +455,7 @@ function ProgramEditorForm({
               data-testid='editor-tab-editor'
               onClick={() => selectTab('editor')}
             >
-              Editor
+              {t.editor.tabs.editor}
             </button>
             <button
               role='tab'
@@ -453,11 +466,11 @@ function ProgramEditorForm({
               data-testid='editor-tab-json'
               onClick={() => selectTab('json')}
             >
-              JSON
+              {t.editor.tabs.json}
             </button>
           </div>
           <button className={styles.button} data-testid='editor-cancel' onClick={handleClose} disabled={busy}>
-            Close
+            {t.editor.close}
           </button>
           <button
             className={clsx(styles.button, styles.buttonPrimary)}
@@ -465,7 +478,7 @@ function ProgramEditorForm({
             onClick={handleSave}
             disabled={busy}
           >
-            {deviceless ? 'Continue' : target.kind === 'edit' && !sourceGone ? 'Save' : 'Create'}
+            {deviceless ? t.editor.continue : target.kind === 'edit' && !sourceGone ? t.editor.save : t.editor.create}
           </button>
         </div>
       </header>
@@ -503,7 +516,7 @@ function ProgramEditorForm({
       </div>
 
       <div className={styles.preview}>
-        <h3 className={styles.sectionTitle}>Preview</h3>
+        <h3 className={styles.sectionTitle}>{t.editor.preview}</h3>
         <Timeline
           program={toPreviewProgram(state.draft)}
           currentSeriesIndex={null}
@@ -515,15 +528,13 @@ function ProgramEditorForm({
       {pendingSave && (
         <ConfirmDialog
           title={
-            pendingSave.warnings.length > 0
-              ? 'The device will not store this program as written'
-              : 'Save this program as it is?'
+            pendingSave.warnings.length > 0 ? t.editor.pendingSave.titleWarnings : t.editor.pendingSave.titleCarried
           }
           body={
             <>
               {pendingSave.warnings.length > 0 && (
                 <>
-                  <p>It will be stored as:</p>
+                  <p>{t.editor.pendingSave.storedAs}</p>
                   <ul data-testid='editor-warnings'>
                     {pendingSave.warnings.map((warning) => (
                       <li key={`${warning.path}:${warning.message}`}>
@@ -535,10 +546,7 @@ function ProgramEditorForm({
               )}
               {pendingSave.carried.length > 0 && (
                 <>
-                  <p>
-                    The stored program already had this, and these edits do not add to it. The device accepts it either
-                    way:
-                  </p>
+                  <p>{t.editor.pendingSave.carried}</p>
                   <ul data-testid='editor-carried'>
                     {pendingSave.carried.map((issue) => (
                       <li key={`${issue.path}:${issue.message}`}>
@@ -550,7 +558,13 @@ function ProgramEditorForm({
               )}
             </>
           }
-          confirmLabel={target.kind === 'edit' ? 'Save anyway' : deviceless ? 'Continue anyway' : 'Create anyway'}
+          confirmLabel={
+            target.kind === 'edit'
+              ? t.editor.pendingSave.saveAnyway
+              : deviceless
+                ? t.editor.pendingSave.continueAnyway
+                : t.editor.pendingSave.createAnyway
+          }
           destructive={target.kind === 'edit'}
           onConfirm={() => {
             const pending = pendingSave;
@@ -564,9 +578,9 @@ function ProgramEditorForm({
 
       {confirmDiscard && (
         <ConfirmDialog
-          title='Discard unsaved changes?'
-          body='This program has edits that have not been sent to the device. Closing the editor loses them.'
-          confirmLabel='Discard'
+          title={t.editor.discard.title}
+          body={t.editor.discard.body}
+          confirmLabel={t.editor.discard.confirm}
           destructive
           onConfirm={() => {
             setConfirmDiscard(false);
@@ -578,9 +592,9 @@ function ProgramEditorForm({
 
       {blocker.status === 'blocked' && (
         <ConfirmDialog
-          title='Leave the editor?'
-          body='This program has edits that have not been sent to the device. Leaving this page loses them.'
-          confirmLabel='Leave'
+          title={t.editor.leave.title}
+          body={t.editor.leave.body}
+          confirmLabel={t.editor.leave.confirm}
           destructive
           onConfirm={blocker.proceed}
           onCancel={blocker.reset}
@@ -603,13 +617,14 @@ interface StructuredEditorProps {
 }
 
 function StructuredEditor({ state, dispatch, audios }: StructuredEditorProps): React.ReactNode {
+  const t = useT();
   const { draft, collapsed, selection, bankCount } = state;
 
   return (
     <div className={styles.form}>
       <div className={styles.programFields}>
         <label className={styles.field}>
-          <span className={styles.label}>Title</span>
+          <span className={styles.label}>{t.editor.fields.title}</span>
           <input
             className={styles.input}
             data-testid='editor-title'
@@ -618,7 +633,7 @@ function StructuredEditor({ state, dispatch, audios }: StructuredEditorProps): R
           />
         </label>
         <label className={styles.field}>
-          <span className={styles.label}>Description</span>
+          <span className={styles.label}>{t.editor.fields.description}</span>
           <input
             className={styles.input}
             data-testid='editor-description'
@@ -634,13 +649,13 @@ function StructuredEditor({ state, dispatch, audios }: StructuredEditorProps): R
           data-testid='editor-add-series'
           onClick={() => dispatch({ type: 'addSeries' })}
         >
-          Add series
+          {t.editor.toolbar.addSeries}
         </button>
         <button className={styles.button} onClick={() => dispatch({ type: 'setAllCollapsed', collapsed: true })}>
-          Collapse all
+          {t.editor.toolbar.collapseAll}
         </button>
         <button className={styles.button} onClick={() => dispatch({ type: 'setAllCollapsed', collapsed: false })}>
-          Expand all
+          {t.editor.toolbar.expandAll}
         </button>
         <span className={styles.spacer} />
         <button
@@ -648,22 +663,22 @@ function StructuredEditor({ state, dispatch, audios }: StructuredEditorProps): R
           data-testid='editor-select-all'
           onClick={() => dispatch({ type: 'selectAllEvents' })}
         >
-          Select all events
+          {t.editor.toolbar.selectAllEvents}
         </button>
         {selection.length > 0 && (
           <>
             <span className={styles.selectionCount} data-testid='editor-selection-count'>
-              {selection.length} selected
+              {t.editor.toolbar.selected(selection.length)}
             </span>
             <button
               className={clsx(styles.button, styles.buttonDestructive)}
               data-testid='editor-delete-selected'
               onClick={() => dispatch({ type: 'removeSelected' })}
             >
-              Delete selected
+              {t.editor.toolbar.deleteSelected}
             </button>
             <button className={styles.button} onClick={() => dispatch({ type: 'clearSelection' })}>
-              Clear selection
+              {t.editor.toolbar.clearSelection}
             </button>
           </>
         )}
@@ -707,6 +722,7 @@ function SeriesCard({
   bankCount,
   dispatch,
 }: SeriesCardProps): React.ReactNode {
+  const t = useT();
   const seconds = Math.round(seriesMs(series) / 100) / 10;
 
   return (
@@ -715,7 +731,7 @@ function SeriesCard({
         <button
           className={styles.collapseButton}
           aria-expanded={!collapsed}
-          aria-label={`${collapsed ? 'Expand' : 'Collapse'} series ${seriesIndex + 1}`}
+          aria-label={collapsed ? t.editor.series.expand(seriesIndex + 1) : t.editor.series.collapse(seriesIndex + 1)}
           data-testid={`editor-series-${seriesIndex}-collapse`}
           onClick={() => dispatch({ type: 'toggleCollapsed', key: series.key })}
         >
@@ -724,8 +740,8 @@ function SeriesCard({
         <span className={styles.seriesNumber}>{seriesIndex + 1}</span>
         <input
           className={clsx(styles.input, styles.seriesName)}
-          placeholder='Series name'
-          aria-label={`Name of series ${seriesIndex + 1}`}
+          placeholder={t.editor.series.namePlaceholder}
+          aria-label={t.editor.series.nameLabel(seriesIndex + 1)}
           data-testid={`editor-series-${seriesIndex}-name`}
           value={series.name}
           onChange={(event) => dispatch({ type: 'setSeriesName', series: seriesIndex, value: event.target.value })}
@@ -739,20 +755,22 @@ function SeriesCard({
               dispatch({ type: 'setSeriesOptional', series: seriesIndex, value: event.target.checked })
             }
           />
-          Optional
+          {t.editor.series.optional}
         </label>
         <span className={styles.seriesMeta} data-testid={`editor-series-${seriesIndex}-meta`}>
-          {series.events.length} events · {seconds} s
+          {t.editor.series.meta(series.events.length, seconds)}
         </span>
         <RowActions
           prefix={`editor-series-${seriesIndex}`}
-          what={`series ${seriesIndex + 1}`}
+          what={t.editor.series.what(seriesIndex + 1)}
           canMoveUp={seriesIndex > 0}
           canMoveDown={seriesIndex < seriesCount - 1}
           canDelete={seriesCount > 1}
           onUp={() => dispatch({ type: 'moveSeries', from: seriesIndex, to: seriesIndex - 1 })}
           onDown={() => dispatch({ type: 'moveSeries', from: seriesIndex, to: seriesIndex + 1 })}
-          onDuplicate={() => dispatch({ type: 'duplicateSeries', series: seriesIndex })}
+          onDuplicate={() =>
+            dispatch({ type: 'duplicateSeries', series: seriesIndex, copySuffix: t.editor.copySuffix })
+          }
           onDelete={() => dispatch({ type: 'removeSeries', series: seriesIndex })}
         />
       </div>
@@ -778,7 +796,7 @@ function SeriesCard({
             data-testid={`editor-series-${seriesIndex}-add-event`}
             onClick={() => dispatch({ type: 'addEvent', series: seriesIndex })}
           >
-            Add event
+            {t.editor.series.addEvent}
           </button>
         </>
       )}
@@ -786,11 +804,7 @@ function SeriesCard({
   );
 }
 
-const COMMANDS: { value: DraftCommand; label: string }[] = [
-  { value: 'show', label: 'Show' },
-  { value: 'hide', label: 'Hide' },
-  { value: 'none', label: 'No change' },
-];
+const COMMANDS: DraftCommand[] = ['show', 'hide', 'none'];
 
 interface EventRowProps {
   event: DraftEvent;
@@ -817,6 +831,7 @@ function EventRow({
   bankCount,
   dispatch,
 }: EventRowProps): React.ReactNode {
+  const t = useT();
   const testId = `editor-event-${seriesIndex}-${eventIndex}`;
   const ms = durationMs(event);
   // An override on bank A alone leaves `banksRequired` - and so the stepper -
@@ -830,7 +845,7 @@ function EventRow({
     <div className={styles.event} data-testid={testId}>
       <input
         type='checkbox'
-        aria-label={`Select event ${eventIndex + 1} of series ${seriesIndex + 1}`}
+        aria-label={t.editor.event.select(eventIndex + 1, seriesIndex + 1)}
         data-testid={`${testId}-select`}
         checked={selected}
         onChange={() => dispatch({ type: 'toggleSelected', key: event.key })}
@@ -838,7 +853,7 @@ function EventRow({
       <span className={styles.eventNumber}>{eventIndex + 1}</span>
 
       <label className={styles.field}>
-        <span className={styles.label}>Duration (ms)</span>
+        <span className={styles.label}>{t.editor.event.durationLabel}</span>
         <span className={styles.durationRow}>
           {/* Text, not `type='number'`: a number input blanks its own value the
               moment the content stops parsing, so "12x" reached the reducer as
@@ -851,7 +866,7 @@ function EventRow({
             className={clsx(styles.input, styles.duration)}
             type='text'
             inputMode='numeric'
-            aria-label={`Duration of event ${eventIndex + 1} of series ${seriesIndex + 1}, in milliseconds`}
+            aria-label={t.editor.event.durationAria(eventIndex + 1, seriesIndex + 1)}
             data-testid={`${testId}-duration`}
             value={event.duration}
             onChange={(change) =>
@@ -866,33 +881,33 @@ function EventRow({
           {/* Milliseconds is what the device stores and what the field holds;
               the seconds are the number the shooter on the line hears. */}
           <span className={styles.hint} data-testid={`${testId}-seconds`}>
-            {ms === null ? '—' : `${Math.round(ms / 100) / 10} s`}
+            {ms === null ? '—' : t.editor.event.seconds(Math.round(ms / 100) / 10)}
           </span>
         </span>
       </label>
 
       <fieldset className={styles.commands}>
         {/* The radio is the baseline the Except row overrides, so it stops being the whole answer. */}
-        <legend className={styles.label}>{showBanks ? 'All banks' : 'Targets'}</legend>
+        <legend className={styles.label}>{showBanks ? t.editor.event.allBanks : t.editor.event.targets}</legend>
         {COMMANDS.map((command) => (
-          <label key={command.value} className={styles.checkbox}>
+          <label key={command} className={styles.checkbox}>
             <input
               type='radio'
               name={`${testId}-command`}
-              data-testid={`${testId}-command-${command.value}`}
-              checked={event.command === command.value}
+              data-testid={`${testId}-command-${command}`}
+              checked={event.command === command}
               onChange={() =>
-                dispatch({ type: 'setEventCommand', series: seriesIndex, event: eventIndex, value: command.value })
+                dispatch({ type: 'setEventCommand', series: seriesIndex, event: eventIndex, value: command })
               }
             />
-            {command.label}
+            {t.editor.event.commands[command]}
           </label>
         ))}
       </fieldset>
 
       {showBanks && (
         <fieldset className={styles.banks}>
-          <legend className={styles.label}>Except</legend>
+          <legend className={styles.label}>{t.editor.event.except}</legend>
           {BANK_LETTERS.slice(0, letterCount).map((letter) => (
             <BankOverrideButton
               key={letter}
@@ -925,7 +940,7 @@ function EventRow({
             })
           }
         />
-        Timer starts here
+        {t.editor.event.timerStartsHere}
       </label>
 
       <AudioPicker
@@ -939,7 +954,7 @@ function EventRow({
 
       <RowActions
         prefix={testId}
-        what={`event ${eventIndex + 1} of series ${seriesIndex + 1}`}
+        what={t.editor.event.what(eventIndex + 1, seriesIndex + 1)}
         canMoveUp={eventIndex > 0}
         canMoveDown={eventIndex < eventCount - 1}
         canDelete
@@ -954,7 +969,7 @@ function EventRow({
           way round. Only where there is something to get wrong. */}
       {showBanks && (
         <p className={styles.eventSummary} aria-live='polite' data-testid={`${testId}-summary`}>
-          {describeEvent(event, letterCount)}
+          {describeEvent(t.editor, event, letterCount)}
         </p>
       )}
     </div>
@@ -980,18 +995,21 @@ function BankOverrideButton({
   value?: 'show' | 'hide';
   onCycle: (value: 'show' | 'hide' | null) => void;
 }): React.ReactNode {
+  const t = useT();
   const next = value === undefined ? 'show' : value === 'show' ? 'hide' : null;
+  const word = (state: 'show' | 'hide' | null | undefined): string =>
+    state ? t.editor.bank[state] : t.editor.bank.followsAll;
 
   return (
     <button
       type='button'
       className={clsx(styles.bankButton, value === 'show' && styles.bankShow, value === 'hide' && styles.bankHide)}
       data-testid={`${testId}-bank-${letter}`}
-      aria-label={`Bank ${letter}: ${value ?? 'follows all banks'}. Press to set ${next ?? 'follows all banks'}.`}
+      aria-label={t.editor.bank.aria(letter, word(value), word(next))}
       onClick={() => onCycle(next)}
     >
       <span className={styles.bankLetter}>{letter}</span>
-      <span className={styles.bankValue}>{value ?? '–'}</span>
+      <span className={styles.bankValue}>{value ? t.editor.bank[value] : '–'}</span>
     </button>
   );
 }
@@ -1008,30 +1026,31 @@ function BankCountStepper({
   count: number;
   dispatch: React.Dispatch<EditorAction>;
 }): React.ReactNode {
+  const t = useT();
   return (
     <div className={styles.bankStepper} role='group' aria-labelledby='editor-banks-label'>
       <span className={styles.label} id='editor-banks-label'>
-        Banks this program uses
+        {t.editor.bankCount.label}
       </span>
       <span className={styles.stepper}>
         <button
           type='button'
           className={styles.stepperButton}
           data-testid='editor-banks-fewer'
-          aria-label='Fewer banks'
+          aria-label={t.editor.bankCount.fewer}
           disabled={count <= 1}
           onClick={() => dispatch({ type: 'setBankCount', value: count - 1 })}
         >
           −
         </button>
         <span className={styles.stepperValue} aria-live='polite' data-testid='editor-banks-count'>
-          {count === 1 ? '1 (A)' : `A–${BANK_LETTERS[count - 1]}`}
+          {count === 1 ? t.editor.bankCount.one : t.editor.bankCount.range(BANK_LETTERS[count - 1])}
         </span>
         <button
           type='button'
           className={styles.stepperButton}
           data-testid='editor-banks-more'
-          aria-label='More banks'
+          aria-label={t.editor.bankCount.more}
           disabled={count >= BANK_LETTERS.length}
           onClick={() => dispatch({ type: 'setBankCount', value: count + 1 })}
         >
@@ -1059,6 +1078,7 @@ interface AudioPickerProps {
  * usable at all until the titles are filled in.
  */
 function AudioPicker({ testId, audioIds, audios, onAdd, onRemove, onMove }: AudioPickerProps): React.ReactNode {
+  const t = useT();
   const [search, setSearch] = useState('');
 
   const term = search.trim().toLowerCase();
@@ -1075,12 +1095,12 @@ function AudioPicker({ testId, audioIds, audios, onAdd, onRemove, onMove }: Audi
   // need when something is wrong.
   function titleOf(id: number): string {
     const audio = audios.find((entry) => entry.id === id);
-    return audio ? `"${audio.title}" (${String(audio.id)})` : `(${String(id)}) — not on the device`;
+    return audio ? `"${audio.title}" (${String(audio.id)})` : t.editor.audio.notOnDevice(id);
   }
 
   return (
     <div className={styles.audio}>
-      <span className={styles.label}>Audio</span>
+      <span className={styles.label}>{t.editor.audio.label}</span>
       <ul className={styles.chips} data-testid={`${testId}-audio-ids`}>
         {audioIds.map((id, index) => (
           <li key={id} className={styles.chip}>
@@ -1093,7 +1113,7 @@ function AudioPicker({ testId, audioIds, audios, onAdd, onRemove, onMove }: Audi
                 thing a screen reader should say. */}
             <button
               className={styles.chipButton}
-              aria-label={`Move clip ${id} earlier`}
+              aria-label={t.editor.audio.earlier(id)}
               data-testid={`${testId}-audio-${id}-earlier`}
               disabled={index === 0}
               onClick={() => onMove(index, index - 1)}
@@ -1102,7 +1122,7 @@ function AudioPicker({ testId, audioIds, audios, onAdd, onRemove, onMove }: Audi
             </button>
             <button
               className={styles.chipButton}
-              aria-label={`Move clip ${id} later`}
+              aria-label={t.editor.audio.later(id)}
               data-testid={`${testId}-audio-${id}-later`}
               disabled={index === audioIds.length - 1}
               onClick={() => onMove(index, index + 1)}
@@ -1111,7 +1131,7 @@ function AudioPicker({ testId, audioIds, audios, onAdd, onRemove, onMove }: Audi
             </button>
             <button
               className={styles.chipButton}
-              aria-label={`Remove clip ${id}`}
+              aria-label={t.editor.audio.remove(id)}
               data-testid={`${testId}-audio-${id}-remove`}
               onClick={() => onRemove(index)}
             >
@@ -1123,22 +1143,22 @@ function AudioPicker({ testId, audioIds, audios, onAdd, onRemove, onMove }: Audi
       <span className={styles.audioControls}>
         <input
           className={clsx(styles.input, styles.audioSearch)}
-          placeholder='Search clips'
-          aria-label='Search audio clips'
+          placeholder={t.editor.audio.searchPlaceholder}
+          aria-label={t.editor.audio.searchAria}
           data-testid={`${testId}-audio-search`}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
         <select
           className={styles.input}
-          aria-label='Add an audio clip'
+          aria-label={t.editor.audio.addAria}
           data-testid={`${testId}-audio-add`}
           value=''
           onChange={(event) => {
             if (event.target.value !== '') onAdd(Number(event.target.value));
           }}
         >
-          <option value=''>Add clip…</option>
+          <option value=''>{t.editor.audio.addOption}</option>
           {available.map((audio) => (
             <option key={audio.id} value={audio.id}>
               {audio.id} · {audio.title}
@@ -1182,11 +1202,12 @@ function RowActions({
   onDuplicate,
   onDelete,
 }: RowActionsProps): React.ReactNode {
+  const t = useT();
   return (
     <span className={styles.rowActions}>
       <button
         className={styles.iconButton}
-        aria-label={`Move ${what} up`}
+        aria-label={t.editor.rowActions.up(what)}
         data-testid={`${prefix}-up`}
         disabled={!canMoveUp}
         onClick={onUp}
@@ -1195,7 +1216,7 @@ function RowActions({
       </button>
       <button
         className={styles.iconButton}
-        aria-label={`Move ${what} down`}
+        aria-label={t.editor.rowActions.down(what)}
         data-testid={`${prefix}-down`}
         disabled={!canMoveDown}
         onClick={onDown}
@@ -1204,7 +1225,7 @@ function RowActions({
       </button>
       <button
         className={styles.iconButton}
-        aria-label={`Duplicate ${what}`}
+        aria-label={t.editor.rowActions.duplicate(what)}
         data-testid={`${prefix}-duplicate`}
         onClick={onDuplicate}
       >
@@ -1212,7 +1233,7 @@ function RowActions({
       </button>
       <button
         className={clsx(styles.iconButton, styles.buttonDestructive)}
-        aria-label={`Delete ${what}`}
+        aria-label={t.editor.rowActions.delete(what)}
         data-testid={`${prefix}-delete`}
         disabled={!canDelete}
         onClick={onDelete}
@@ -1244,6 +1265,7 @@ interface JsonEditorProps {
  * device will change as well as what it will refuse.
  */
 function JsonEditor({ text, result, onChange, onFormat, filename }: JsonEditorProps): React.ReactNode {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   // `navigator.clipboard` needs a secure context, and the device serves plain
@@ -1269,7 +1291,7 @@ function JsonEditor({ text, result, onChange, onFormat, filename }: JsonEditorPr
     <div className={styles.json}>
       <div className={styles.toolbar}>
         <button className={styles.button} data-testid='editor-json-format' onClick={onFormat}>
-          Format
+          {t.editor.json.format}
         </button>
         {/* Copies exactly what is in the box, like Download - a hand-edit in
             the textarea is the document the author means. */}
@@ -1280,7 +1302,7 @@ function JsonEditor({ text, result, onChange, onFormat, filename }: JsonEditorPr
             void handleCopy();
           }}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t.editor.json.copied : t.editor.json.copy}
         </button>
         {/* Downloads exactly what is in the box, not the parsed draft: if
             somebody has hand-edited the JSON, that is the document they mean
@@ -1292,16 +1314,14 @@ function JsonEditor({ text, result, onChange, onFormat, filename }: JsonEditorPr
             downloadJson(filename, text);
           }}
         >
-          Download
+          {t.editor.json.download}
         </button>
-        <span className={styles.hint}>
-          Applied to the form when the Editor tab is opened, or when the program is saved.
-        </span>
+        <span className={styles.hint}>{t.editor.json.hint}</span>
       </div>
       <textarea
         className={styles.textarea}
         spellCheck={false}
-        aria-label='The program as JSON'
+        aria-label={t.editor.json.aria}
         data-testid='editor-json'
         value={text}
         onChange={(event) => onChange(event.target.value)}

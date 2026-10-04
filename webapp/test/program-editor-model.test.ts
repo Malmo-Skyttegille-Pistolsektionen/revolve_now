@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Program } from '../src/api/types';
+import { en } from '../src/i18n/en';
 import { authoringIssues, authoringRegressions, parseProgramDocument } from '../src/lib/program-document';
 import {
   createEditorState,
@@ -124,7 +125,7 @@ describe('series operations', () => {
   });
 
   it('duplicates one in place, marked as a copy, with its own keys', () => {
-    const copied = editorReducer(base, { type: 'duplicateSeries', series: 1 });
+    const copied = editorReducer(base, { type: 'duplicateSeries', series: 1, copySuffix: en.editor.copySuffix });
 
     expect(seriesNames(copied)).toEqual(['A', 'B', 'B (copy)', 'C']);
     expect(copied.draft.series[2].key).not.toBe(copied.draft.series[1].key);
@@ -134,7 +135,7 @@ describe('series operations', () => {
 
   it('copies the audio list rather than sharing it with the original', () => {
     const withAudio = editorReducer(base, { type: 'addAudio', series: 0, event: 0, audioId: 26 });
-    const copied = editorReducer(withAudio, { type: 'duplicateSeries', series: 0 });
+    const copied = editorReducer(withAudio, { type: 'duplicateSeries', series: 0, copySuffix: en.editor.copySuffix });
 
     const added = editorReducer(copied, { type: 'addAudio', series: 1, event: 0, audioId: 33 });
 
@@ -489,7 +490,7 @@ describe('the timer anchor in the editor (#196)', () => {
 
   it('carries the anchor into a duplicated series, by position', () => {
     let state = createEditorState(anchoredProgram);
-    state = editorReducer(state, { type: 'duplicateSeries', series: 0 });
+    state = editorReducer(state, { type: 'duplicateSeries', series: 0, copySuffix: en.editor.copySuffix });
     expect(toDocument(state.draft)).toMatchObject({
       series: [{ timer_start_index: 2 }, { timer_start_index: 2 }],
     });
@@ -596,22 +597,24 @@ describe('describeEvent', () => {
   });
 
   it('says what one bank does, without mentioning banks', () => {
-    expect(describeEvent(event(), 1)).toBe('Hide for 4 s.');
-    expect(describeEvent(event({ command: 'none' }), 1)).toBe('Leave the targets where they are for 4 s.');
+    expect(describeEvent(en.editor, event(), 1)).toBe('Hide for 4 s.');
+    expect(describeEvent(en.editor, event({ command: 'none' }), 1)).toBe('Leave the targets where they are for 4 s.');
   });
 
   it('separates the exceptions from the baseline', () => {
-    expect(describeEvent(event({ banks: { B: 'show' } }), 4)).toBe('On entry: show B; hide A, C, D. Hold 4 s.');
+    expect(describeEvent(en.editor, event({ banks: { B: 'show' } }), 4)).toBe(
+      'On entry: show B; hide A, C, D. Hold 4 s.',
+    );
   });
 
   it('says the rest are left alone when there is no baseline', () => {
-    expect(describeEvent(event({ command: 'none', banks: { A: 'show' } }), 3)).toBe(
+    expect(describeEvent(en.editor, event({ command: 'none', banks: { A: 'show' } }), 3)).toBe(
       'On entry: show A; leave B, C as they are. Hold 4 s.',
     );
   });
 
   it('does not invent a duration while one is being typed', () => {
-    expect(describeEvent(event({ duration: '' }), 2)).toContain('Hold its duration.');
+    expect(describeEvent(en.editor, event({ duration: '' }), 2)).toContain('Hold its duration.');
   });
 });
 
@@ -632,7 +635,7 @@ describe('an override on bank A alone', () => {
 
   it('is still described, rather than silently dropped from the sentence', () => {
     const event = createEditorState(ONLY_A).draft.series[0].events[0];
-    expect(describeEvent(event, 1)).toBe('On entry: hide A. Hold 4 s.');
+    expect(describeEvent(en.editor, event, 1)).toBe('On entry: hide A. Hold 4 s.');
   });
 
   it('survives a round trip through the document', () => {

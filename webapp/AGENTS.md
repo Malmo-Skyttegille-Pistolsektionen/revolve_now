@@ -23,6 +23,7 @@ the implementation.
 test/mock-server/                 # The v2 mock API: REST, SSE, simulation. Injectable clock
 vite-plugins/mock-server-v2.ts    # Thin adapter mounting the above on the Vite dev server
 src/lib/program-document.ts       # Validates a program against what parse_program does (D-18)
+src/i18n/                         # en/ is the source, sv/ is typed from it (D-45); useT() reads them
 src/lib/program-editor.ts         # The editor's document model; every edit is a reducer action
 src/lib/run-position.ts           # Mirrors firmware/lib/rt_logic/run_position.h - change both
 src/lib/bank-state.ts             # Mirrors executor.cpp's enter_event: per-bank state - change both

@@ -7,11 +7,13 @@ import { useSSE } from './hooks/useSSE';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { updateBaseUrl } from './api/client';
 import { applyTheme, readStoredTheme } from './lib/theme';
+import { applyLanguage, readStoredLanguagePreference, resolveLanguage } from './i18n/language';
 import './index.css';
 
 // Before the first render, so an explicit choice that differs from the OS does
 // not flash the other theme while React mounts.
 applyTheme(readStoredTheme());
+applyLanguage(resolveLanguage(readStoredLanguagePreference()));
 
 // Create a new router instance
 const router = createRouter({ routeTree });

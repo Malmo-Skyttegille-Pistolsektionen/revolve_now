@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { useWifiApi } from '../api/wifi';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
+import { useT } from '../i18n';
 import { chosenSsid } from '../lib/ssid-choice';
 import styles from './WifiConfigSection.module.css';
 
@@ -30,6 +31,7 @@ import styles from './WifiConfigSection.module.css';
  * page does that, when the operator chooses.
  */
 export function WifiConfigSection(): React.ReactNode {
+  const t = useT().hardware.wifi;
   const { controlLockToken } = useSettings();
   const { controlLockEnabled } = useControlLockStatus();
   const wifiApi = useWifiApi();
@@ -95,29 +97,33 @@ export function WifiConfigSection(): React.ReactNode {
 
   return (
     <section className={clsx(styles.section, styles.expert)} data-testid='wifi-config-section'>
-      <h2 className={styles.sectionTitle}>WiFi</h2>
+      <h2 className={styles.sectionTitle}>{t.title}</h2>
 
       <p className={styles.explain}>
-        Which network this device joins. Saving stores the credentials; the device stays on the network it is on until
-        it restarts, so a network, a hostname and a pin can all be corrected before <strong>Restart to apply</strong> at
-        the top of this page.
+        {t.explainBefore}
+        <strong>{t.explainAction}</strong>
+        {t.explainAfter}
       </p>
 
       {status?.restartRequired === true && (
         <p className={styles.pending} data-testid='wifi-restart-required'>
-          Saved, but <strong>not yet in use</strong> — the device is still on the network it started with.
+          {t.restartRequiredBefore}
+          <strong>{t.restartRequiredNotInUse}</strong>
+          {t.restartRequiredAfter}
         </p>
       )}
 
       {current !== null && (
         <p className={styles.current} data-testid='wifi-config-current'>
-          On <strong>{current}</strong> now.
+          {t.currentBefore}
+          <strong>{current}</strong>
+          {t.currentAfter}
         </p>
       )}
 
       <div className={styles.fields}>
         <label className={styles.field}>
-          <span className={styles.label}>Network</span>
+          <span className={styles.label}>{t.network}</span>
           <select
             className={styles.input}
             data-testid='wifi-config-pick'
@@ -128,9 +134,7 @@ export function WifiConfigSection(): React.ReactNode {
               setPicked(e.target.value);
             }}
           >
-            <option value=''>
-              {scanning ? '— scanning… —' : networks.length === 0 ? '— no networks found —' : '— choose a network —'}
-            </option>
+            <option value=''>{scanning ? t.scanning : networks.length === 0 ? t.noNetworks : t.chooseNetwork}</option>
             {networks.map((network) => (
               <option key={network.ssid} value={network.ssid}>
                 {network.ssid} ({network.rssi} dBm, {network.auth})
@@ -145,14 +149,14 @@ export function WifiConfigSection(): React.ReactNode {
               disabled={busy || scanning}
               onClick={() => void rescan()}
             >
-              {scanning ? 'Scanning…' : 'Rescan networks'}
+              {scanning ? t.rescanning : t.rescan}
             </button>{' '}
-            A scan takes the radio off its channel for a couple of seconds, so this page may pause while it runs.
+            {t.scanHint}
           </span>
         </label>
 
         <label className={styles.field}>
-          <span className={styles.label}>Or type the network name</span>
+          <span className={styles.label}>{t.typeName}</span>
           <input
             className={styles.input}
             type='text'
@@ -160,7 +164,7 @@ export function WifiConfigSection(): React.ReactNode {
             autoCapitalize='none'
             autoCorrect='off'
             spellCheck={false}
-            placeholder='Network name (optional)'
+            placeholder={t.typePlaceholder}
             data-testid='wifi-config-manual'
             disabled={!canManage || busy}
             value={typed}
@@ -169,13 +173,11 @@ export function WifiConfigSection(): React.ReactNode {
               setTyped(e.target.value);
             }}
           />
-          <span className={styles.hint}>
-            For a hidden network, or one the scan did not find. What you type here is used instead of the choice above.
-          </span>
+          <span className={styles.hint}>{t.typeHint}</span>
         </label>
 
         <label className={styles.field}>
-          <span className={styles.label}>Password</span>
+          <span className={styles.label}>{t.password}</span>
           <span className={styles.passwordRow}>
             <input
               className={styles.input}
@@ -199,15 +201,15 @@ export function WifiConfigSection(): React.ReactNode {
               className={styles.button}
               data-testid='wifi-config-reveal'
               aria-pressed={revealed}
-              aria-label={revealed ? 'Hide password' : 'Show password'}
+              aria-label={revealed ? t.hidePassword : t.showPassword}
               onClick={() => {
                 setRevealed((shown) => !shown);
               }}
             >
-              {revealed ? 'Hide' : 'Show'}
+              {revealed ? t.hide : t.show}
             </button>
           </span>
-          <span className={styles.hint}>Leave empty for an open network.</span>
+          <span className={styles.hint}>{t.passwordHint}</span>
         </label>
       </div>
 
@@ -218,12 +220,14 @@ export function WifiConfigSection(): React.ReactNode {
       {confirming ? (
         <div className={styles.confirm} data-testid='wifi-config-confirm'>
           <p className={styles.confirmText}>
-            Save <strong>{ssid}</strong> as the network to join?
+            {t.confirmBefore}
+            <strong>{ssid}</strong>
+            {t.confirmAfter}
           </p>
           <p className={styles.confirmText}>
-            Nothing moves until the device restarts. When it does, this page stops responding: if the device joins, it
-            comes back at the same name — if it cannot, it raises its setup network (
-            <code>&lt;hostname&gt;-setup-XXXX</code>) and waits there, which is the way back rather than a fault.
+            {t.confirmBodyBefore}
+            <code>&lt;hostname&gt;-setup-XXXX</code>
+            {t.confirmBodyAfter}
           </p>
           <div className={styles.actions}>
             <button
@@ -234,7 +238,7 @@ export function WifiConfigSection(): React.ReactNode {
                 save.mutate();
               }}
             >
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? t.saving : t.save}
             </button>
             <button
               className={styles.button}
@@ -244,7 +248,7 @@ export function WifiConfigSection(): React.ReactNode {
                 setConfirming(false);
               }}
             >
-              Cancel
+              {t.cancel}
             </button>
           </div>
         </div>
@@ -259,14 +263,14 @@ export function WifiConfigSection(): React.ReactNode {
               setConfirming(true);
             }}
           >
-            Save
+            {t.save}
           </button>
         </div>
       )}
 
       {!canManage && (
         <p className={styles.hint} data-testid='wifi-config-locked'>
-          The controls are locked — log in to change this.
+          {t.locked}
         </p>
       )}
 

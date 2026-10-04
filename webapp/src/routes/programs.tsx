@@ -10,6 +10,7 @@ import { ProgramDetails } from '../components/ProgramDetails';
 import { ProgramEditor, type EditorTarget } from '../components/ProgramEditor';
 import { downloadJson, programFilename } from '../lib/download';
 import { useSettings } from '../context/SettingsContext';
+import { useT } from '../i18n';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { type DocumentIssue, parseProgramDocument } from '../lib/program-document';
 import { bankRangeLabel, deviceBankCount } from '../lib/bank-state';
@@ -42,6 +43,8 @@ export function ProgramsView(): React.ReactNode {
   const programsApi = useProgramsApi();
   const { controlLockEnabled } = useControlLockStatus();
   const { controlLockToken } = useSettings();
+  const t = useT();
+  const p = t.programs;
 
   const [notice, setNotice] = useState<Notice | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -91,8 +94,8 @@ export function ProgramsView(): React.ReactNode {
 
   const loadMutation = useMutation({
     mutationFn: (program: ProgramSummary) => programsApi.load(program.id),
-    onSuccess: (_data, program) => setNotice({ kind: 'success', message: `Loaded "${program.title}" on the device.` }),
-    onError: (err, program) => setNotice(failureNotice(err, `Could not load "${program.title}".`)),
+    onSuccess: (_data, program) => setNotice({ kind: 'success', message: p.success.loaded(program.title) }),
+    onError: (err, program) => setNotice(failureNotice(p.notices, err, p.failure.load(program.title))),
   });
 
   // The inverse of Load, and it belongs on the same row: this page is where
@@ -104,8 +107,8 @@ export function ProgramsView(): React.ReactNode {
     // Deliberately an outcome, not an event: a 200 means "nothing is loaded
     // now", and the device does not distinguish "just unloaded" from "nothing
     // was loaded" (D-22).
-    onSuccess: () => setNotice({ kind: 'success', message: 'Nothing is loaded on the device now.' }),
-    onError: (err) => setNotice(unloadFailureNotice(err)),
+    onSuccess: () => setNotice({ kind: 'success', message: p.success.unloaded }),
+    onError: (err) => setNotice(unloadFailureNotice(p.notices, err)),
   });
 
   const deleteMutation = useMutation({
@@ -113,9 +116,9 @@ export function ProgramsView(): React.ReactNode {
     onSuccess: (_data, program) => {
       invalidatePrograms(program.id);
       setSelectedId((current) => (current === program.id ? null : current));
-      setNotice({ kind: 'success', message: `Deleted "${program.title}".` });
+      setNotice({ kind: 'success', message: p.success.deleted(program.title) });
     },
-    onError: (err, program) => setNotice(failureNotice(err, `Could not delete "${program.title}".`)),
+    onError: (err, program) => setNotice(failureNotice(p.notices, err, p.failure.delete(program.title))),
   });
 
   const createMutation = useMutation({
@@ -125,18 +128,18 @@ export function ProgramsView(): React.ReactNode {
       setSelectedId(created.id);
       // The device assigns the id and ignores the document's, so say which one
       // it picked rather than letting the user assume the file's.
-      setNotice({ kind: 'success', message: `Uploaded "${program.title}" as program ${created.id}.` });
+      setNotice({ kind: 'success', message: p.success.uploaded(program.title, created.id) });
     },
-    onError: (err, program) => setNotice(failureNotice(err, `Could not upload "${program.title}".`)),
+    onError: (err, program) => setNotice(failureNotice(p.notices, err, p.failure.upload(program.title))),
   });
 
   const updateMutation = useMutation({
     mutationFn: (upload: { id: number; program: Program }) => programsApi.update(upload.id, upload.program),
     onSuccess: (_stored, upload) => {
       invalidatePrograms(upload.id);
-      setNotice({ kind: 'success', message: `Replaced program ${upload.id} with "${upload.program.title}".` });
+      setNotice({ kind: 'success', message: p.success.replaced(upload.id, upload.program.title) });
     },
-    onError: (err, upload) => setNotice(updateFailureNotice(err, upload.id)),
+    onError: (err, upload) => setNotice(updateFailureNotice(p.notices, err, upload.id)),
   });
 
   /** Send an upload the user has either nothing to be warned about, or has accepted. */
@@ -166,7 +169,7 @@ export function ProgramsView(): React.ReactNode {
     if (!result.ok) {
       setNotice({
         kind: 'error',
-        message: `"${file.name}" is not a program the device will accept.`,
+        message: p.failure.notAProgram(file.name),
         details: issueLines(result.errors),
       });
       return;
@@ -187,12 +190,9 @@ export function ProgramsView(): React.ReactNode {
     if (target.kind === 'replace' && result.declaredId !== null && result.declaredId !== target.id) {
       setNotice({
         kind: 'error',
-        message:
-          `"${file.name}" declares id ${result.declaredId}, but it was picked to replace program ${target.id} ` +
-          `("${target.title}"). The device does not renumber a program, so this is either the wrong file or the ` +
-          'wrong row.',
+        message: p.failure.idMismatch(file.name, result.declaredId, target.id, target.title),
         action: {
-          label: 'Upload as a new program instead',
+          label: p.failure.uploadAsNew,
           run: () => confirmOrSend({ ...upload, target: { kind: 'create' } }),
         },
       });
@@ -229,7 +229,7 @@ export function ProgramsView(): React.ReactNode {
       const document = await programsApi.get(program.id);
       downloadJson(programFilename(program.id), JSON.stringify(document, null, 2));
     } catch {
-      setNotice({ kind: 'error', message: `Could not download "${program.title}" from the device.` });
+      setNotice({ kind: 'error', message: p.failure.download(program.title) });
     } finally {
       setDownloadingId(null);
     }
@@ -238,7 +238,7 @@ export function ProgramsView(): React.ReactNode {
   return (
     <div className={styles.container}>
       <header className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Programs</h1>
+        <h1 className={styles.pageTitle}>{p.title}</h1>
         {canManage ? (
           <div className={styles.headerActions}>
             <button
@@ -247,7 +247,7 @@ export function ProgramsView(): React.ReactNode {
               onClick={() => openFilePicker({ kind: 'create' })}
               disabled={busy || editing !== null}
             >
-              Upload program…
+              {p.upload}
             </button>
             <button
               className={clsx(styles.button, styles.buttonPrimary)}
@@ -259,13 +259,13 @@ export function ProgramsView(): React.ReactNode {
               }}
               disabled={busy || editing !== null}
             >
-              New program
+              {p.newProgram}
             </button>
           </div>
         ) : (
           <div className={styles.viewOnlyBadge} data-testid='programs-view-only'>
             <span aria-hidden='true'>👁</span>
-            <span>View only — log in to manage programs</span>
+            <span>{p.viewOnly}</span>
           </div>
         )}
       </header>
@@ -290,13 +290,13 @@ export function ProgramsView(): React.ReactNode {
             setSelectedId(id);
             // The device assigns the id and ignores the document's, so say
             // which one it picked — the same thing an upload reports.
-            setNotice({ kind: 'success', message: `Saved "${title}" as program ${id}.` });
+            setNotice({ kind: 'success', message: p.success.saved(title, id) });
           }}
         />
       )}
 
-      {editing === null && isPending && <p className={styles.message}>Loading programs…</p>}
-      {editing === null && listError && <p className={styles.message}>Could not list programs: {listError.message}</p>}
+      {editing === null && isPending && <p className={styles.message}>{p.loading}</p>}
+      {editing === null && listError && <p className={styles.message}>{p.listFailed(listError.message)}</p>}
 
       {editing === null && programs && (
         // The explicit roles are what keep this a table for assistive
@@ -307,19 +307,19 @@ export function ProgramsView(): React.ReactNode {
             <thead role='rowgroup'>
               <tr role='row'>
                 <th className={styles.idColumn} role='columnheader' scope='col'>
-                  ID
+                  {p.columns.id}
                 </th>
                 <th role='columnheader' scope='col'>
-                  Title
+                  {p.columns.title}
                 </th>
                 <th role='columnheader' scope='col'>
-                  Description
+                  {p.columns.description}
                 </th>
                 <th role='columnheader' scope='col'>
-                  Source
+                  {p.columns.source}
                 </th>
                 <th className={styles.actionsColumn} role='columnheader' scope='col'>
-                  Actions
+                  {p.columns.actions}
                 </th>
               </tr>
             </thead>
@@ -342,42 +342,41 @@ export function ProgramsView(): React.ReactNode {
                     data-testid={`program-row-${program.id}`}
                     role='row'
                   >
-                    <td className={styles.idColumn} role='cell' data-label='ID'>
+                    <td className={styles.idColumn} role='cell' data-label={p.rowLabels.id}>
                       {program.id}
                     </td>
-                    <td role='cell' data-label='Title'>
+                    <td role='cell' data-label={p.rowLabels.title}>
                       <button className={styles.titleButton} onClick={() => setSelectedId(program.id)}>
                         {program.title}
                       </button>
-                      {isLoaded && <span className={clsx(styles.badge, styles.badgeLoaded)}>Loaded</span>}
+                      {isLoaded && <span className={clsx(styles.badge, styles.badgeLoaded)}>{p.badges.loaded}</span>}
                       {needs > 1 && (
                         <span
                           className={clsx(styles.badge, unrunnable ? styles.badgeUnavailable : styles.badgeBanks)}
                           data-testid={`program-banks-${String(program.id)}`}
                         >
-                          {bankRangeLabel(needs)}
+                          {bankRangeLabel(t.run, needs)}
                         </span>
                       )}
                       {unrunnable && (
                         <p className={styles.unrunnable} data-testid={`program-banks-refusal-${String(program.id)}`}>
-                          Needs banks {bankRangeLabel(needs)}; this device has {bankRangeLabel(bankCount)}. It stays in
-                          the library and runs on a device that has them.
+                          {p.unrunnable(bankRangeLabel(t.run, needs), bankRangeLabel(t.run, bankCount))}
                         </p>
                       )}
                     </td>
-                    <td className={styles.description} role='cell' data-label='About'>
+                    <td className={styles.description} role='cell' data-label={p.rowLabels.about}>
                       {program.description}
                     </td>
-                    <td role='cell' data-label='Source'>
+                    <td role='cell' data-label={p.rowLabels.source}>
                       {/* `readonly` means the program was flashed with the firmware:
                         there is no file behind it to replace or delete. */}
                       <span
                         className={clsx(styles.badge, program.readonly ? styles.badgeShipped : styles.badgeUploaded)}
                       >
-                        {program.readonly ? 'Shipped' : 'Uploaded'}
+                        {program.readonly ? p.badges.shipped : p.badges.uploaded}
                       </span>
                     </td>
-                    <td className={styles.actionsColumn} role='cell' data-label='Actions'>
+                    <td className={styles.actionsColumn} role='cell' data-label={p.rowLabels.actions}>
                       {/* Outside the canManage guard: downloading is reading,
                           and it is how a program leaves the device to be
                           committed to resources/. Shipped programs download
@@ -390,7 +389,7 @@ export function ProgramsView(): React.ReactNode {
                         }}
                         disabled={downloadingId === program.id}
                       >
-                        {downloadingId === program.id ? 'Downloading…' : 'Download'}
+                        {downloadingId === program.id ? p.actions.downloading : p.actions.download}
                       </button>
                       {canManage && (
                         <>
@@ -407,7 +406,7 @@ export function ProgramsView(): React.ReactNode {
                             onClick={() => (isLoaded ? unloadMutation.mutate() : loadMutation.mutate(program))}
                             disabled={busy}
                           >
-                            {isLoaded ? 'Unload' : 'Load'}
+                            {isLoaded ? p.actions.unload : p.actions.load}
                           </button>
                           {/* A shipped program cannot be written back, so editing
                             one means editing a copy the device will store under
@@ -428,7 +427,7 @@ export function ProgramsView(): React.ReactNode {
                             }}
                             disabled={busy}
                           >
-                            {program.readonly ? 'Edit a copy…' : 'Edit…'}
+                            {program.readonly ? p.actions.editCopy : p.actions.edit}
                           </button>
                           {!program.readonly && (
                             <>
@@ -440,7 +439,7 @@ export function ProgramsView(): React.ReactNode {
                                 }
                                 disabled={busy}
                               >
-                                Replace…
+                                {p.actions.replace}
                               </button>
                               <button
                                 className={clsx(styles.button, styles.buttonDestructive)}
@@ -448,7 +447,7 @@ export function ProgramsView(): React.ReactNode {
                                 onClick={() => setPendingDelete(program)}
                                 disabled={busy}
                               >
-                                Delete
+                                {p.actions.delete}
                               </button>
                             </>
                           )}
@@ -463,7 +462,7 @@ export function ProgramsView(): React.ReactNode {
         </div>
       )}
 
-      {editing === null && programs?.length === 0 && <p className={styles.message}>The device holds no programs.</p>}
+      {editing === null && programs?.length === 0 && <p className={styles.message}>{p.empty}</p>}
 
       {editing === null && selectedId !== null && (
         <ProgramDetails id={selectedId} onClose={() => setSelectedId(null)} />
@@ -471,13 +470,13 @@ export function ProgramsView(): React.ReactNode {
 
       {pendingUpload && (
         <ConfirmDialog
-          title='The device will not store this file as written'
+          title={p.uploadDialog.title}
           body={
             <>
               <p>
                 {pendingUpload.target.kind === 'replace'
-                  ? `Replacing program ${pendingUpload.target.id} with "${pendingUpload.fileName}" cannot be undone. It will be stored as:`
-                  : `"${pendingUpload.fileName}" will be stored as:`}
+                  ? p.uploadDialog.replaceIntro(pendingUpload.target.id, pendingUpload.fileName)
+                  : p.uploadDialog.createIntro(pendingUpload.fileName)}
               </p>
               <ul data-testid='upload-warnings'>
                 {pendingUpload.warnings.map((warning) => (
@@ -488,7 +487,9 @@ export function ProgramsView(): React.ReactNode {
               </ul>
             </>
           }
-          confirmLabel={pendingUpload.target.kind === 'replace' ? 'Replace anyway' : 'Upload anyway'}
+          confirmLabel={
+            pendingUpload.target.kind === 'replace' ? p.uploadDialog.replaceAnyway : p.uploadDialog.uploadAnyway
+          }
           destructive={pendingUpload.target.kind === 'replace'}
           onConfirm={() => {
             const upload = pendingUpload;
@@ -501,13 +502,9 @@ export function ProgramsView(): React.ReactNode {
 
       {pendingDelete && (
         <ConfirmDialog
-          title={`Delete "${pendingDelete.title}"?`}
-          body={
-            pendingDelete.id === loadedProgramId
-              ? 'This is the program currently loaded on the device. Deleting it unloads it first.'
-              : 'The program file is removed from the device. This cannot be undone.'
-          }
-          confirmLabel='Delete'
+          title={p.deleteDialog.title(pendingDelete.title)}
+          body={pendingDelete.id === loadedProgramId ? p.deleteDialog.loadedBody : p.deleteDialog.body}
+          confirmLabel={p.deleteDialog.confirm}
           destructive
           onConfirm={() => {
             const program = pendingDelete;

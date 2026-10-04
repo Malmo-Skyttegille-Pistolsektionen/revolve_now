@@ -1,9 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import { useT } from '../i18n';
 import { initializeBaseUrl } from '../api/client';
 import { ServerUrlSection } from '../components/ServerUrlSection';
 import { ThemeSection } from '../components/ThemeSection';
+import { LanguageSection } from '../components/LanguageSection';
 import { ControlLockSection } from '../components/ControlLockSection';
 import { StartupIssuesSection } from '../components/StartupIssuesSection';
 import { StorageSection } from '../components/StorageSection';
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/settings')({
 
 function SettingsPage(): React.ReactNode {
   const { settings } = useSettings();
+  const t = useT();
 
   // Initialize base URL on mount - only run once on initial mount
   const isFirstRenderRef = useRef(true);
@@ -31,7 +34,7 @@ function SettingsPage(): React.ReactNode {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Settings</h1>
+      <h1 className={styles.title}>{t.settings.title}</h1>
 
       {/* Above everything: a device running configuration it was told to
           replace is the thing that explains the next surprise, and the person
@@ -41,6 +44,8 @@ function SettingsPage(): React.ReactNode {
       <ServerUrlSection />
 
       <ThemeSection />
+
+      <LanguageSection />
 
       <ControlLockSection />
 

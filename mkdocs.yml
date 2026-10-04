@@ -20,9 +20,11 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
-    - navigation.instant
+    # Not navigation.instant: the i18n plugin's language switcher, which keeps
+    # you on the same page in the other language, does not work with it.
     - navigation.tracking
     - content.code.copy
+    - navigation.footer
 
 nav:
   - Home: index.md
@@ -37,9 +39,42 @@ nav:
   - Troubleshooting: troubleshooting.md
   - Figures and tables: lists.md
 
-# Fills lists.md from the other pages at build time.
+# Fills lists.md, and its translations, from the other pages at build time.
 hooks:
   - docs/hooks/lists.py
+
+# Swedish beside English (#443). A page's translation sits next to it as
+# `<page>.sv.md`; one that has no translation yet is served in English under
+# the Swedish site, so a half-translated site still has every page. The
+# language switcher in the header is Material's, wired up by the plugin.
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: sv
+          name: Svenska
+          build: true
+          site_description: Dokumentation för Revolve Now, tavelanläggningen för skjutbanan
+          nav_translations:
+            Home: Hem
+            Hardware and wiring: Hårdvara och inkoppling
+            Connecting: Ansluta
+            Running a program: Köra ett program
+            Programs and audio: Program och ljud
+            Writing your own program: Skriva ett eget program
+            Settings: Inställningar
+            Expert mode: Expertläge
+            Status LED: Statuslampan
+            Troubleshooting: Felsökning
+            Figures and tables: Figurer och tabeller
 
 markdown_extensions:
   - tables
