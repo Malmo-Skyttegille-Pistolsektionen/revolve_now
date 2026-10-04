@@ -34,6 +34,8 @@ import struct
 import sys
 import wave
 
+from _common import write_if_changed
+
 # The IMA/DVI tables, from the IMA ADPCM specification. Not derived at runtime:
 # they are the format, and a generated approximation of them is a different
 # codec that mostly works.
@@ -165,20 +167,8 @@ def transcode(path: str, out_dir: str) -> str:
 
     data, _ = encode(samples)
     out_path = os.path.join(out_dir, os.path.basename(path))
-    _write_if_changed(out_path, build_wav(1, rate, data, len(samples)))
+    write_if_changed(out_path, build_wav(1, rate, data, len(samples)))
     return out_path
-
-
-def _write_if_changed(path: str, data: bytes) -> None:
-    """The staging step runs on every build; a rewritten file would repack the image."""
-    try:
-        with open(path, "rb") as handle:
-            if handle.read() == data:
-                return
-    except OSError:
-        pass
-    with open(path, "wb") as handle:
-        handle.write(data)
 
 
 def main() -> int:
