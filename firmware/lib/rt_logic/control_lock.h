@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <deque>
 #include <string>
+#include <string_view>
 
 namespace rt {
 
@@ -63,14 +64,14 @@ class ControlLock {
   ControlLock(RandomBytesFn random_bytes, NowMsFn now_ms)
       : random_bytes_(random_bytes), now_ms_(now_ms) {}
 
-  bool enabled() const { return has_password_; }
+  // enable() refuses an empty password, so a stored one is what "on" means.
+  bool enabled() const { return !password_.empty(); }
 
   // Turn the lock on and return a session token, or empty if refused
   // (already on, or an empty password).
   std::string enable(const std::string &password) {
     if (enabled() || password.empty()) return {};
     password_ = password;
-    has_password_ = true;
     return issue_token();
   }
 
@@ -82,7 +83,6 @@ class ControlLock {
 
   void disable() {
     password_.clear();
-    has_password_ = false;
     tokens_.clear();
   }
 
@@ -111,11 +111,10 @@ class ControlLock {
 
   // The bearer token from an `Authorization` header, or empty.
   static std::string bearer_token(const std::string &header) {
-    constexpr const char *kBearer = "Bearer ";
-    constexpr size_t kBearerLen = 7;
-    if (header.size() <= kBearerLen) return {};
-    if (header.compare(0, kBearerLen, kBearer) != 0) return {};
-    return header.substr(kBearerLen);
+    constexpr std::string_view kBearer = "Bearer ";
+    if (header.size() <= kBearer.size()) return {};
+    if (header.compare(0, kBearer.size(), kBearer) != 0) return {};
+    return header.substr(kBearer.size());
   }
 
  private:
@@ -158,7 +157,6 @@ class ControlLock {
   RandomBytesFn random_bytes_;
   NowMsFn now_ms_;
   std::string password_;
-  bool has_password_ = false;
   std::deque<Token> tokens_;
 };
 

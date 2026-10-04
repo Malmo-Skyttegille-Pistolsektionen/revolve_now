@@ -10,6 +10,9 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
+
+#include "text_parse.h"
 
 namespace rt {
 
@@ -34,19 +37,8 @@ inline bool path_id(const char *uri, const char *prefix, const char *suffix, int
     return false;
   }
 
-  const std::string digits = path.substr(prefix_len, path.size() - prefix_len - suffix_len);
-  if (digits.empty()) return false;
-
-  // int64 accumulator: overflowing an int32 here would be UB, and the range
-  // check has to happen before the narrowing cast, not after.
-  int64_t value = 0;
-  for (char c : digits) {
-    if (c < '0' || c > '9') return false;
-    value = value * 10 + (c - '0');
-    if (value > INT32_MAX) return false;
-  }
-  out = static_cast<int32_t>(value);
-  return true;
+  return parse_decimal_u31(
+      std::string_view(path).substr(prefix_len, path.size() - prefix_len - suffix_len), out);
 }
 
 namespace detail {

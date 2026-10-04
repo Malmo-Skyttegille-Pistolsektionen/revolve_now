@@ -346,6 +346,25 @@ void test_data_before_fmt_is_refused() {
   TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
 }
 
+void test_a_fmt_chunk_declared_shorter_than_16_bytes_is_refused() {
+  // The 16 bytes are there; the declared size says they are not, and the
+  // parser believes the size rather than reading into the next chunk.
+  std::vector<uint8_t> v = make_wav();
+  v[16] = 14;  // fmt chunk size, little-endian low byte
+  MemorySource src(v);
+  rt::WavInfo info;
+  TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
+}
+
+void test_a_truncated_fmt_body_is_refused() {
+  // Declares 16 bytes, and the file ends 8 bytes into them.
+  std::vector<uint8_t> v = make_wav();
+  v.resize(12 + 8 + 8);
+  MemorySource src(v);
+  rt::WavInfo info;
+  TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
+}
+
 void test_an_empty_data_chunk_is_refused() {
   MemorySource src(make_wav(1, 1, 16000, 16, 0));
   rt::WavInfo info;
@@ -389,6 +408,8 @@ int main() {
   RUN_TEST(test_more_than_two_channels_is_refused);
   RUN_TEST(test_a_zero_sample_rate_is_refused);
   RUN_TEST(test_data_before_fmt_is_refused);
+  RUN_TEST(test_a_fmt_chunk_declared_shorter_than_16_bytes_is_refused);
+  RUN_TEST(test_a_truncated_fmt_body_is_refused);
   RUN_TEST(test_an_empty_data_chunk_is_refused);
   RUN_TEST(test_a_truncated_data_chunk_is_clamped_to_the_file);
   return UNITY_END();

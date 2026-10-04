@@ -62,7 +62,8 @@ BankSelection parse_bank_selection(const std::vector<std::string> &letters, size
   if (letters.empty()) return selection;
 
   for (const std::string &entry : letters) {
-    const bool well_formed = entry.size() == 1 && entry[0] >= 'A' && entry[0] <= 'H';
+    const bool well_formed =
+        entry.size() == 1 && entry[0] >= 'A' && entry[0] <= bank_letter(kMaxTargetBanks - 1);
     const size_t index = well_formed ? static_cast<size_t>(entry[0] - 'A') : kMaxTargetBanks;
     if (!well_formed || index >= bank_count) {
       selection.offender = entry;

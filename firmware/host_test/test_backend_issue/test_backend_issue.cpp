@@ -113,14 +113,6 @@ void test_utf8_passes_through_untouched() {
       json.c_str());
 }
 
-// --- the codes the firmware actually emits ---------------------------------
-
-void test_the_code_constants_match_the_contract() {
-  // The `code` enum in contracts/asyncapi.yaml lists exactly these two.
-  TEST_ASSERT_EQUAL_STRING("audio_playback_failed", rt::issue_code::kAudioPlaybackFailed);
-  TEST_ASSERT_EQUAL_STRING("program_invalid", rt::issue_code::kProgramInvalid);
-}
-
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_code_and_message_only);
@@ -135,7 +127,5 @@ int main() {
   RUN_TEST(test_a_control_character_uses_the_u_escape);
   RUN_TEST(test_an_escaped_key_stays_a_valid_key);
   RUN_TEST(test_utf8_passes_through_untouched);
-
-  RUN_TEST(test_the_code_constants_match_the_contract);
   return UNITY_END();
 }

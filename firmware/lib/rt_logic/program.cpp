@@ -3,7 +3,10 @@
 #include <ArduinoJson.h>
 
 #include <cstring>
+#include <string_view>
 #include <utility>
+
+#include "text_parse.h"
 
 namespace rt {
 
@@ -175,20 +178,11 @@ bool parse_program(const char *json, size_t len, bool readonly, Program &out, bo
 bool parse_program_filename(const char *name, int32_t &out) {
   if (name == nullptr) return false;
 
-  const size_t len = strlen(name);
-  constexpr const char *kExt = ".json";
-  constexpr size_t kExtLen = 5;
-  // Needs at least one digit before the extension.
-  if (len <= kExtLen || strcmp(name + len - kExtLen, kExt) != 0) return false;
-
-  int64_t value = 0;
-  for (size_t i = 0; i + kExtLen < len; i++) {
-    if (name[i] < '0' || name[i] > '9') return false;
-    value = value * 10 + (name[i] - '0');
-    if (value > INT32_MAX) return false;
-  }
-  out = static_cast<int32_t>(value);
-  return true;
+  const std::string_view whole(name);
+  constexpr std::string_view kExt = ".json";
+  if (whole.size() < kExt.size() || whole.substr(whole.size() - kExt.size()) != kExt) return false;
+  // Empty digits - a file called ".json" - is refused here too.
+  return parse_decimal_u31(whole.substr(0, whole.size() - kExt.size()), out);
 }
 
 }  // namespace rt

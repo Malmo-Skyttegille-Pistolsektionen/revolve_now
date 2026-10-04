@@ -61,8 +61,8 @@ enum class PlayArg {
   kInvalid,  // something that is not a clip id
 };
 
-// The argument of a `play` line. An id is decimal digits only, bounded so it
-// cannot overflow; whether a clip with that id exists is the caller's question.
+// The argument of a `play` line. An id is decimal digits only, at most
+// INT32_MAX; whether a clip with that id exists is the caller's question.
 PlayArg parse_play(std::string_view line, int32_t &id);
 
 // Whether a `factory-reset` line carries the confirmation word. Anything else
