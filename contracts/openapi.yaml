@@ -474,6 +474,14 @@ paths:
               non-object root.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: |
+            - `/problems/program_store_failed` — the document was valid but
+              could not be written to flash. Nothing was added.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
 
   /programs/{id}:
     parameters:
