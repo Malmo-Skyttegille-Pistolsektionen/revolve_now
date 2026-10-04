@@ -2009,7 +2009,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         return;
       }
 
-      // Pause: keep current position and tickerMs
+      // Pause where the run actually is, capped at the end of the entered event.
+      // Mirrors Executor::stop - see the comment there.
+      const series = currentSeries(state.programState.currentSeriesIndex ?? 0);
+      if (series && state.seriesStartTime !== null) {
+        const entered = state.programState.currentEventIndex ?? 0;
+        const enteredEnd = series.events.slice(0, entered + 1).reduce((sum, event) => sum + event.duration, 0);
+        state.programState.tickerMs = Math.max(0, Math.min(clock.now() - state.seriesStartTime, enteredEnd));
+      }
       state.programState.running = false;
       state.seriesStartTime = null;
 
