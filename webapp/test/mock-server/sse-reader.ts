@@ -19,19 +19,25 @@ export interface SSEReader {
   close(): void;
 }
 
-export function openSSE(port: number, path = '/sse/v2'): Promise<SSEReader> {
+/**
+ * `target` is a port on 127.0.0.1, or an origin such as `http://127.0.0.1:8080`
+ * - the latter is how the contract suite reaches the firmware in QEMU.
+ */
+export function openSSE(target: number | string, path = '/sse/v2'): Promise<SSEReader> {
+  const url = new URL(path, typeof target === 'number' ? `http://127.0.0.1:${String(target)}` : target);
   return new Promise((resolve, reject) => {
     const frames: SSEFrame[] = [];
     let buffer = '';
 
     let ended = false;
 
-    const req = http.get({ host: '127.0.0.1', port, path }, (res) => {
+    const req = http.get(url, (res) => {
       res.setEncoding('utf-8');
       res.on('end', () => (ended = true));
       res.on('close', () => (ended = true));
       res.on('data', (chunk: string) => {
-        buffer += chunk;
+        // PsychicEventSource frames with CRLF, the mock with LF.
+        buffer = (buffer + chunk).replace(/\r\n/g, '\n');
         let split: number;
         while ((split = buffer.indexOf('\n\n')) !== -1) {
           const block = buffer.slice(0, split);

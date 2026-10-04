@@ -123,6 +123,7 @@ jobs:
           }
 
       - name: Boot QEMU
+        id: boot
         working-directory: firmware
         shell: bash
         run: |
@@ -145,6 +146,16 @@ jobs:
       - name: Run the E2E suite
         working-directory: webapp
         run: npx playwright test
+
+      # The mock server's clock-free cases, against the same emulator: one set
+      # of assertions holding the mock and the firmware to the same contract
+      # (#452). Runs even when Playwright failed - it is a separate signal.
+      - name: Run the mock-server contract suite against the firmware
+        if: ${{ !cancelled() && steps.boot.outcome == 'success' }}
+        working-directory: webapp
+        env:
+          CONTRACT_BASE_URL: http://127.0.0.1:8080
+        run: npm run test:contract
 
       - name: Stop QEMU
         if: always()
