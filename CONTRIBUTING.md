@@ -80,19 +80,11 @@ cd ../firmware && idf.py build
 
 ### Flashing a board
 
-`idf.py flash` works. If you would rather flash explicitly, the arguments are
-printed at the end of `idf.py build`:
-
-```bash
-python -m esptool --chip esp32s3 --port /dev/ttyACM0 \
-  --before default-reset --after hard-reset \
-  write-flash --flash-mode dio --flash-freq 80m --flash-size 16MB \
-  0x0 build/bootloader/bootloader.bin \
-  0x8000 build/partition_table/partition-table.bin \
-  0xf000 build/ota_data_initial.bin \
-  0x20000 build/revolve_now.bin \
-  0x620000 build/storage.bin
-```
+`idf.py flash` works, and is the command to use. To flash the published images
+by hand instead, take the offsets from the asset table in
+[`docs/RELEASING.md`](docs/RELEASING.md#release-assets): they moved with the
+partition table in #227, and an older copy of them writes into the wrong
+partition.
 
 **Reading the whole chip is the one operation that needs `--no-stub`** — the
 stub fails on reads above roughly 3 MB. The measurements behind that, the

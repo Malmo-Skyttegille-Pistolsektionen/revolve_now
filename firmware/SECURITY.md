@@ -49,9 +49,12 @@ holds the only valid password until the device is power-cycled.
   headers.
 - `GET` endpoints, including `/api/v2/diagnostics/info`, are public. They carry
   no credential and no program data.
-- **Coredumps are never exposed over the API.** A coredump is a raw RAM snapshot
-  and can contain the WiFi password in plaintext; `diagnostics/info` only reports
-  whether one is present. Retrieving it needs physical access.
+- **A coredump is served only while the configuration window is open.** It is
+  a raw RAM snapshot and can contain the WiFi password in plaintext.
+  `diagnostics/info` only reports whether one is present; `GET
+  /api/v2/diagnostics/bundle` serves it, and refuses unless the BOOT-button
+  gesture has opened the window — so retrieving it still needs someone at the
+  board (D-39 in [`docs/DECISIONS.md`](../docs/DECISIONS.md)).
 - Uploads are capped at 1 MB, streamed to a staging file, validated, and only
   then renamed to an id-derived name — a client-supplied filename never reaches
   the filesystem.
