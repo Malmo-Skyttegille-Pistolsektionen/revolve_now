@@ -63,9 +63,9 @@ idf.py build
   directory**, found via the `RT_RESOURCES_DIR` cache variable (default
   `../resources`); `CMakeLists.txt` fails the build with an explicit message if
   that path holds no `audios/audios.json`.
-- **Toolchain:** ESP-IDF **>= 6.0** (`main/idf_component.yml`); CI pins v6.0.2.
-  5.x does not build: 6.0 removed `i2s_port_t`, so `i2s_chan_config_t::id` is a
-  plain `int` — see `kI2sPort` in `main/config.h`.
+- **Toolchain:** the exact ESP-IDF `idf:` pins in `main/idf_component.yml`;
+  CI builds with the same. 5.x does not build: 6.0 removed `i2s_port_t`, so
+  `i2s_chan_config_t::id` is a plain `int` — see `kI2sPort` in `main/config.h`.
 - **Editing `sdkconfig.defaults` does nothing on its own.** ESP-IDF seeds
   `sdkconfig` from it only when `sdkconfig` does not exist, and `sdkconfig` is
   gitignored — so in a clone that has already been built, a changed default is

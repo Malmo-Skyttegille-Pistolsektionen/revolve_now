@@ -3,7 +3,7 @@
 # Build the firmware for the QEMU simulator profile and boot it, with the guest
 # HTTP port forwarded to the host.
 #
-#   . ~/esp/esp-idf-6.0.2/export.sh
+#   . <esp-idf>/export.sh
 #   firmware/scripts/run-qemu.sh
 #
 # Then open http://localhost:8080 - the real REST API, the real SSE stream and

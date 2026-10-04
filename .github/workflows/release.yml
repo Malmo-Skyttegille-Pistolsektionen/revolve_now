@@ -365,7 +365,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     # Node inside the IDF container rather than two jobs handing a `dist` over:
-    # espressif/idf:v6.0.2 is Ubuntu 24.04 and setup-node installs into it
+    # The espressif/idf image is Ubuntu 24.04 and setup-node installs into it
     # happily, which is exactly what webapp-e2e.yml already does.
     container: espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c
     # Inside a container a step's default shell is `sh`, which rejects `pipefail`.
