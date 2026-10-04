@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import { useProgramsApi } from '../api/programs';
 import { useAudiosApi } from '../api/audios';
 import { useHardwareConfigApi } from '../api/hardwareConfig';
-import type { ProgramSummary, StateUpdatePayload } from '../api/types';
+import type { ProgramSummary } from '../api/types';
 import { Timeline } from '../components/Timeline';
 import { bankRangeLabel, deviceBankCount } from '../lib/bank-state';
 import { BANK_LETTERS, banksRequired } from '../lib/program-document';
@@ -16,6 +16,8 @@ import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT, type Messages } from '../i18n';
 import { unloadFailureNotice } from '../lib/program-notices';
 import styles from './run.module.css';
+import { stateAtom, sseStatusAtom } from '../lib/sse-store';
+import { useSelector } from '@tanstack/react-store';
 
 /** The sticky nav's height in pixels, read from the token that sets it. */
 function navHeightPx(): number {
@@ -143,16 +145,15 @@ function programTitle(t: RunMessages, programs: ProgramSummary[] | undefined, id
  * explains the refusal in the operator's own terms, before the request goes
  * out and while the countdown is still on screen.
  *
- * Read from the query cache rather than from a render's props: react-query
- * defers subscriber notification through `notifyManager`, so a `stateUpdate`
- * arriving in the last milliseconds of a countdown is already written to the
- * cache while the component still renders the previous one - and a due timer
- * wins that race. `useSSE` writes both of these keys synchronously.
+ * Read from the atoms rather than from a render's props: a component renders
+ * a frame later than it lands, so a `stateUpdate` arriving in the last
+ * milliseconds of a countdown is already in the atom while the component
+ * still shows the previous one - and a due timer wins that race.
  *
  * Module scope, so the countdown effect can call it without depending on it.
  */
-function refuseStart(t: RunMessages, queryClient: QueryClient, expectedProgramId: number): string | null {
-  const latest = queryClient.getQueryData<StateUpdatePayload | null>(['state']);
+function refuseStart(t: RunMessages, expectedProgramId: number): string | null {
+  const latest = stateAtom.get();
   const deviceProgramId = latest?.loadedProgramId ?? null;
 
   if (deviceProgramId !== expectedProgramId) {
@@ -161,7 +162,7 @@ function refuseStart(t: RunMessages, queryClient: QueryClient, expectedProgramId
 
   // A dropped stream means the last state we hold may be minutes old, and the
   // reconnect backoff is longer than a short start delay.
-  if (queryClient.getQueryData<string>(['sse-status']) !== 'connected') {
+  if (sseStatusAtom.get() !== 'connected') {
     return t.contactLost;
   }
 
@@ -198,7 +199,6 @@ export function RunView(): React.ReactNode {
   const programsApi = useProgramsApi();
   const audiosApi = useAudiosApi();
   const hardwareApi = useHardwareConfigApi();
-  const queryClient = useQueryClient();
 
   // Can this browser drive? The lock off, or the lock on and held here.
   const isHoldingLock = controlLockEnabled && controlLockToken !== null;
@@ -222,12 +222,7 @@ export function RunView(): React.ReactNode {
     [audios],
   );
 
-  const { data: state } = useQuery<StateUpdatePayload | null>({
-    queryKey: ['state'],
-    queryFn: async () => null,
-    initialData: null,
-    enabled: false,
-  });
+  const state = useSelector(stateAtom);
 
   // Where each bank is, in letter order. `targetBanks` carries exactly one
   // contiguous key per bank, so its key count is the bank count. Empty only
@@ -406,7 +401,7 @@ export function RunView(): React.ReactNode {
     // id-less start to fall back to, so a null is dropped rather than sent.
     if (expectedProgramId === null) return;
 
-    const refusal = refuseStart(t, queryClient, expectedProgramId);
+    const refusal = refuseStart(t, expectedProgramId);
     if (refusal !== null) {
       setNotice(refusal);
       return;
@@ -480,7 +475,7 @@ export function RunView(): React.ReactNode {
       setArmedProgramId(null);
       if (armedProgramId === null) return;
 
-      const refusal = refuseStart(t, queryClient, armedProgramId);
+      const refusal = refuseStart(t, armedProgramId);
       if (refusal !== null) {
         setNotice(refusal);
         return;
@@ -489,7 +484,7 @@ export function RunView(): React.ReactNode {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [countdown, armedProgramId, queryClient, startProgram, t]);
+  }, [countdown, armedProgramId, startProgram, t]);
 
   return (
     <div className={styles.container}>

@@ -13,6 +13,7 @@ import type {
 } from '../api/types';
 import { getSseBaseUrl } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
+import { backendIssueAtom, sseStatusAtom, stateAtom } from '../lib/sse-store';
 
 /**
  * Which cached queries a `libraryChanged` invalidates, by `kind`. The payload
@@ -53,7 +54,7 @@ export function useSSE(): void {
       eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = (): void => {
-        queryClient.setQueryData(['sse-status'], 'connected');
+        sseStatusAtom.set('connected');
         // Anything that changed while the stream was down was published to
         // nobody: this channel carries change notifications and sends no
         // snapshot on connect. For run state the next event is seconds away,
@@ -76,7 +77,7 @@ export function useSSE(): void {
 
       eventSource.onerror = (err): void => {
         console.error('[SSE] Error:', err);
-        queryClient.setQueryData(['sse-status'], 'error');
+        sseStatusAtom.set('error');
         eventSource?.close();
         reconnectTimer = setTimeout(connect, 5000);
       };
@@ -84,14 +85,14 @@ export function useSSE(): void {
       eventSource.addEventListener(SSETypes.StateUpdate, (event) => {
         try {
           const data = JSON.parse(event.data) as StateUpdatePayload;
-          queryClient.setQueryData(['state'], data);
+          stateAtom.set(data);
         } catch (error) {
           console.error('[SSE] Failed to parse stateUpdate', error);
         }
       });
 
       eventSource.addEventListener(SSETypes.Heartbeat, () => {
-        queryClient.setQueryData(['sse-status'], 'connected');
+        sseStatusAtom.set('connected');
       });
 
       // The device's library is served over REST and published nowhere else, so
@@ -140,7 +141,7 @@ export function useSSE(): void {
         }
       });
 
-      // Parked in the query cache rather than shown: the toast is a separate
+      // Parked in an atom rather than shown: the toast is a separate
       // task. Until then this at least stops the event being dropped on the
       // floor, which is what happened when the firmware started emitting it.
       // Fire-and-forget by contract - nothing replays it, so a missed issue is
@@ -149,7 +150,7 @@ export function useSSE(): void {
         try {
           const data = JSON.parse(event.data) as BackendIssuePayload;
           console.warn('[SSE] backend issue', data);
-          queryClient.setQueryData(['backend-issue'], data);
+          backendIssueAtom.set(data);
         } catch (error) {
           console.error('[SSE] Failed to parse backend_issue', error);
         }

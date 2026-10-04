@@ -3,13 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { fileRejectionReason, isAcceptedFilename, MAX_FILE_BYTES, useAudiosApi } from '../api/audios';
-import type { AudioFile, BackendIssuePayload } from '../api/types';
+import type { AudioFile } from '../api/types';
 import { BackendIssueBanner } from '../components/BackendIssueBanner';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT } from '../i18n';
 import { ConversionError, convertToDeviceWav, maxConvertedSeconds } from '../lib/audio-convert';
 import styles from './audios.module.css';
+import { backendIssueAtom } from '../lib/sse-store';
+import { useSelector } from '@tanstack/react-store';
 
 export const Route = createFileRoute('/audios')({
   component: AudiosView,
@@ -59,12 +61,7 @@ function AudiosView(): React.ReactNode {
 
   // `useSSE` parks the last `backend_issue` here; this view is its first
   // consumer. Read-only cache subscription, like the run view's `state`.
-  const { data: backendIssue } = useQuery<BackendIssuePayload | null>({
-    queryKey: ['backend-issue'],
-    queryFn: async () => null,
-    initialData: null,
-    enabled: false,
-  });
+  const backendIssue = useSelector(backendIssueAtom);
 
   // `code` is an open enum, and this view is the only consumer there is, so
   // the filter names what belongs to somebody else rather than what belongs
@@ -185,10 +182,10 @@ function AudiosView(): React.ReactNode {
       {audioIssue && (
         <BackendIssueBanner
           issue={audioIssue}
-          // Cleared in the cache, not hidden locally: the event is
+          // Cleared in the atom, not hidden locally: the event is
           // fire-and-forget, so a dismissal has to outlive this mount. A later
           // issue writes a fresh object and shows again.
-          onDismiss={() => queryClient.setQueryData(['backend-issue'], null)}
+          onDismiss={() => backendIssueAtom.set(null)}
         />
       )}
 

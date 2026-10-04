@@ -11,6 +11,7 @@ import type { Program, StateUpdatePayload } from '../src/api/types';
 import { RunView } from '../src/routes/run';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
+import { stateAtom } from '../src/lib/sse-store';
 
 // Distinct per suite: vitest runs files in parallel, so a shared port is an
 // EADDRINUSE flake.
@@ -53,7 +54,7 @@ function seedState(targetBanks: Record<string, 'shown' | 'hidden'> | null): void
         targetBanks,
       }
     : null;
-  queryClient.setQueryData(['state'], state);
+  stateAtom.set(state);
 }
 
 function renderView(): void {
@@ -139,7 +140,7 @@ describe('a loaded program that needs banks this device does not have', () => {
   // rather than read the absence as "one bank" and block a program that would
   // run. The cast is the point: the type says required, the runtime does not.
   it('claims no bank count from a frame that omits the map', async () => {
-    queryClient.setQueryData(['state'], {
+    stateAtom.set({
       loadedProgramId: BANKED.id,
       programState: { running: false, currentSeriesIndex: 0, currentEventIndex: 0, tickerMs: 0 },
     } as unknown as StateUpdatePayload);
