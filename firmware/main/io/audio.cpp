@@ -299,8 +299,9 @@ bool init() {
     return false;
   }
 
-  // Priority 5 keeps it above the httpd and run-loop tasks: an underrun is
-  // audible on the range, a few ms of added REST latency is not.
+  // Priority 5: above the run loop (4), level with httpd (HTTPD_DEFAULT_CONFIG,
+  // not overridden), so REST time-slices with playback rather than pre-empting
+  // it. An underrun is audible on the range; a few ms of REST latency is not.
   if (xTaskCreate(playback_task, "audio", 4096, nullptr, 5, nullptr) != pdPASS) {
     ESP_LOGE(TAG, "Failed to start playback task");
     return false;

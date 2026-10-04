@@ -12,10 +12,9 @@
 //  address over DHCP (10.0.2.15 by default), so there is nothing to provision.
 //  See docs/QEMU.md.
 // ============================================================================
-#include <cstdio>
+#include <string>
 
 #include "config/hardware_store.h"
-#include "config.h"
 #include "esp_eth.h"
 #include "esp_eth_mac_openeth.h"
 #include "esp_event.h"
@@ -24,8 +23,7 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "freertos/semphr.h"
-#include "mdns.h"
+#include "net_common.h"
 #include "net_mgr.h"
 #include "rgb_led.h"
 
@@ -46,10 +44,6 @@ constexpr TickType_t kDhcpTimeout = pdMS_TO_TICKS(30000);
 constexpr int kPhyAddr = 1;
 
 EventGroupHandle_t s_events = nullptr;
-// Written on the event task, read from the main task and from the diagnostics
-// handler on the httpd task.
-std::string s_ip;
-SemaphoreHandle_t s_ip_lock = nullptr;
 
 void on_event(void *, esp_event_base_t base, int32_t id, void *data) {
   if (base == ETH_EVENT && id == ETHERNET_EVENT_CONNECTED) {
@@ -58,32 +52,11 @@ void on_event(void *, esp_event_base_t base, int32_t id, void *data) {
     rgb_led::status_offline();
     ESP_LOGW(TAG, "Link down");
   } else if (base == IP_EVENT && id == IP_EVENT_ETH_GOT_IP) {
-    auto *event = static_cast<ip_event_got_ip_t *>(data);
-    char buf[16];
-    snprintf(buf, sizeof(buf), IPSTR, IP2STR(&event->ip_info.ip));
-    if (s_ip_lock != nullptr) {
-      xSemaphoreTake(s_ip_lock, portMAX_DELAY);
-      s_ip = buf;
-      xSemaphoreGive(s_ip_lock);
-    }
+    const std::string ip = net_common::record_ip(*static_cast<ip_event_got_ip_t *>(data));
     rgb_led::status_online();
-    ESP_LOGI(TAG, "Got IP %s", buf);
+    ESP_LOGI(TAG, "Got IP %s", ip.c_str());
     xEventGroupSetBits(s_events, kGotIpBit);
   }
-}
-
-// Kept because it costs nothing and the same code serves a real board over
-// Ethernet one day. Under QEMU's SLIRP the host cannot see multicast DNS -
-// reach the guest at the forwarded localhost port instead.
-void start_mdns() {
-  if (mdns_init() != ESP_OK) {
-    ESP_LOGW(TAG, "mDNS unavailable");
-    return;
-  }
-  mdns_hostname_set(hardware_store::current().hostname.c_str());
-  mdns_instance_name_set("Revolve Now");
-  mdns_service_add(nullptr, "_http", "_tcp",
-                   static_cast<uint16_t>(hardware_store::current().http_port), nullptr, 0);
 }
 
 }  // namespace
@@ -108,16 +81,8 @@ std::string mac_address() {
   return "";
 }
 
-std::string ip_address() {
-  if (s_ip_lock == nullptr) return {};
-  xSemaphoreTake(s_ip_lock, portMAX_DELAY);
-  const std::string copy = s_ip;
-  xSemaphoreGive(s_ip_lock);
-  return copy;
-}
-
 Result connect() {
-  s_ip_lock = xSemaphoreCreateMutex();
+  net_common::init();
   s_events = xEventGroupCreate();
 
   ESP_ERROR_CHECK(esp_netif_init());
@@ -155,7 +120,10 @@ Result connect() {
     ESP_LOGE(TAG, "No DHCP lease after 30 s - starting the server anyway");
   }
 
-  start_mdns();
+  // Kept because it costs nothing and the same code serves a real board over
+  // Ethernet one day. Under QEMU's SLIRP the host cannot see multicast DNS -
+  // reach the guest at the forwarded localhost port instead.
+  net_common::start_mdns();
   return Result::kConnected;
 }
 

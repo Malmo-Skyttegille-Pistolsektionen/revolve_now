@@ -172,6 +172,28 @@ void on_bounded(const char *uri, int method, const PsychicHttpRequestCallback &h
   s_server.on(uri, method, handler)->addMiddleware(bound_body);
 }
 
+// What every closed-window refusal tells the person to do.
+constexpr const char *kOpenWindowHint =
+    "Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to "
+    "open a five-minute configuration window, then try again.";
+
+// Refuses with program_running while a run is in progress; `what` finishes
+// "stop it before ...". True once it has answered the request.
+bool refuse_if_running(PsychicResponse *res, const char *what) {
+  if (!executor::is_running()) return false;
+  send_problem(res, rt::problem::kProgramRunning,
+               std::string("A program is running - stop it before ") + what);
+  return true;
+}
+
+// Refuses unless the configuration window (three presses of BOOT) is open.
+// True once it has answered the request.
+bool refuse_if_window_closed(PsychicResponse *res) {
+  if (boot_button::config_window_open()) return false;
+  send_problem(res, rt::problem::kHardwareConfigWindowClosed, kOpenWindowHint);
+  return true;
+}
+
 // --- auth ------------------------------------------------------------------
 
 // Guards an endpoint that is only protected while the control lock is on.
@@ -248,6 +270,20 @@ bool origin_allowed(const std::string &origin) {
   if (!dev.empty() && origin == dev) return true;
 
   return false;
+}
+
+// Reflects an allowlisted Origin. The server middleware calls it for every
+// matched route; onNotFound has to call it itself.
+void add_cors_headers(PsychicRequest *req, PsychicResponse *res) {
+  const char *origin = req->header("Origin");
+  if (origin == nullptr || *origin == '\0' || !origin_allowed(origin)) return;
+  const std::string reflected = origin;
+  res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
+  res->addHeader("Access-Control-Allow-Credentials", "true");
+  res->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res->addHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res->addHeader("Access-Control-Max-Age", "600");
+  res->addHeader("Vary", "Origin");
 }
 
 // --- path parsing ---------------------------------------------------------
@@ -804,12 +840,7 @@ void register_diagnostics_routes() {
   // it would stop a club member collecting a fault report during the event
   // where a fault matters most. It is a lock on writing, and this is a read.
   s_server.on("/api/v2/diagnostics/bundle", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+    if (refuse_if_window_closed(res)) return ESP_OK;
 
     const std::string info = diagnostics_info_json();
 
@@ -1027,10 +1058,7 @@ void register_audio_routes() {
       return send_problem(res, rt::problem::kAudioInUse,
                           "Audio is used by the loaded program - unload the program first");
     }
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before deleting audio");
-    }
+    if (refuse_if_running(res, "deleting audio")) return ESP_OK;
 
     switch (audios::remove(id)) {
       case audios::RemoveResult::kNotFound:
@@ -1161,16 +1189,10 @@ void register_audio_routes() {
   s_server.on("/api/v2/audios", HTTP_POST, &s_audio_upload);
 }
 
-// kWebappDir and kWebappIndex are in config.h: the web app is inside the app
-// image now (#227), not on the filesystem, and where it lives is a property of
-// the build rather than of this server.
-
 // Whether the build bundled a webapp at all. An API-only image has no
 // index.html to fall back to and keeps the JSON 404 for everything.
 bool s_webapp_bundled = false;
 
-// Serves the built webapp from LittleFS when one has been uploaded. Kept last
-// so it never shadows an API route.
 // --- Hardware configuration (#144) ----------------------------------------
 
 // The three views the contract promises, plus the two booleans a client needs
@@ -1284,22 +1306,13 @@ void register_config_routes() {
     //
     // Checked before the window, because "stop the run" is the more useful of
     // the two instructions to be given.
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before changing the hardware "
-                          "configuration");
-    }
+    if (refuse_if_running(res, "changing the hardware configuration")) return ESP_OK;
 
     // Expert mode is a place, not a per-field rule: the whole endpoint is
     // behind the window. Hostname belongs inside it as much as the pins do -
     // a wrong pin leaves the web app reachable to fix it from, a wrong
     // hostname changes mDNS and does not.
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+    if (refuse_if_window_closed(res)) return ESP_OK;
 
     rt::HardwareConfig config = hardware_store::saved();
 
@@ -1359,17 +1372,8 @@ void register_config_routes() {
         // non-stock board it is the most destructive call in the API, so
         // guarding the PUT and leaving this open protected nothing - one
         // click undid it.
-        if (executor::is_running()) {
-          return send_problem(res, rt::problem::kProgramRunning,
-                              "A program is running - stop it before resetting the hardware "
-                              "configuration");
-        }
-        if (!boot_button::config_window_open()) {
-          return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                              "Press the BOOT button on the device (marked BOOT or FLASH) three "
-                              "times within ten seconds to open a five-minute configuration "
-                              "window, then try again.");
-        }
+        if (refuse_if_running(res, "resetting the hardware configuration")) return ESP_OK;
+        if (refuse_if_window_closed(res)) return ESP_OK;
 
         hardware_store::reset();
         return send_message(res, "Hardware configuration reset - restart the device to apply it");
@@ -1451,12 +1455,7 @@ void register_wifi_routes() {
   // costs the network it is served over. Only somebody standing at the device
   // with a reason should be spending that.
   s_server.on("/api/v2/wifi/networks", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+    if (refuse_if_window_closed(res)) return ESP_OK;
 
     const std::vector<wifi_scan::AccessPoint> found =
         wifi_scan::strongest_per_ssid(wifi_scan::scan());
@@ -1498,22 +1497,13 @@ void register_wifi_routes() {
     // the restart does, and it is a separate call - but the same rule as the
     // hardware PUT applies: reconfiguring the machine and operating it are
     // different activities.
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before changing which network the "
-                          "device joins");
-    }
+    if (refuse_if_running(res, "changing which network the device joins")) return ESP_OK;
 
     // #208: being on the network proves nothing, since the setup AP's password
     // is compile-time, identical on every device and published. What has to be
     // established is that somebody is standing at the device, and three
     // presses of BOOT is that same proof.
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+    if (refuse_if_window_closed(res)) return ESP_OK;
 
     const std::string ssid = doc["ssid"] | "";
     const std::string password = doc["password"] | "";
@@ -1553,10 +1543,7 @@ void register_system_routes() {
   s_server.on("/api/v2/system/restart", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before restarting the device");
-    }
+    if (refuse_if_running(res, "restarting the device")) return ESP_OK;
 
     // No configuration window guard, deliberately - D-42.
     if (!device_restart::schedule("requested over POST /api/v2/system/restart")) {
@@ -1568,6 +1555,8 @@ void register_system_routes() {
   });
 }
 
+// Serves the web app baked into the image (kWebappDir, #227). Registered last
+// so it never shadows an API route.
 void register_static_routes() {
   // Only .gz survives the build for the text assets (firmware/CMakeLists.txt),
   // so the uncompressed name is not the one to probe for.
@@ -1583,19 +1572,9 @@ void register_static_routes() {
 }  // namespace
 
 bool start() {
-  // PsychicHttpServer::start() computes max_uri_handlers itself (one wildcard
-  // meta-handler per HTTP method; it dispatches endpoints from its own list),
-  // so setting it here was dead and the "keep it above the route count"
-  // comment described a guard this library version does not have.
-
-  // The documented 1 MB ceiling was only ever consulted when reading files
-  // *back* off flash. Without these the real limits were PsychicHttp's
-  // defaults - 16 KB for a JSON body and 2 MB for an upload.
   // The server-wide ceiling has to admit the largest legitimate upload, which
-  // is firmware: a 1 MB cap rejected every real app image outright. Raising it
-  // here would leave audio and programs unbounded, so each now counts its own
-  // bytes against kMaxUploadBytes - the ceiling that used to do that job for
-  // them.
+  // is firmware (PsychicHttp's own defaults are 16 KB for a body and 2 MB for an
+  // upload). Anything smaller has to bound itself against kMaxUploadBytes.
   s_server.maxUploadSize = kMaxFirmwareUploadBytes;
   s_server.maxRequestBodySize = kMaxFirmwareUploadBytes;
   // Every connected client holds a socket open indefinitely for /sse/v2 on top
@@ -1618,16 +1597,7 @@ bool start() {
   // is why this is hand-rolled.
   s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
                             const PsychicMiddlewareNext &next) -> esp_err_t {
-    const char *origin = req->header("Origin");
-    if (origin != nullptr && *origin != '\0' && origin_allowed(origin)) {
-      const std::string reflected = origin;
-      res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
-      res->addHeader("Access-Control-Allow-Credentials", "true");
-      res->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res->addHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-      res->addHeader("Access-Control-Max-Age", "600");
-      res->addHeader("Vary", "Origin");
-    }
+    add_cors_headers(req, res);
     return next();
   });
 
@@ -1673,13 +1643,7 @@ bool start() {
   // headers - which a browser surfaces as an opaque CORS failure rather than
   // the 404 it is. The headers are therefore set here rather than inherited.
   s_server.onNotFound([](PsychicRequest *req, PsychicResponse *res) {
-    const char *origin = req->header("Origin");
-    if (origin != nullptr && *origin != '\0' && origin_allowed(origin)) {
-      const std::string reflected = origin;
-      res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
-      res->addHeader("Access-Control-Allow-Credentials", "true");
-      res->addHeader("Vary", "Origin");
-    }
+    add_cors_headers(req, res);
 
     // SPA fallback. The webapp routes client-side, so GET /run is a real page
     // with no file behind it and a reload would otherwise answer a JSON 404.

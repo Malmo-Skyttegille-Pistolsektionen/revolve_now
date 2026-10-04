@@ -5,7 +5,6 @@
 #include <cstring>
 #include <vector>
 
-#include "config.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_mac.h"
@@ -14,8 +13,7 @@
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "freertos/semphr.h"
-#include "mdns.h"
+#include "net_common.h"
 #include "rgb_led.h"
 #include "setup_portal.h"
 #include "wifi_scan.h"
@@ -36,10 +34,6 @@ int s_retries = 0;
 // applies - see the header: giving up mid-session leaves the device powered on
 // and unreachable, needing someone to walk to it and power-cycle it.
 bool s_joined_once = false;
-// Written on the WiFi event task, read from the main task and from the
-// diagnostics handler on the httpd task.
-std::string s_ip;
-SemaphoreHandle_t s_ip_lock = nullptr;
 
 // Reconnect backoff, for the after-first-join path only. Observed at the
 // range: the router restarted, and the immediate-reconnect loop hammered it
@@ -120,33 +114,14 @@ void on_event(void *, esp_event_base_t base, int32_t id, void *data) {
       xEventGroupSetBits(s_events, kFailedBit);
     }
   } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
-    auto *event = static_cast<ip_event_got_ip_t *>(data);
-    char buf[16];
-    snprintf(buf, sizeof(buf), IPSTR, IP2STR(&event->ip_info.ip));
-    if (s_ip_lock != nullptr) {
-      xSemaphoreTake(s_ip_lock, portMAX_DELAY);
-      s_ip = buf;
-      xSemaphoreGive(s_ip_lock);
-    }
+    const std::string ip = net_common::record_ip(*static_cast<ip_event_got_ip_t *>(data));
     s_retries = 0;
     s_joined_once = true;
     s_backoff_ms = kReconnectBackoffFirstMs;
     rgb_led::status_online();
-    ESP_LOGI(TAG, "Connected, IP %s", buf);
+    ESP_LOGI(TAG, "Connected, IP %s", ip.c_str());
     xEventGroupSetBits(s_events, kConnectedBit);
   }
-}
-
-void start_mdns() {
-  if (mdns_init() != ESP_OK) {
-    ESP_LOGW(TAG, "mDNS unavailable");
-    return;
-  }
-  mdns_hostname_set(hardware_store::current().hostname.c_str());
-  mdns_instance_name_set("Revolve Now");
-  mdns_service_add(nullptr, "_http", "_tcp",
-                   static_cast<uint16_t>(hardware_store::current().http_port), nullptr, 0);
-  ESP_LOGI(TAG, "Reachable at http://%s.local", hardware_store::current().hostname.c_str());
 }
 
 }  // namespace
@@ -173,14 +148,6 @@ std::string mac_address() {
   return wifi_scan::bssid_text(mac);
 }
 
-std::string ip_address() {
-  if (s_ip_lock == nullptr) return {};
-  xSemaphoreTake(s_ip_lock, portMAX_DELAY);
-  const std::string copy = s_ip;
-  xSemaphoreGive(s_ip_lock);
-  return copy;
-}
-
 Result connect() {
   const std::vector<wifi_store::Credentials> networks = wifi_store::load_all();
 
@@ -191,7 +158,7 @@ Result connect() {
     return Result::kSetupPortal;
   }
 
-  s_ip_lock = xSemaphoreCreateMutex();
+  net_common::init();
   s_events = xEventGroupCreate();
 
   ESP_ERROR_CHECK(esp_netif_init());
@@ -263,7 +230,7 @@ Result connect() {
         xEventGroupWaitBits(s_events, kConnectedBit | kFailedBit, pdFALSE, pdFALSE, portMAX_DELAY);
 
     if ((bits & kConnectedBit) != 0) {
-      start_mdns();
+      net_common::start_mdns();
       return Result::kConnected;
     }
 

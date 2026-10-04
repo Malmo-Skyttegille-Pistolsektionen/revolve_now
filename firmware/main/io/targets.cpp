@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 
-#include "config.h"
 #include "config/hardware_store.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 
 namespace targets {
