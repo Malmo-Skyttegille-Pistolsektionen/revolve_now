@@ -10,14 +10,17 @@ test('switching to Svenska translates the page and sticks across a reload', asyn
   await openApp(page);
   await page.getByRole('link', { name: 'Settings' }).click();
 
-  await page.getByRole('radio', { name: 'Svenska' }).click();
+  // The radio inputs are visually hidden behind their labels, so the label is
+  // what gets clicked - the same way a finger does it.
+  const language = page.getByRole('radiogroup', { name: 'Language' });
+  await language.getByText('Svenska').click();
   await expect(page.getByRole('link', { name: 'Inställningar' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'sv');
 
   await page.reload();
   await expect(page.getByRole('link', { name: 'Inställningar' })).toBeVisible();
 
-  await page.getByRole('radio', { name: 'English' }).click();
+  await page.getByRole('radiogroup', { name: 'Språk' }).getByText('English').click();
   await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 });
