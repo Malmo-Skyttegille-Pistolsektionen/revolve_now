@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 
+#include "text_parse.h"
+
 namespace rt::console {
 namespace {
 
@@ -10,25 +12,15 @@ char lower(char c) {
   return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 }
 
-bool is_space(char c) {
-  return std::isspace(static_cast<unsigned char>(c)) != 0;
-}
-
-std::string_view trim(std::string_view text) {
-  while (!text.empty() && is_space(text.front())) text.remove_prefix(1);
-  while (!text.empty() && is_space(text.back())) text.remove_suffix(1);
-  return text;
-}
-
 // Everything after the first word, trimmed. Empty when there is nothing.
 std::string_view tail(std::string_view text) {
-  text = trim(text);
+  text = trim_space(text);
   const size_t end = text.find_first_of(" \t");
-  return end == std::string_view::npos ? std::string_view{} : trim(text.substr(end));
+  return end == std::string_view::npos ? std::string_view{} : trim_space(text.substr(end));
 }
 
 std::string_view head(std::string_view text) {
-  text = trim(text);
+  text = trim_space(text);
   const size_t end = text.find_first_of(" \t");
   return end == std::string_view::npos ? text : text.substr(0, end);
 }
@@ -56,15 +48,7 @@ Command parse_command(std::string_view line) {
 PlayArg parse_play(std::string_view line, int32_t &id) {
   const std::string_view argument = tail(line);
   if (argument.empty()) return PlayArg::kMissing;
-  // Digits only, and few enough of them that the value fits an int32_t.
-  if (argument.size() > 9) return PlayArg::kInvalid;
-  int32_t value = 0;
-  for (char c : argument) {
-    if (c < '0' || c > '9') return PlayArg::kInvalid;
-    value = value * 10 + (c - '0');
-  }
-  id = value;
-  return PlayArg::kId;
+  return parse_decimal_u31(argument, id) ? PlayArg::kId : PlayArg::kInvalid;
 }
 
 BootTargets parse_boot_targets(std::string_view line) {

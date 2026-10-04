@@ -1,21 +1,20 @@
 #include "version.h"
 
+#include <charconv>
+#include <system_error>
+
 namespace rt {
 namespace {
 
 // Reads one decimal field, advancing `cursor`. False on no digits at all, or
 // on a value too large for the field - which is the case sscanf could not
-// report and cert-err34-c exists to point at.
+// report and cert-err34-c exists to point at. A prefix parse into a uint32_t,
+// so not parse_decimal_u31.
 bool take_number(std::string_view text, size_t &cursor, uint32_t &out) {
-  const size_t start = cursor;
-  uint64_t value = 0;
-  while (cursor < text.size() && text[cursor] >= '0' && text[cursor] <= '9') {
-    value = value * 10 + static_cast<uint64_t>(text[cursor] - '0');
-    if (value > UINT32_MAX) return false;
-    cursor++;
-  }
-  if (cursor == start) return false;
-  out = static_cast<uint32_t>(value);
+  const char *begin = text.data() + cursor;
+  const std::from_chars_result r = std::from_chars(begin, text.data() + text.size(), out);
+  if (r.ec != std::errc()) return false;
+  cursor += static_cast<size_t>(r.ptr - begin);
   return true;
 }
 

@@ -194,9 +194,17 @@ void test_play_takes_a_decimal_id() {
 // a run of digits long enough to overflow an int32_t is refused outright.
 void test_play_refuses_what_is_not_an_id() {
   int32_t id = -1;
-  for (const char *line : {"play beep", "play 33x", "play -1", "play 1 2", "play 4294967296"}) {
+  for (const char *line : {"play beep", "play 33x", "play -1", "play +1", "play 1 2",
+                           "play 2147483648", "play 4294967296"}) {
     TEST_ASSERT_EQUAL(rt::console::PlayArg::kInvalid, rt::console::parse_play(line, id));
   }
+}
+
+// The same bound as every other id parser: INT32_MAX, not "nine digits".
+void test_play_takes_an_id_up_to_int32_max() {
+  int32_t id = -1;
+  TEST_ASSERT_EQUAL(rt::console::PlayArg::kId, rt::console::parse_play("play 2147483647", id));
+  TEST_ASSERT_EQUAL_INT32(INT32_MAX, id);
 }
 
 int main() {
@@ -226,5 +234,6 @@ int main() {
   RUN_TEST(test_play_without_an_argument_lists);
   RUN_TEST(test_play_takes_a_decimal_id);
   RUN_TEST(test_play_refuses_what_is_not_an_id);
+  RUN_TEST(test_play_takes_an_id_up_to_int32_max);
   return UNITY_END();
 }

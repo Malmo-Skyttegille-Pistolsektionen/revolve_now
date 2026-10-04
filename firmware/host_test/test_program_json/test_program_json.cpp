@@ -109,6 +109,7 @@ void test_a_non_object_root_is_refused() {
 void test_a_sparse_document_still_loads() {
   rt::Program p;
   const char *sparse = "{\"id\": 5}";
+  // Four arguments: the `id_present` out-parameter is optional.
   TEST_ASSERT_TRUE(rt::parse_program(sparse, strlen(sparse), false, p));
 
   TEST_ASSERT_EQUAL_INT32(5, p.id);
@@ -242,15 +243,6 @@ void test_a_null_or_garbage_id_is_not_silently_accepted() {
   TEST_ASSERT_TRUE(rt::parse_program(string_id, strlen(string_id), false, p, &id_present));
   TEST_ASSERT_TRUE(id_present);
   TEST_ASSERT_EQUAL_INT32(0, p.id);
-}
-
-void test_the_id_out_parameter_is_optional() {
-  // Every existing caller passes four arguments; the fifth defaults to null
-  // and must not be dereferenced.
-  rt::Program p;
-  const char *doc = "{\"id\":5}";
-  TEST_ASSERT_TRUE(rt::parse_program(doc, strlen(doc), false, p));
-  TEST_ASSERT_EQUAL_INT32(5, p.id);
 }
 
 void test_a_hostile_duration_is_clamped() {
@@ -688,7 +680,6 @@ int main() {
 
   RUN_TEST(test_a_document_reports_whether_it_declares_an_id);
   RUN_TEST(test_a_null_or_garbage_id_is_not_silently_accepted);
-  RUN_TEST(test_the_id_out_parameter_is_optional);
 
   RUN_TEST(test_an_id_in_the_first_event_is_used);
   RUN_TEST(test_an_id_in_the_last_event_is_used);

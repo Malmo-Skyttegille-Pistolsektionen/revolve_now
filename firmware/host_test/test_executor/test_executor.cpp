@@ -608,6 +608,49 @@ void test_force_unload_drops_a_running_program() {
   TEST_ASSERT_EQUAL_size_t(1, h->effects.broadcasts.size());
 }
 
+// The route does not guard it (web_server.cpp), so this is what a load during
+// a run does: the run ends, the new program sits at its start, and the targets
+// stay exactly where the run left them.
+void test_load_while_running_stops_the_run_and_selects_the_new_program_without_moving_targets() {
+  rt::Program other = fixture_program();
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->run_for(300);  // into S0's "hide" event
+  TEST_ASSERT_FALSE(h->state.bank_a_shown());
+  h->effects.clear();
+
+  TEST_ASSERT_TRUE(h->executor.load(&other));
+
+  TEST_ASSERT_FALSE(h->state.running);
+  TEST_ASSERT_FALSE(h->state.has_series_start);
+  TEST_ASSERT_EQUAL_PTR(&other, h->state.program);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.broadcasts.size());
+  TEST_ASSERT_EQUAL_STRING(state("false", "0", "0", "null", "hidden").c_str(),
+                           h->effects.broadcasts[0].c_str());
+  TEST_ASSERT_EQUAL_size_t(0, h->effects.target_history.size());
+  TEST_ASSERT_EQUAL_INT32(rt::Executor::kIdleSleepMs, h->executor.tick());
+}
+
+// --- tick()'s safety stops ---------------------------------------------------
+
+// The series the run is in no longer exists. Unreachable through the API -
+// D-15 refuses replacing the loaded program, and delete unloads it first - so
+// the program is mutated under the executor here to get there.
+void test_tick_stops_the_run_when_its_series_has_vanished() {
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->run_for(100);
+  h->effects.clear();
+
+  g_program.series.clear();
+
+  TEST_ASSERT_EQUAL_INT32(rt::Executor::kIdleSleepMs, h->executor.tick());
+  TEST_ASSERT_FALSE(h->state.running);
+  TEST_ASSERT_FALSE(h->state.has_series_start);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.broadcasts.size());
+  TEST_ASSERT_EQUAL_size_t(0, h->effects.target_history.size());
+}
+
 // --- targets ---------------------------------------------------------------
 
 void test_completing_a_series_leaves_the_targets_where_the_last_event_left_them() {
@@ -971,6 +1014,9 @@ int main() {
   RUN_TEST(test_unload_after_a_stop_is_allowed);
   RUN_TEST(test_unload_with_nothing_loaded_publishes_nothing);
   RUN_TEST(test_force_unload_drops_a_running_program);
+  RUN_TEST(
+      test_load_while_running_stops_the_run_and_selects_the_new_program_without_moving_targets);
+  RUN_TEST(test_tick_stops_the_run_when_its_series_has_vanished);
 
   RUN_TEST(test_completing_a_series_leaves_the_targets_where_the_last_event_left_them);
   RUN_TEST(test_toggle_targets_flips_the_published_flag_and_the_pin);

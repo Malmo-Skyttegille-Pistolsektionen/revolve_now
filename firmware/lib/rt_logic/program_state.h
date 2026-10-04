@@ -31,11 +31,6 @@ struct Nullable {
     value = v;
   }
   int32_t value_or(int32_t fallback) const { return has_value ? value : fallback; }
-
-  bool operator==(const Nullable &o) const {
-    return has_value == o.has_value && (!has_value || value == o.value);
-  }
-  bool operator!=(const Nullable &o) const { return !(*this == o); }
 };
 
 // The run state published to clients. `ticker_ms` is milliseconds elapsed in

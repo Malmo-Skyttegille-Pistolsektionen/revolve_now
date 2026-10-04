@@ -1,5 +1,6 @@
 #include "hardware_config.h"
 
+#include <string>
 #include <vector>
 
 namespace rt {
@@ -120,7 +121,7 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
     case ConfigRefusal::kNone:
       return "";
     case ConfigRefusal::kGpioOutOfRange:
-      return "A target GPIO must be between 0 and 48.";
+      return "A target GPIO must be between 0 and " + std::to_string(kMaxGpio) + ".";
     case ConfigRefusal::kGpioNotOutputCapable:
       return "That GPIO cannot drive an output on this chip.";
     case ConfigRefusal::kGpioReserved:
@@ -131,13 +132,15 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
     case ConfigRefusal::kHostnameEmpty:
       return "The hostname cannot be empty - it is how the device is reached.";
     case ConfigRefusal::kHostnameTooLong:
-      return "The hostname is too long; 20 characters at most.";
+      return "The hostname is too long; " + std::to_string(kMaxHostnameLength) +
+             " characters at most.";
     case ConfigRefusal::kHostnameCharset:
       return "The hostname may contain only lower-case letters, digits and hyphens.";
     case ConfigRefusal::kHostnameHyphen:
       return "The hostname cannot start or end with a hyphen.";
     case ConfigRefusal::kDisplayNameTooLong:
-      return "The display name is too long; 40 characters at most.";
+      return "The display name is too long; " + std::to_string(kMaxDisplayNameLength) +
+             " characters at most.";
     case ConfigRefusal::kI2sPortOutOfRange:
       return "The I2S port must be 0 or 1 - this chip has two.";
     case ConfigRefusal::kGpioUsbSerial:
@@ -147,13 +150,16 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
       return "GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can "
              "stop the device starting at all.";
     case ConfigRefusal::kHttpPortOutOfRange:
-      return "The HTTP port must be between 1 and 65535.";
+      return "The HTTP port must be between " + std::to_string(kMinHttpPort) + " and " +
+             std::to_string(kMaxHttpPort) + ".";
     case ConfigRefusal::kWifiRetriesOutOfRange:
-      return "WiFi attempts must be between 1 and 60 - each takes about 2.4 seconds.";
+      return "WiFi attempts must be between " + std::to_string(kMinWifiRetries) + " and " +
+             std::to_string(kMaxWifiRetries) + " - each takes about 2.4 seconds.";
     case ConfigRefusal::kBankCountOutOfRange:
-      return "A device drives between 1 and 8 target banks, called A to H.";
+      return "A device drives between 1 and " + std::to_string(kMaxTargetBanks) +
+             " target banks, called A to " + bank_letter(kMaxTargetBanks - 1) + ".";
     case ConfigRefusal::kBankNameTooLong:
-      return "A bank name is at most 16 characters.";
+      return "A bank name is at most " + std::to_string(kMaxBankNameLength) + " characters.";
     case ConfigRefusal::kPinCollision:
       // Two banks are named, because with eight of them the generic sentence
       // no longer tells the operator which field to change.
