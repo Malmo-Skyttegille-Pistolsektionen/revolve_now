@@ -1305,6 +1305,12 @@ export interface components {
         Message: {
             message: string;
         };
+        /** @description The answer to a call that ends in a restart: `POST /system/restart` and a successful `POST /ota`. */
+        RestartAccepted: {
+            /** @enum {string} */
+            status: "accepted";
+            restarting: boolean;
+        };
         CreatedId: {
             /**
              * Format: int32
@@ -1571,6 +1577,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description An RFC 9457 problem detail. Every operation that uses this names its own problem types in a `description` beside the `$ref`. */
+        Problem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /**
          * @description - `/problems/bank_unavailable` — `banks` names a bank this device does
          *       not have, or is not an array of letters at all. `detail` says which
@@ -1714,14 +1729,7 @@ export interface operations {
              *     The only refusal this operation has. There is no `401`: nothing
              *     here is gated on the control lock.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
         };
     };
     getControlLockStatus: {
@@ -1764,26 +1772,12 @@ export interface operations {
              * @description - `/problems/invalid_password` — the password was empty, or the
              *       body carried none.
              */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            401: components["responses"]["Problem"];
             /**
              * @description - `/problems/control_lock_already_enabled` — log in or disable it
              *       first.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     loginControlLockMode: {
@@ -1801,26 +1795,12 @@ export interface operations {
         responses: {
             200: components["responses"]["ControlLockSession"];
             /** @description - `/problems/invalid_password` — wrong password. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            401: components["responses"]["Problem"];
             /**
              * @description - `/problems/control_lock_not_enabled` — there is nothing to log in
              *       to.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     logoutControlLockMode: {
@@ -1913,14 +1893,7 @@ export interface operations {
              * @description - `/problems/program_invalid` — empty body, malformed JSON, or a
              *       non-object root.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -1949,14 +1922,7 @@ export interface operations {
              * @description - `/problems/program_not_found` — no such program, or a path
              *       segment that is not a plain decimal integer.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
         };
     };
     updateProgram: {
@@ -1991,27 +1957,13 @@ export interface operations {
              *     - `/problems/program_id_mismatch` — the body declares a different
              *       id from the path.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/program_not_found` — no such program, or a path
              *       segment that is not a plain decimal integer.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_readonly` — the program is shipped with the
              *       firmware and has no writable file behind it. Upload the document
@@ -2023,26 +1975,12 @@ export interface operations {
              *     is why `type` exists (D-19): the wording of `detail` is not a
              *     discriminator.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_store_failed` — the replacement could not be
              *       written to flash. The previous document is left intact.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     loadProgram: {
@@ -2071,14 +2009,7 @@ export interface operations {
              * @description - `/problems/program_not_found` — no such program.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
         };
     };
     deleteProgram: {
@@ -2107,27 +2038,13 @@ export interface operations {
              * @description - `/problems/program_not_found` — no such program.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_readonly` — the program is shipped with the
              *       firmware and has no writable file behind it. The same type
              *       `PUT /programs/{id}` answers for the same program.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     startProgram: {
@@ -2161,14 +2078,7 @@ export interface operations {
              *     The id check comes first: a start without a well-formed body is
              *     refused as such whether or not anything is loaded.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/program_running` — a firmware update is in progress
@@ -2185,14 +2095,7 @@ export interface operations {
              *       bank it happens to drive. Uploading and loading such a program
              *       are both fine; only starting it is refused.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     stopProgram: {
@@ -2214,14 +2117,7 @@ export interface operations {
                 };
             };
             /** @description - `/problems/program_not_running` — nothing is running. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2244,14 +2140,7 @@ export interface operations {
                 };
             };
             /** @description - `/problems/no_program_loaded` — nothing is loaded. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2278,14 +2167,7 @@ export interface operations {
              * @description - `/problems/program_running` — a run is in progress. `stop` first;
              *       it is a pause, so the refusal lifts with it.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     skipToSeries: {
@@ -2321,41 +2203,20 @@ export interface operations {
              *     - `/problems/skip_id_required` — no body, unparseable JSON, or no
              *       integer `id`.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/route_not_found` — the path segment is not a plain
              *       decimal integer.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description - `/problems/skip_program_mismatch` — a different program is
              *       loaded. `detail` names both ids, same reasoning as `start`'s
              *       `409`. The run state is untouched and no `stateUpdate` is
              *       published.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     showTargets: {
@@ -2473,14 +2334,7 @@ export interface operations {
              *     - `/problems/hardware_config_serial_only` — the body carried
              *       `targetsShownAtBoot`, which changes only from the serial console.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description `/problems/hardware_config_window_closed` — nobody has completed
@@ -2491,14 +2345,7 @@ export interface operations {
              *     question of who you are but of whether somebody is standing at the
              *     device. Both apply, and both must pass.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description `/problems/program_running` — a program is running.
              *
@@ -2507,14 +2354,7 @@ export interface operations {
              *     operating it are different activities, and these values only take
              *     effect at the next restart.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     resetHardwareConfig: {
@@ -2541,26 +2381,12 @@ export interface operations {
              *     window is shut. The same guard as `PUT /config/hardware`: this
              *     rewrites every value at once.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description `/problems/program_running` — a program is running. Checked before
              *     the window, as on `PUT /config/hardware`.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     getWifiStatus: {
@@ -2610,14 +2436,7 @@ export interface operations {
              *     32 bytes, or a password over 63. `detail` says which, because the
              *     operator has to decide what to type instead.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description `/problems/hardware_config_window_closed` — nobody has completed
@@ -2626,14 +2445,7 @@ export interface operations {
              *     `PUT /config/hardware` and `GET /diagnostics/bundle`: one window,
              *     one type, whichever endpoint it is guarding.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_running` — a program is running. Checked
              *       before the window, because "stop the run" is the more useful
@@ -2644,26 +2456,12 @@ export interface operations {
              *       (`CONFIG_RT_NET_OPENETH`). Permanent for this firmware, not a
              *       state to retry.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description `/problems/wifi_store_failed` — NVS refused the write. Nothing was
              *     saved and the device stays on the network it is on.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     getWifiNetworks: {
@@ -2688,26 +2486,12 @@ export interface operations {
              * @description `/problems/hardware_config_window_closed` — the configuration
              *     window is shut, or a program is running.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description `/problems/wifi_unavailable` — this build has no radio
              *     (`CONFIG_RT_NET_OPENETH`).
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     restartSystem: {
@@ -2728,11 +2512,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "accepted";
-                        restarting: boolean;
-                    };
+                    "application/json": components["schemas"]["RestartAccepted"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2740,28 +2520,14 @@ export interface operations {
              * @description `/problems/program_running` — a program is running. Stop it first;
              *     a restart takes the targets and the audio down mid-sequence.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description `/problems/restart_failed` — the device could not start the task
              *     that does the restarting, which on this firmware means it is out of
              *     memory. Nothing was restarted, so the answer is a refusal rather
              *     than a `200` the client would sit waiting on.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     uploadFirmware: {
@@ -2792,11 +2558,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "accepted";
-                        restarting: boolean;
-                    };
+                    "application/json": components["schemas"]["RestartAccepted"];
                 };
             };
             /**
@@ -2807,14 +2569,7 @@ export interface operations {
              *     `/problems/upload_missing_file` — the body was not
              *     `multipart/form-data`. Answered before any of it is read.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description `/problems/program_running` — a program is running.
@@ -2824,14 +2579,7 @@ export interface operations {
              *     be written to is that image, so nothing is written until the
              *     restart.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description `/problems/restart_failed` — the image was written and is the boot
              *     partition, but the restart could not be started. The update is
@@ -2847,14 +2595,7 @@ export interface operations {
              *     partition. The image may have been fine; the running firmware is
              *     unchanged.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     listAudios: {
@@ -2917,27 +2658,13 @@ export interface operations {
              *     A clip over the 1 MiB ceiling is answered by the HTTP layer with a
              *     `text/html` body rather than a problem detail (see Limits in `info`).
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/audio_store_failed` — the clip could not be moved
              *       into place or indexed.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     playAudio: {
@@ -2971,14 +2698,7 @@ export interface operations {
              * @description - `/problems/audio_not_found` — no such clip.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
         };
     };
     deleteAudio: {
@@ -3007,14 +2727,7 @@ export interface operations {
              * @description - `/problems/audio_not_found` — no such clip.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description The clip is shipped, or it still matters to a run. Four types
              *     under one status, in the order the firmware checks them:
@@ -3034,14 +2747,7 @@ export interface operations {
              *       right now. LittleFS has no unlink-while-open, so removing it
              *       would corrupt the read.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     streamEvents: {
