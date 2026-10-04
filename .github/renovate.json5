@@ -132,10 +132,25 @@
 
   packageRules: [
     {
-      // webapp/package.json and the pre-commit hook pin the same Prettier.
-      // Split across two PRs, the hook would drift from `npm run format`.
-      matchDepNames: ["prettier"],
-      groupName: "prettier",
+      // One PR instead of one per plugin release; @eslint-react alone was
+      // ten PRs in two weeks (#453). Prettier is here too because
+      // webapp/package.json and the pre-commit hook pin the same version:
+      // split across two PRs, the hook would drift from `npm run format`.
+      matchDepNames: [
+        "eslint",
+        "@eslint/**",
+        "eslint-*",
+        "@eslint-react/**",
+        "typescript-eslint",
+        "@typescript-eslint/**",
+        "prettier",
+      ],
+      groupName: "lint tooling",
+    },
+    {
+      // The contract linters, run by contracts/validate.sh and contracts.yml.
+      matchDepNames: ["@redocly/cli", "@asyncapi/cli"],
+      groupName: "contract tooling",
     },
     {
       matchDepNames: ["espressif/esp-idf", "espressif/idf"],
