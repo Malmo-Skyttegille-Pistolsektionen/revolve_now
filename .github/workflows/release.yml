@@ -405,7 +405,7 @@ jobs:
 
       - uses: actions/setup-node@v7.0.0
         with:
-          node-version: 24.21.0
+          node-version-file: webapp/package.json
           cache: npm
           cache-dependency-path: webapp/package-lock.json
 
