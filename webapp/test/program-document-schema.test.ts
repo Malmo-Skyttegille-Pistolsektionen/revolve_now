@@ -299,9 +299,7 @@ const CASES: Case[] = [
     schema: 'refused',
     validator: 'refused',
   },
-  // The firmware would take this one — a missing duration reads as 0 and
-  // clamps to 1 ms — but a 1 ms event is never what the author meant, so both
-  // descriptions refuse it. Deliberately stricter than the device, in step.
+  // The device refuses it too: a misspelt key would otherwise upload as 1 ms.
   { name: 'no duration', doc: withEvent(without(anEvent(), 'duration')), schema: 'refused', validator: 'refused' },
 
   // --- command -------------------------------------------------------------

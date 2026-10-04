@@ -521,9 +521,8 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
 
   const series: Series[] = recordsOf(raw.series).map((entry) => {
     const events: Event[] = recordsOf(entry.events).map((rawEvent) => {
-      if (rawEvent.duration !== undefined && rawEvent.duration !== null && !Number.isInteger(rawEvent.duration)) {
-        refused = true;
-      }
+      // Required and an integer, as parse_event has it.
+      if (!Number.isInteger(rawEvent.duration)) refused = true;
       const duration = Number.isInteger(rawEvent.duration) ? (rawEvent.duration as number) : 0;
       const event: Event = { duration: Math.min(Math.max(duration, MIN_DURATION_MS), MAX_DURATION_MS) };
 

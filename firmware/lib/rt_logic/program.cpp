@@ -77,18 +77,17 @@ bool is_array_or_absent(JsonVariantConst v) {
 }
 
 bool parse_event(JsonObjectConst src, Event &e) {
-  // A duration that is present must be an integer: `"5000"` or `500.7` used to
-  // read as 0 and clamp to 1 ms, an upload that succeeds and a target that
-  // never turns. Absent still reads as 0.
+  // Required, and an integer: a missing one (a misspelt key included) or
+  // `"5000"`/`500.7` used to read as 0 and clamp to 1 ms - an upload that
+  // succeeds and a target that never turns.
   JsonVariantConst raw_duration = src["duration"];
-  if (!raw_duration.isNull() && !is_integer(raw_duration)) return false;
+  if (!is_integer(raw_duration)) return false;
   // Clamped, not merely read: `duration` is attacker-controlled via program
   // upload, and Series::total_ms() sums these into an int32. Unbounded values
   // overflow that sum (UB), and a negative one makes the run loop complete the
   // series on its first tick. kMaxEventMs is far longer than any real event.
-  const int64_t duration = raw_duration.is<int64_t>() ? raw_duration.as<int64_t>()
-                           : raw_duration.isNull()    ? 0
-                                                      : kMaxEventMs;  // past INT64_MAX
+  const int64_t duration =
+      raw_duration.is<int64_t>() ? raw_duration.as<int64_t>() : kMaxEventMs;  // past INT64_MAX
   // Floor of 1 ms, not 0: locate_event() uses a half-open interval, so a
   // zero-duration event can never contain any elapsed time - its command and
   // audio would be silently skipped rather than fired.

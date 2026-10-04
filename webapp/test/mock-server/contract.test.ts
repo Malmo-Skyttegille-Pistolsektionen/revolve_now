@@ -360,9 +360,12 @@ describe('program storage', () => {
 
   // `parse_program` in firmware/lib/rt_logic/program.cpp: a wrongly-typed
   // value refuses the program rather than reading as its default.
-  it('refuses a wrongly-typed duration, audio id, series or events', async () => {
+  it('refuses a missing or wrongly-typed duration, audio id, series or events', async () => {
     const withEvent = (event: unknown) => ({ title: 'Typed', series: [{ name: 'Serie 1', events: [event] }] });
     const refused: [string, unknown][] = [
+      ['no duration', withEvent({ command: 'show' })],
+      ['misspelt duration', withEvent({ durration: 5000 })],
+      ['null duration', withEvent({ duration: null })],
       ['duration as text', withEvent({ duration: '5000' })],
       ['fractional duration', withEvent({ duration: 500.7 })],
       ['audio id as text', withEvent({ duration: 1000, audio_ids: ['1'] })],

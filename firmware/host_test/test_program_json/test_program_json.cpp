@@ -292,9 +292,15 @@ void test_a_non_integer_duration_fails_the_whole_program() {
   TEST_ASSERT_FALSE(event_parses("{\"duration\":[5000]}"));
 }
 
-void test_an_absent_or_integer_duration_still_parses() {
-  TEST_ASSERT_TRUE(event_parses("{}"));
-  TEST_ASSERT_TRUE(event_parses("{\"duration\":null}"));
+void test_a_missing_duration_is_refused() {
+  // A misspelt key is a missing one; reading it as 1 ms uploads a program
+  // whose event never visibly happens.
+  TEST_ASSERT_FALSE(event_parses("{}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":null}"));
+  TEST_ASSERT_FALSE(event_parses("{\"durration\":5000}"));
+}
+
+void test_an_integer_duration_parses() {
   TEST_ASSERT_TRUE(event_parses("{\"duration\":5000}"));
 
   // Past INT64_MAX is still an integer, and clamps like any other.
@@ -649,7 +655,8 @@ int main() {
   RUN_TEST(test_a_filename_id_past_int32_is_refused);
   RUN_TEST(test_a_hostile_duration_is_clamped);
   RUN_TEST(test_a_non_integer_duration_fails_the_whole_program);
-  RUN_TEST(test_an_absent_or_integer_duration_still_parses);
+  RUN_TEST(test_a_missing_duration_is_refused);
+  RUN_TEST(test_an_integer_duration_parses);
   RUN_TEST(test_a_non_integer_audio_id_fails_the_whole_program);
   RUN_TEST(test_an_audio_id_outside_int32_is_dropped_not_refused);
   RUN_TEST(test_series_that_is_not_an_array_fails_the_whole_program);
