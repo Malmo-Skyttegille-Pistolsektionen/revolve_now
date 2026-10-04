@@ -41,13 +41,15 @@ npm run dev            # http://localhost:8080, against the mock server
 
 ### The firmware
 
-Install ESP-IDF **v6.0.2** — CI pins that exact version, and `>= 6.0` is
-required. Follow
-[Espressif's setup guide](https://docs.espressif.com/projects/esp-idf/en/v6.0.2/esp32s3/get-started/);
-the short form on Linux/macOS, with `<esp-idf>` wherever you keep it:
+Install the ESP-IDF version pinned by `idf:` in
+[`firmware/main/idf_component.yml`](firmware/main/idf_component.yml). CI builds
+with exactly that version, and the build refuses any other. Follow
+[Espressif's setup guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
+for that version. The short form on Linux/macOS, with `<version>` the pinned
+version and `<esp-idf>` wherever you keep it:
 
 ```bash
-git clone -b v6.0.2 --recursive https://github.com/espressif/esp-idf.git <esp-idf>
+git clone -b v<version> --recursive https://github.com/espressif/esp-idf.git <esp-idf>
 <esp-idf>/install.sh esp32s3       # downloads the toolchain, several GB
 . <esp-idf>/export.sh              # every new shell
 ```

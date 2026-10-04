@@ -135,8 +135,8 @@ firmware/scripts/run-qemu.sh --no-build --headless > qemu.log 2>&1 &
 
 `--no-build` is what keeps the boot half honest: without it the backgrounded
 run re-runs a no-op `idf.py build` first, and a boot timeout would be timing
-the build. No `idf_tools.py install qemu-xtensa` either - `espressif/idf:v6.0.2`
-already ships qemu-xtensa 9.2.2 on `PATH`, so there is nothing to cache; the
+the build. No `idf_tools.py install qemu-xtensa` either - the `espressif/idf`
+container CI uses already ships qemu-xtensa on `PATH`, so there is nothing to cache; the
 runner's install-on-first-use branch is for a bare IDF checkout.
 
 The flag matters: interactive runs get `-serial mon:stdio`, and QEMU quits the

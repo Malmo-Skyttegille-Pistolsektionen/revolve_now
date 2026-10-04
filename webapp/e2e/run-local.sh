@@ -2,7 +2,7 @@
 #
 # Run the E2E suite against the real firmware in QEMU, end to end:
 #
-#   . ~/esp/esp-idf-6.0.2/export.sh
+#   . <esp-idf>/export.sh
 #   webapp/e2e/run-local.sh                 # or: npm run e2e:local
 #
 # It builds the webapp, bakes `dist` into the application image the firmware
@@ -38,7 +38,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "${IDF_PATH:-}" ]; then
-    echo "IDF_PATH is not set - run '. ~/esp/esp-idf-6.0.2/export.sh' first" >&2
+    echo "IDF_PATH is not set - run '. <esp-idf>/export.sh' first" >&2
     exit 1
 fi
 
