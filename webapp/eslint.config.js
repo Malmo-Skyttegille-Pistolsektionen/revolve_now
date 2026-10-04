@@ -24,6 +24,13 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+      // Type information for the promise rules below only; the rest of
+      // recommendedTypeChecked is ~200 findings of churn (mostly test files)
+      // for no defect found, so it is not enabled.
+      parserOptions: {
+        projectService: { allowDefaultProject: ['vite.editor.config.ts'] },
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     plugins: {
       'react-hooks': reactHooks,
@@ -46,7 +53,10 @@ export default tseslint.config(
       // in the run state, so the index is their identity, not an accident of order.
       '@eslint-react/no-array-index-key': 'off',
       'react-compiler/react-compiler': 'error',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
     },
   },
   {
