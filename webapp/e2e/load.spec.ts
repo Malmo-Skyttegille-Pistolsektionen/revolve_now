@@ -9,7 +9,13 @@ test('the app is served out of the app image, pre-compressed', async ({ page }) 
   // Recorded before the navigation so the module script's response is caught.
   // `index-*` because `index.html` is the only entry: it was `main-*` while the
   // build named its inputs to keep `legacy.html` alongside it.
-  const bundle = page.waitForResponse((r) => /\/assets\/index-.*\.js$/.test(new URL(r.url()).pathname));
+  // Bounded and named: unbounded, a bundle that never loads fails as the test
+  // timeout, saying nothing about what it waited for.
+  const bundle = page
+    .waitForResponse((r) => /\/assets\/index-.*\.js$/.test(new URL(r.url()).pathname), { timeout: 15_000 })
+    .catch((error: unknown) => {
+      throw new Error(`the page never fetched its /assets/index-*.js bundle: ${String(error)}`);
+    });
 
   const index = await page.goto('/');
   expect(index?.status()).toBe(200);

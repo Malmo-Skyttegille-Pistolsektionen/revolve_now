@@ -1,12 +1,14 @@
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
+import type { StateUpdatePayload } from '../src/api/types';
+
 /**
  * Helpers for driving the one shared device the suite runs against.
  *
  * State on the emulator survives between tests exactly as it does on the board
  * - there is no fresh fixture to hand out - so every spec calls `resetDevice`
- * in a `beforeAll` and leaves the device in the same state it wants to find.
+ * in a `beforeEach` and leaves the device in the same state it wants to find.
  */
 
 /** The password every spec turns the control lock on with. See `resetDevice`. */
@@ -64,7 +66,8 @@ export async function expectProblem(
 }
 
 /**
- * Put the device back to: control lock off, nothing running, nothing loaded.
+ * Put the device back to: control lock off, nothing running, nothing loaded,
+ * targets shown.
  *
  * The control lock can only be turned off by whoever is holding it, and the suite
  * is the only thing that ever turns it on - always with `CONTROL_LOCK_PASSWORD` - so
@@ -94,6 +97,12 @@ export async function resetDevice(request: APIRequestContext): Promise<void> {
   const unload = await request.post(`${API}/programs/unload`, auth);
   expect(unload.ok(), `could not unload: ${unload.status()}`).toBeTruthy();
 
+  // Stop, reset and completion leave the targets where the last event put
+  // them (D-31), so a spec that ended mid-series would otherwise hand the next
+  // one a hidden strip. Shown is the boot position every spec expects.
+  const show = await request.post(`${API}/targets/show`, auth);
+  expect(show.ok(), `could not show the targets: ${show.status()}`).toBeTruthy();
+
   const disable = await request.post(`${API}/control-lock/disable`, auth);
   expect(disable.ok(), `could not turn the control lock off: ${disable.status()}`).toBeTruthy();
 }
@@ -117,4 +126,50 @@ export async function enableControlLockViaUi(page: Page): Promise<void> {
   await page.getByTestId('control-lock-password').fill(CONTROL_LOCK_PASSWORD);
   await page.getByRole('button', { name: 'Turn the lock on' }).click();
   await expect(page.getByTestId('control-lock-status')).toHaveText('ON ✓');
+}
+
+/** The device's `stateUpdate` stream, read as a second client would read it. */
+export interface StateStream {
+  /** The most recent `stateUpdate`; the device sends one on connect. */
+  latest(): StateUpdatePayload | undefined;
+  close(): void;
+}
+
+/**
+ * Open `/sse/v2` from the test process. There is no REST read of run state -
+ * the full state on connect replaces one - so this is how a test sees
+ * `programState` without going through the page. One connection per test, not
+ * one per poll: the device has a dozen sockets to share.
+ */
+export async function openStateStream(baseURL: string): Promise<StateStream> {
+  const controller = new AbortController();
+  const response = await fetch(new URL('/sse/v2', baseURL), { signal: controller.signal });
+  expect(response.ok, `could not open the event stream: ${response.status}`).toBeTruthy();
+
+  let latest: StateUpdatePayload | undefined;
+  const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
+  void (async () => {
+    let buffer = '';
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        // PsychicEventSource frames with CRLF.
+        buffer += value.replace(/\r\n/g, '\n');
+        let split: number;
+        while ((split = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, split);
+          buffer = buffer.slice(split + 2);
+          const data = /^data: (.*)$/m.exec(block)?.[1];
+          if (/^event: stateUpdate$/m.test(block) && data !== undefined) {
+            latest = JSON.parse(data) as StateUpdatePayload;
+          }
+        }
+      }
+    } catch {
+      // close() aborts the read; nothing else is expected to throw here.
+    }
+  })();
+
+  return { latest: () => latest, close: () => controller.abort() };
 }

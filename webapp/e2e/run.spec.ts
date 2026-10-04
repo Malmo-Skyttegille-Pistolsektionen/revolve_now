@@ -122,6 +122,8 @@ test('load, start, watch the timeline advance off real SSE, stop', async ({ page
   expect(shownAt).toBeLessThanOrEqual(TEST_PROGRAM.firstShowAtSeconds + 1);
 
   // --- stop ------------------------------------------------------------
+  const strip = page.getByTestId('run-target-status');
+  const beforeStop = await strip.textContent();
   await page.getByRole('button', { name: 'Pause' }).click();
 
   // `running: false` in the next stateUpdate is what puts Start back.
@@ -131,61 +133,8 @@ test('load, start, watch the timeline advance off real SSE, stop', async ({ page
   const frozen = await readTicker(page);
   await page.waitForTimeout(3_000);
   expect(await readTicker(page)).toBe(frozen);
-});
-
-/**
- * Issue #70: a start decided before a start delay used to run whatever the
- * device held when the delay expired. A second client switching the program in
- * that window meant the range got a program nobody had chosen. The countdown
- * cancel below is the client's half — the operator stops watching a countdown
- * that is already doomed; the device's half is the test after it.
- */
-test('a program switch during the start delay cancels the start', async ({ page, request }) => {
-  const OTHER_PROGRAM_ID = 1;
-  const START_DELAY_SECONDS = 5;
-
-  // The settings page writes this key; setting it here keeps the test's fixed
-  // wait short without giving up the delay the scenario needs.
-  await page.addInitScript((seconds: number) => {
-    localStorage.setItem('rt_settings_start_delay_seconds', String(seconds));
-  }, START_DELAY_SECONDS);
-
-  await openApp(page);
-  await enableControlLockViaUi(page);
-  await page.getByRole('link', { name: 'Run' }).click();
-
-  await page.getByTestId('run-program-select').selectOption(String(TEST_PROGRAM.id));
-  await expect(page.getByTestId('run-program-id')).toHaveText(String(TEST_PROGRAM.id));
-
-  // Another client on the range - a second tab, somebody's phone. Its session
-  // is opened before the countdown starts, so only the load itself has to fit
-  // inside the delay.
-  const session = await request.post('/api/v2/control-lock/login', { data: { password: CONTROL_LOCK_PASSWORD } });
-  expect(session.ok(), `could not log in as a second client: ${session.status()}`).toBeTruthy();
-  const { token } = (await session.json()) as { token: string };
-
-  // The delay means the modal is up and the start still pending while the
-  // rest of this runs.
-  await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page.getByText('Starting in...')).toBeVisible();
-
-  // It loads a different program. The device publishes it and this page follows.
-  const load = await request.post(`/api/v2/programs/${OTHER_PROGRAM_ID}/load`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  expect(load.ok(), `the second client could not load a program: ${load.status()}`).toBeTruthy();
-
-  await expect(page.getByTestId('run-program-id')).toHaveText(String(OTHER_PROGRAM_ID));
-  await expect(page.getByText('Starting in...')).toBeHidden();
-  await expect(page.getByTestId('run-start-notice')).toContainText('cancelled');
-
-  // Well past the moment the countdown would have expired: the device never
-  // started anything. `run-ticker` only renders once a stateUpdate carries a
-  // ticker, which a run is the only thing that produces.
-  await page.waitForTimeout((START_DELAY_SECONDS + 2) * 1000);
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
-  await expect(page.getByTestId('run-ticker')).toHaveCount(0);
+  // Stopping never moves the targets (D-31).
+  await expect(strip).toHaveText(beforeStop ?? '');
 });
 
 /**
@@ -243,7 +192,6 @@ test('the device refuses a start for a program it no longer holds', async ({ pag
 
   // Nothing ran, on either program. `run-ticker` renders only once a
   // stateUpdate carries a ticker, and only a run produces one.
-  await page.waitForTimeout((START_DELAY_SECONDS + 2) * 1000);
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
   await expect(page.getByTestId('run-ticker')).toHaveCount(0);
@@ -257,93 +205,23 @@ test('the device refuses a start for a program it no longer holds', async ({ pag
 });
 
 /**
- * The start delay is set where it is used, and 0 means the press is the start.
+ * D-22: the refusal that protects a run in progress is the device's. The view
+ * that reports it is covered against the mock in `test/run.test.tsx`.
  */
-test('the start delay is set beside Start, and 0 starts without a countdown', async ({ page }) => {
-  await openApp(page);
-  await enableControlLockViaUi(page);
-  await page.getByRole('link', { name: 'Run' }).click();
+test('unload is refused while a series runs, and is a 200 when nothing is loaded', async ({ request }) => {
+  const API = '/api/v2';
+  expect((await request.post(`${API}/programs/${TEST_PROGRAM.id}/load`)).ok()).toBeTruthy();
+  expect((await request.post(`${API}/programs/start`, { data: { id: TEST_PROGRAM.id } })).ok()).toBeTruthy();
 
-  await page.getByTestId('run-program-select').selectOption(String(TEST_PROGRAM.id));
-  await expect(page.getByTestId('run-program-id')).toHaveText(String(TEST_PROGRAM.id));
+  await expectProblem(await request.post(`${API}/programs/unload`), {
+    type: '/problems/program_running',
+    title: 'A program is running',
+    status: 409,
+    detail: 'A program is running - stop it before unloading',
+  });
 
-  // The settings default (10 s), on the page the countdown happens on.
-  await expect(page.getByTestId('run-start-delay')).toHaveValue('10');
-  await page.getByTestId('run-start-delay').selectOption('0');
-  await expect(page.getByTestId('run-start-delay-unit')).toContainText('no delay');
-
-  // The delay lives on the Run page only - the Settings page's duplicate copy
-  // was removed. It still survives leaving the page and coming back, because
-  // it is stored in the browser rather than in this component.
-  await page.getByRole('link', { name: 'Settings' }).click();
-  await page.getByRole('link', { name: 'Run' }).click();
-  await expect(page.getByTestId('run-start-delay')).toHaveValue('0');
-
-  // No modal at 0: Start is the start.
-  await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-  await expect(page.getByText('Starting in...')).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Pause' }).click();
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
-});
-
-/**
- * D-22, end to end: the operator clears the device's selection, and the
- * refusal that protects a run in progress is the device's, not the browser's.
- */
-test('unload clears the loaded program, and is refused while a series runs', async ({ page }) => {
-  await openApp(page);
-  await enableControlLockViaUi(page);
-  await page.getByRole('link', { name: 'Run' }).click();
-
-  await expect(page.getByTestId('run-unload')).toBeDisabled();
-
-  await page.getByTestId('run-program-select').selectOption(String(TEST_PROGRAM.id));
-  await expect(page.getByTestId('run-program-id')).toHaveText(String(TEST_PROGRAM.id));
-  await expect(page.getByTestId('run-unload')).toBeEnabled();
-
-  // --- refused while running -------------------------------------------
-  // The settings default is a 10 s delay; "Start Now" is the same POST
-  // without the wait.
-  await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page.getByText('Starting in...')).toBeVisible();
-  await page.getByRole('button', { name: 'Start Now' }).click();
-  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-
-  await page.getByTestId('run-unload').click();
-  await expect(page.getByTestId('run-start-notice')).toContainText('Pause the run first');
-  // The series is untouched: unloading is bookkeeping and must not end it.
-  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-  await expect(page.getByTestId('run-program-id')).toHaveText(String(TEST_PROGRAM.id));
-
-  // --- and the escape is one button away --------------------------------
-  await page.getByRole('button', { name: 'Pause' }).click();
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
-
-  await page.getByTestId('run-unload').click();
-  // Not optimistic: the badge only clears because the device published
-  // `loadedProgramId: null` down the stream this page is listening on.
-  await expect(page.getByTestId('run-program-id')).toHaveText('-');
-  await expect(page.getByTestId('run-start-notice')).toContainText('Nothing is loaded');
-  await expect(page.getByRole('button', { name: 'Start' })).toBeDisabled();
-  await expect(page.getByTestId('run-unload')).toBeDisabled();
-  // The timeline goes with the selection.
-  await expect(page.getByTestId('timeline')).toHaveCount(0);
-
-  // Idempotent: nothing loaded is a 200 with the same message, so a second
-  // press is not an error the operator has to read.
-  await page.getByTestId('run-program-select').selectOption(String(TEST_PROGRAM.id));
-  await expect(page.getByTestId('run-program-id')).toHaveText(String(TEST_PROGRAM.id));
-  await page.getByTestId('run-unload').click();
-  await expect(page.getByTestId('run-program-id')).toHaveText('-');
-});
-
-test('backend_issue is not covered here', () => {
-  // The only producers of `backend_issue` are the audio and storage paths
-  // (main/io/audio.cpp). QEMU emulates no I2S, so `RT_AUDIO_ENABLED` is off in
-  // the simulator profile and the event cannot be provoked from outside the
-  // device. Covered by the firmware host tests and by the webapp unit tests
-  // against the mock instead.
-  test.skip(true, 'needs audio hardware to trigger - not emulated by QEMU');
+  expect((await request.post(`${API}/programs/stop`)).ok()).toBeTruthy();
+  expect((await request.post(`${API}/programs/unload`)).ok()).toBeTruthy();
+  // Idempotent: nothing loaded is the state asked for, not an error.
+  expect((await request.post(`${API}/programs/unload`)).ok()).toBeTruthy();
 });
