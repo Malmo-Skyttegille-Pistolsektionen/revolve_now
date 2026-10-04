@@ -475,13 +475,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_store_failed` — the document was valid but
               could not be written to flash. Nothing was added.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/{id}:
     parameters:

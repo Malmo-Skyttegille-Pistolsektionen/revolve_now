@@ -1899,14 +1899,7 @@ export interface operations {
              * @description - `/problems/program_store_failed` — the document was valid but
              *       could not be written to flash. Nothing was added.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     getProgram: {
