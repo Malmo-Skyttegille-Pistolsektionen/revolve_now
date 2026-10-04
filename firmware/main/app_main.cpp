@@ -89,7 +89,7 @@ extern "C" void app_main() {
   // Starts the run loop, adopting the target state targets::init() already
   // drove onto the pin - so the first stateUpdate a client receives says what
   // it can see downrange, and nothing moves in between.
-  executor::init(kTargetsShownAtBoot);
+  executor::init(targets::shown_at_boot());
 
   // Before the network, deliberately, and this is the whole of #246.
   // `run_setup_portal()` never returns, so a console started after it existed

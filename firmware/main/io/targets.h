@@ -16,6 +16,11 @@ void init();
 // `bank_mask` is one bit per bank; `rt::kAllBanksMask` drives every one.
 void set(rt::BankMask bank_mask, bool shown);
 
+// The state init() drove every bank to: the NVS overlay's resting state, which
+// the serial console can change (D-31). The executor adopts this, not a
+// compile-time default, so the first stateUpdate says what is downrange.
+bool shown_at_boot();
+
 // How many banks this device was configured for. 1..rt::kMaxTargetBanks.
 size_t count();
 
