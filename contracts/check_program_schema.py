@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
+from ruamel.yaml import YAML  # installed with check-jsonschema, which validate.sh already needs
 
 HERE = Path(__file__).resolve().parent
 
@@ -55,7 +55,7 @@ def compare(name: str, api: dict, authoring: dict) -> list[str]:
 
 
 def main() -> int:
-    openapi = yaml.safe_load((HERE / "openapi.yaml").read_text(encoding="utf-8"))
+    openapi = YAML(typ="safe").load((HERE / "openapi.yaml").read_text(encoding="utf-8"))
     schema = json.loads((HERE / "program.schema.json").read_text(encoding="utf-8"))
     api = openapi["components"]["schemas"]
 
