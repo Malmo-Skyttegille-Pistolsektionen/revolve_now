@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ExportPanel } from '../components/ExportPanel';
 import { Logo } from '../components/Logo';
 import { ProgramEditor, type EditorTarget } from '../components/ProgramEditor';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { ThemePicker } from '../components/ThemePicker';
 import {
   GitHubApiError,
@@ -48,7 +49,10 @@ export function StandaloneEditorApp(): React.ReactNode {
             <Logo />
             Program Editor
           </h1>
-          <ThemePicker />
+          <div className={styles.pickers}>
+            <LanguagePicker />
+            <ThemePicker />
+          </div>
         </div>
         <p className={styles.hint}>
           Runs entirely in this browser tab, with no device attached. Open a program, edit it, then download it or send

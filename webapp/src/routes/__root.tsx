@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import clsx from 'clsx';
 import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
 import { useConfigWindow } from '../hooks/useConfigWindow';
+import { useT } from '../i18n';
 import styles from './__root.module.css';
 
 const TanStackRouterDevtools = import.meta.env.DEV
@@ -33,21 +34,22 @@ export const Route = createRootRoute({
  */
 function RootLayout(): React.ReactNode {
   const { open: expertOpen } = useConfigWindow();
+  const t = useT();
 
   return (
     <div className={styles.layout}>
       <nav className={styles.nav}>
         <Link to='/run' className={styles.link} activeProps={{ className: styles.active }}>
-          Run
+          {t.nav.run}
         </Link>
         <Link to='/programs' className={styles.link} activeProps={{ className: styles.active }}>
-          Programs
+          {t.nav.programs}
         </Link>
         <Link to='/audios' className={styles.link} activeProps={{ className: styles.active }}>
-          Audios
+          {t.nav.audios}
         </Link>
         <Link to='/settings' className={styles.link} activeProps={{ className: styles.active }}>
-          Settings
+          {t.nav.settings}
         </Link>
         {expertOpen && (
           <Link
@@ -56,7 +58,7 @@ function RootLayout(): React.ReactNode {
             activeProps={{ className: styles.active }}
             data-testid='expert-tab'
           >
-            Expert mode
+            {t.nav.expertMode}
           </Link>
         )}
       </nav>

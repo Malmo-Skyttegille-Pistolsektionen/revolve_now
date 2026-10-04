@@ -168,3 +168,9 @@
   font-size: 0.85rem;
   color: var(--rt-stop-text);
 }
+
+.pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
