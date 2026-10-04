@@ -220,35 +220,9 @@ jobs:
           BASE_SHA: ${{ steps.base.outputs.sha }}
         run: |
           set -uo pipefail
-
-          # This repo squash-merges with squash_merge_commit_title=PR_TITLE and
-          # squash_merge_commit_message=COMMIT_MESSAGES, so the commit git-cliff
-          # eventually reads is the PR title plus this branch's commit messages.
-          # Those are the only two places a breaking marker survives the merge.
-          # The PR *body* is not one of them - a footer written only there is
-          # dropped by the squash, and the release still ships under a minor
-          # bump.
-          if printf '%s' "$PR_TITLE" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:'; then
-            echo "PR title marks this as a breaking change."
-            exit 0
-          fi
-
-          # A footer begins a line; matching the string anywhere would accept a
-          # PR that merely mentions "BREAKING CHANGE:" in prose. Conventional
-          # Commits makes BREAKING-CHANGE synonymous with BREAKING CHANGE.
-          if git log --format=%B "$BASE_SHA..HEAD" | grep -qE '^BREAKING[ -]CHANGE:'; then
-            echo "A commit on this branch carries a BREAKING CHANGE footer."
-            exit 0
-          fi
-
-          echo "::error::The contract diff above is breaking, but nothing that survives the squash"
-          echo "::error::says so. Either mark the PR title with '!' after the type (e.g. 'feat!:'),"
-          echo "::error::which becomes the squashed commit's subject, or add a 'BREAKING CHANGE:'"
-          echo "::error::footer to a commit on this branch. A footer in the PR body does not count:"
-          echo "::error::the squash takes its body from the commit messages, not from the PR."
-          echo "::error::Without one, git-cliff ships this under a minor bump."
-          echo "::error::See AGENTS.md, 'How the contracts are versioned'."
-          exit 1
+          # The squash keeps the title and the branch commit messages; the PR
+          # body is dropped, so a footer written only there does not count.
+          git log --format=%B "$BASE_SHA..HEAD" | .github/scripts/check_breaking_marker.sh marked
 
       - name: Verdict
         if: always()
