@@ -49,7 +49,7 @@ jobs:
       - name: Install check-jsonschema
         run: |
           # renovate: datasource=pypi depName=check-jsonschema
-          pip install check-jsonschema==0.38.0
+          pip install check-jsonschema==0.38.2
 
       # Lints openapi.yaml and asyncapi.yaml, checks program.schema.json is a
       # valid schema, and validates every shipped program against it.
