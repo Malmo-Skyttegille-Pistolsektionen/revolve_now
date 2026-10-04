@@ -154,10 +154,10 @@ should not be trimmed. What to avoid is volume out of proportion to the code:
 ## Vendored code
 
 `lib/psychic_http/`, `lib/arduinojson/`, `lib/dns_server/` and the repository's
-`resources/` tree are third-party and **must stay byte-identical to upstream**. They are
-excluded from pre-commit; never reformat them. Where they need a fix — an
-include order, a warning pragma — it goes on our side of the boundary, with a
-comment saying why.
+`resources/` tree are third-party. They are excluded from pre-commit; never
+reformat them. Where they need a fix — an include order, a warning pragma — it
+goes on our side of the boundary, with a comment saying why. `lib/dns_server/`
+is already a patched fork; its `CMakeLists.txt` lists the changes.
 
 ## The API contract
 

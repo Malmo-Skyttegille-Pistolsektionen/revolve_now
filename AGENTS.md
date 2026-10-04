@@ -238,3 +238,4 @@ the credential has to be rotated.
 - Run `pre-commit run --all-files` before pushing — CI runs the same hooks.
 - Vendored code (`firmware/lib/psychic_http/`, `arduinojson/`, `dns_server/`)
   and `resources/` are never reformatted; fixes go on our side of the boundary.
+  `dns_server/` is a patched fork, not a verbatim copy.

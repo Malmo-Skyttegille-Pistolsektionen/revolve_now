@@ -309,9 +309,10 @@ Load-bearing invariants:
 - **Vendored code is never reformatted.** `lib/psychic_http/`,
   `lib/arduinojson/`, `lib/dns_server/` and the repository's `resources/` tree
   are excluded in the root `.pre-commit-config.yaml` (paths there are
-  repo-root-relative) and must stay byte-identical to upstream. Where they
-  need a fix (an include order, a `-Wmissing-field-initializers` pragma), it goes
-  on our side of the boundary.
+  repo-root-relative). Where they need a fix (an include order, a
+  `-Wmissing-field-initializers` pragma), it goes on our side of the boundary.
+  **`lib/dns_server/` is the exception: a patched fork**, not a verbatim copy;
+  its `CMakeLists.txt` lists what differs from upstream.
 - `main/` builds with `-Wall -Wextra` and `host_test/` with `-Werror`. Keep both.
 - **`../contracts/` is the canonical API contract** — `openapi.yaml`,
   `asyncapi.yaml`, `program.schema.json`. A route, payload or status code that
