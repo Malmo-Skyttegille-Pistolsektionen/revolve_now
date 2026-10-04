@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "config.h"
+#include "embedded_dir.h"
 #include "embedded_index.generated.h"
 #include "esp_log.h"
 #include "esp_vfs.h"
@@ -27,11 +28,7 @@ namespace {
 
 const char *TAG = "embedded_fs";
 
-struct Entry {
-  const char *path;
-  uint32_t offset;
-  uint32_t size;
-};
+using Entry = rt::EmbeddedEntry;
 
 // Generated, and sorted by path. Every string is a literal in .rodata.
 constexpr Entry kEntries[] = {RT_EMBEDDED_ENTRIES};
@@ -69,17 +66,10 @@ int find(const char *path) {
   return -1;
 }
 
-// Whether anything lives under `path` as a directory. Not stored: directories
-// are implied by the paths, so this asks whether any entry is prefixed by
-// `path/`. Cheap enough at this scale and one fewer thing for the packer to
-// keep consistent.
+// Directories are implied by the paths rather than stored - one fewer thing
+// for the packer to keep consistent.
 bool is_directory(const char *path) {
-  const size_t len = strlen(path);
-  if (len == 0 || (len == 1 && path[0] == '/')) return true;
-  for (size_t i = 0; i < kEntryCount; i++) {
-    if (strncmp(kEntries[i].path, path, len) == 0 && kEntries[i].path[len] == '/') return true;
-  }
-  return false;
+  return rt::embedded_is_directory(kEntries, kEntryCount, path);
 }
 
 void fill_stat(const Entry &entry, struct stat *out) {
@@ -218,34 +208,18 @@ int vfs_stat(void *, const char *path, struct stat *out) {
 // --- directory iteration ---------------------------------------------------
 //
 // Only the program loader needs it (`programs::load_dir` scans for `<id>.json`),
-// but it has to be right rather than nearly right: the entries are a flat
-// sorted list of full paths, and "the children of /programs" is not something
-// the packer stores.
+// but it has to be right rather than nearly right. The walk itself is
+// rt::embedded_dir_*, host-tested; this is the VFS shell around it.
+
+static_assert(sizeof(dirent::d_name) == rt::kEmbeddedNameMax,
+              "rt_logic/embedded_dir.h sizes child names to dirent::d_name");
 
 struct EmbeddedDir {
   // Must be first: the VFS layer hands this back to us as a DIR*.
   DIR base;
-  char prefix[80];
-  size_t prefix_len;
-  size_t next;  // index into kEntries
-  long offset;  // for telldir/seekdir, counted in entries yielded
+  rt::EmbeddedDirCursor cursor;
   struct dirent entry;
 };
-
-// The immediate child of `prefix` that `path` lies under, or nullptr. Writes
-// the name into `out` and says whether it is a directory.
-const char *child_of(const char *path, const char *prefix, size_t prefix_len, char *out,
-                     size_t out_size, bool *is_dir) {
-  if (strncmp(path, prefix, prefix_len) != 0 || path[prefix_len] != '/') return nullptr;
-  const char *rest = path + prefix_len + 1;
-  const char *slash = strchr(rest, '/');
-  const size_t len = slash != nullptr ? static_cast<size_t>(slash - rest) : strlen(rest);
-  if (len == 0 || len >= out_size) return nullptr;
-  memcpy(out, rest, len);
-  out[len] = '\0';
-  *is_dir = slash != nullptr;
-  return out;
-}
 
 DIR *vfs_opendir(void *, const char *name) {
   if (!is_directory(name)) {
@@ -258,19 +232,11 @@ DIR *vfs_opendir(void *, const char *name) {
     return nullptr;
   }
 
-  // A trailing slash would make every prefix comparison below off by one, and
-  // `/` is the mount root, whose children have no prefix to strip.
-  size_t len = strlen(name);
-  while (len > 1 && name[len - 1] == '/') len--;
-  if (len == 1 && name[0] == '/') len = 0;
-  if (len >= sizeof(dir->prefix)) {
+  if (!rt::embedded_dir_open(dir->cursor, name)) {
     free(dir);
     errno = ENAMETOOLONG;
     return nullptr;
   }
-  memcpy(dir->prefix, name, len);
-  dir->prefix[len] = '\0';
-  dir->prefix_len = len;
   return reinterpret_cast<DIR *>(dir);
 }
 
@@ -279,29 +245,16 @@ int vfs_readdir_r(void *, DIR *pdir, struct dirent *entry, struct dirent **out) 
   *out = nullptr;
   if (dir == nullptr) return EBADF;
 
-  char name[sizeof(dir->entry.d_name)];
-  while (dir->next < kEntryCount) {
-    bool is_dir = false;
-    const char *found = child_of(kEntries[dir->next].path, dir->prefix, dir->prefix_len, name,
-                                 sizeof(name), &is_dir);
-    dir->next++;
-    if (found == nullptr) continue;
+  bool is_dir = false;
+  if (!rt::embedded_dir_next(dir->cursor, kEntries, kEntryCount, is_dir)) return 0;
 
-    // Entries are sorted by path, so every file under one subdirectory is
-    // adjacent - which is what makes "skip a directory already reported" a
-    // comparison against the last name rather than a set.
-    if (is_dir && strcmp(name, dir->entry.d_name) == 0) continue;
-
-    memset(entry, 0, sizeof(*entry));
-    entry->d_ino = 0;
-    entry->d_type = is_dir ? DT_DIR : DT_REG;
-    strlcpy(entry->d_name, name, sizeof(entry->d_name));
-    // Kept for the adjacency check above as well as for readdir()'s return.
-    dir->entry = *entry;
-    dir->offset++;
-    *out = entry;
-    return 0;
-  }
+  memset(entry, 0, sizeof(*entry));
+  entry->d_ino = 0;
+  entry->d_type = is_dir ? DT_DIR : DT_REG;
+  strlcpy(entry->d_name, dir->cursor.last, sizeof(entry->d_name));
+  // Kept for readdir()'s return.
+  dir->entry = *entry;
+  *out = entry;
   return 0;
 }
 
@@ -329,24 +282,13 @@ long vfs_telldir(void *, DIR *pdir) {
     errno = EBADF;
     return -1;
   }
-  return dir->offset;
+  return dir->cursor.offset;
 }
 
-void vfs_seekdir(void *ctx, DIR *pdir, long offset) {
+void vfs_seekdir(void *, DIR *pdir, long offset) {
   auto *dir = reinterpret_cast<EmbeddedDir *>(pdir);
   if (dir == nullptr) return;
-  // Rewind and walk: the mapping from an offset to a position in kEntries is
-  // not arithmetic (directories collapse several entries into one), so the
-  // only honest way back to offset N is to replay the first N.
-  dir->next = 0;
-  dir->offset = 0;
-  dir->entry.d_name[0] = '\0';
-  struct dirent scratch;
-  struct dirent *out = nullptr;
-  while (dir->offset < offset) {
-    vfs_readdir_r(ctx, pdir, &scratch, &out);
-    if (out == nullptr) break;
-  }
+  rt::embedded_dir_seek(dir->cursor, kEntries, kEntryCount, offset);
 }
 
 int vfs_closedir(void *, DIR *pdir) {
