@@ -60,29 +60,3 @@ export function useProgramsApi() {
     toggleTargets: (banks?: string[]) => client.request<void>('/targets/toggle', bankBody(banks)),
   };
 }
-
-// Keep the old API for non-React contexts (should not be used in components)
-import { client as directClient } from './client';
-export const programsApi = {
-  list: () => directClient<ProgramSummary[]>('/programs'),
-  get: (id: number) => directClient<Program>(`/programs/${id}`),
-  load: (id: number) => directClient<void>(`/programs/${id}/load`, { method: 'POST' }),
-  unload: () => directClient<void>('/programs/unload', { method: 'POST' }),
-  create: (program: Program) => directClient<CreatedId>('/programs', { method: 'POST', body: JSON.stringify(program) }),
-  update: (id: number, program: Program) =>
-    directClient<Program>(`/programs/${id}`, { method: 'PUT', body: JSON.stringify(withoutId(program)) }),
-  remove: (id: number) => directClient<void>(`/programs/${id}/delete`, { method: 'DELETE' }),
-  start: (id: number) => directClient<void>('/programs/start', { method: 'POST', body: JSON.stringify({ id }) }),
-  stop: () => directClient<void>('/programs/stop', { method: 'POST' }),
-  reset: () => directClient<void>('/programs/reset', { method: 'POST' }),
-  skipToSeries: (index: number, id: number) =>
-    directClient<void>(`/programs/series/${index}/skip_to`, {
-      method: 'POST',
-      body: JSON.stringify({ id }),
-    }),
-
-  // Targets
-  showTargets: (banks?: string[]) => directClient<void>('/targets/show', bankBody(banks)),
-  hideTargets: (banks?: string[]) => directClient<void>('/targets/hide', bankBody(banks)),
-  toggleTargets: (banks?: string[]) => directClient<void>('/targets/toggle', bankBody(banks)),
-};

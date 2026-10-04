@@ -7,6 +7,7 @@ import type { HardwareConfig } from '../api/types';
 import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT } from '../i18n';
+import { BANK_LETTERS } from '../lib/program-document';
 import styles from './HardwareSection.module.css';
 
 /**
@@ -55,7 +56,6 @@ const NO_PIN = Number.NaN;
 /** `rt::kMaxTargetBanks` and `rt::kMaxBankNameLength`. */
 const MAX_BANKS = 8;
 const MAX_BANK_NAME = 16;
-const BANK_LETTERS = 'ABCDEFGH';
 
 type TargetBank = HardwareConfig['banks'][number];
 

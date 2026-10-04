@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useSettings } from '../context/SettingsContext';
-import { updateBaseUrl } from '../api/client';
 import { useDiagnosticsApi } from '../api/diagnostics';
 import { useT } from '../i18n';
 import styles from './ServerUrlSection.module.css';
@@ -66,7 +65,6 @@ export function ServerUrlSection(): React.ReactNode {
     }
 
     setServerBaseUrl(urlInput);
-    updateBaseUrl(urlInput);
     setUrlSuccess(true);
 
     setTimeout(() => {

@@ -5,7 +5,7 @@
  */
 import http from 'http';
 
-export interface SSEFrame {
+interface SSEFrame {
   event: string;
   data: string;
 }

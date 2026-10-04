@@ -18,7 +18,7 @@ const CONVERTED_SAMPLE_RATE = 24_000;
  * stereo. A compressed file can hold an hour in the same room, so it gets a
  * cap sized for the clip it could become - 86 s even at 320 kbps is 3.4 MB.
  */
-export const MAX_WAV_SOURCE_BYTES = 32 * 1024 * 1024;
+const MAX_WAV_SOURCE_BYTES = 32 * 1024 * 1024;
 export const MAX_COMPRESSED_SOURCE_BYTES = 8 * 1024 * 1024;
 
 /**

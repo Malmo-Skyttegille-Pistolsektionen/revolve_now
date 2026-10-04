@@ -86,11 +86,15 @@ describe('the troubleshooting bundle on Expert mode', () => {
     await device({ configWindowOpen: false });
     renderSection();
 
-    // Waited for rather than asserted immediately: the window state arrives
-    // from the device, so "absent" has to survive the response landing.
+    // The window state arrives from the device, so "absent" only means
+    // something once every response has landed - a `waitFor` on the absence
+    // itself passes on the first tick, before any of them.
     await waitFor(() => {
-      expect(screen.queryByTestId('troubleshooting-section')).toBeNull();
+      const queries = queryClient.getQueryCache().getAll();
+      expect(queries.length).toBeGreaterThan(0);
+      expect(queries.every((query) => query.state.status === 'success')).toBe(true);
     });
+    expect(screen.queryByTestId('troubleshooting-section')).toBeNull();
   });
 
   it('appears once somebody has opened the window at the device', async () => {

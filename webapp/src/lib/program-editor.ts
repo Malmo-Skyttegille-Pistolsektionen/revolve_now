@@ -27,7 +27,7 @@ import { BANK_LETTERS, banksRequired, type BankLetter } from './program-document
 export type DraftCommand = 'show' | 'hide' | 'none';
 
 /** What one event says about individual banks. A letter absent follows `command`. */
-export type BankOverrides = Partial<Record<BankLetter, 'show' | 'hide'>>;
+type BankOverrides = Partial<Record<BankLetter, 'show' | 'hide'>>;
 
 export interface DraftEvent {
   /** Stable across reorders, so a React list keyed by it keeps input focus. */

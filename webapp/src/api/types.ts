@@ -61,10 +61,6 @@ export const SSETypes = {
 /** Same shape as `writeWindow` in `GET /config/hardware`, deliberately. */
 export type ConfigWindowPayload = HardwareConfigState['writeWindow'];
 
-export interface HeartbeatPayload {
-  id: number;
-}
-
 /**
  * A failure the device noticed on its own — a clip that will not play, a
  * program file that will not parse. Advisory: run state is unaffected.

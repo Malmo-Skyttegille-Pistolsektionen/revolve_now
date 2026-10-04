@@ -10,16 +10,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { SettingsProvider, useSettings } from '../src/context/SettingsContext';
 import { useControlLockStatus } from '../src/hooks/useControlLockStatus';
 import { createFakeClock } from './mock-server/clock';
-import { enableControlLockElsewhere as enableControlLockOn } from './other-client';
+import { enableControlLockElsewhere } from './other-client';
 import { createMockServer, type MockServer } from './mock-server/server';
 
 // Below 32768, out of the Linux ephemeral range: a runner process can
 // legitimately hold a port in 32768-60999, and the bind would lose the race.
 const PORT = 18080;
-
-function enableControlLockElsewhere(password: string): Promise<string> {
-  return enableControlLockOn(PORT, password);
-}
 
 let server: MockServer;
 let queryClient: QueryClient;
@@ -75,7 +71,7 @@ describe("status is the server's to tell", () => {
     await waitFor(() => expect(result.current.lock.isLoading).toBe(false));
 
     // Somebody else turns the lock on, on the same device.
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
     expect(result.current.lock.controlLockEnabled).toBe(false);
 
     act(() => {
@@ -119,7 +115,7 @@ describe('the three states of the control lock', () => {
   });
 
   it("refuses a second enable while the lock is on, with the server's message", async () => {
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
 
     const { result } = renderControlLock();
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));
@@ -129,7 +125,7 @@ describe('the three states of the control lock', () => {
   });
 
   it('ON + spectator -> ON + holder: login with the right password, rejected with the wrong one', async () => {
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
 
     const { result } = renderControlLock();
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));
@@ -178,7 +174,7 @@ describe('the three states of the control lock', () => {
     // The password-changed case from docs/control-lock-auth-flow.md: the lock was
     // cycled off and on elsewhere, so this client's token is stale.
     localStorage.setItem('rt_settings_control_lock_token', 'a-token-from-a-previous-session');
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
 
     const { result } = renderControlLock();
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));

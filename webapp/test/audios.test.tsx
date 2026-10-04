@@ -3,7 +3,6 @@
 // useControlLockStatus.test.tsx: the mock implements no CORS allowlist.
 // @vitest-environment-options { "url": "http://127.0.0.1:18081" }
 import { readFileSync } from 'fs';
-import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,6 +19,7 @@ import { useSSE } from '../src/hooks/useSSE';
 import { FakeEventSource } from './fake-event-source';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
+import { enableControlLockElsewhere } from './other-client';
 
 // Out of the Linux ephemeral range, and not the port useControlLockStatus.test.tsx
 // binds — vitest runs the two files in parallel.
@@ -98,29 +98,6 @@ function fakeAudioBuffer(length: number, numberOfChannels: number, channels?: Fl
 function adpcmFile(name: string): File {
   const bytes = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data/adpcm/chirp-adpcm.wav'));
   return new File([bytes], name, { type: 'audio/wav' });
-}
-
-/** See useControlLockStatus.test.tsx: a request from another client, so no cookie lands in this page's jar. */
-function enableControlLockElsewhere(password: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ password });
-    const req = http.request(
-      {
-        host: '127.0.0.1',
-        port: PORT,
-        path: '/api/v2/control-lock/enable',
-        method: 'POST',
-        agent: false,
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-      },
-      (res) => {
-        res.resume();
-        res.on('end', () => resolve());
-      },
-    );
-    req.on('error', reject);
-    req.end(body);
-  });
 }
 
 let server: MockServer;
@@ -215,7 +192,7 @@ describe('the audio library', () => {
 
 describe('the control lock gates the mutating controls', () => {
   it('lock ON without a token: view only, no upload form and no row actions', async () => {
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
 
     renderAudios();
     await waitForClips();
@@ -227,7 +204,7 @@ describe('the control lock gates the mutating controls', () => {
   });
 
   it('lock ON with a token: the controls come back', async () => {
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
     localStorage.setItem('rt_settings_control_lock_token', 'a-token');
 
     renderAudios();
@@ -241,7 +218,7 @@ describe('the control lock gates the mutating controls', () => {
   it('a 401 drops the stale token, and the controls go away with it', async () => {
     // The password-changed case: the lock was cycled elsewhere, so this
     // client's token is no longer one the device knows.
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
     localStorage.setItem('rt_settings_control_lock_token', 'a-token-from-a-previous-session');
 
     renderAudios();

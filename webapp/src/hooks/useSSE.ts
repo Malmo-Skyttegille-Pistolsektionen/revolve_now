@@ -44,17 +44,15 @@ export function useSSE(): void {
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
-    let reconnectTimer: NodeJS.Timeout | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let opened = false;
 
     const sseUrl = getSseBaseUrl();
 
     const connect = (): void => {
-      console.log('[SSE] Connecting to', sseUrl);
       eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = (): void => {
-        console.log('[SSE] Connected');
         queryClient.setQueryData(['sse-status'], 'connected');
         // Anything that changed while the stream was down was published to
         // nobody: this channel carries change notifications and sends no
@@ -86,7 +84,6 @@ export function useSSE(): void {
       eventSource.addEventListener(SSETypes.StateUpdate, (event) => {
         try {
           const data = JSON.parse(event.data) as StateUpdatePayload;
-          console.log('[SSE] data', data);
           queryClient.setQueryData(['state'], data);
         } catch (error) {
           console.error('[SSE] Failed to parse stateUpdate', error);
@@ -162,7 +159,6 @@ export function useSSE(): void {
     connect();
 
     return () => {
-      console.log('[SSE] Disconnecting...');
       if (eventSource) {
         eventSource.close();
       }

@@ -41,8 +41,8 @@
 import type { Event, Program, Series } from '../api/types';
 
 /** Per-event clamp `rt::parse_event` applies (`kMinEventMs` / `kMaxEventMs`). */
-export const MIN_EVENT_DURATION_MS = 1;
-export const MAX_EVENT_DURATION_MS = 3_600_000;
+const MIN_EVENT_DURATION_MS = 1;
+const MAX_EVENT_DURATION_MS = 3_600_000;
 
 export interface DocumentIssue {
   /** Where in the document, in the JSON-pointer-ish form the schema uses. */

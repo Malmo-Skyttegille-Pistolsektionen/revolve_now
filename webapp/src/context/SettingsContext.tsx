@@ -35,9 +35,9 @@ const DEFAULT_VALUES = {
  * value, not the absence of one: it means start at once, which is the branch
  * `run.tsx` has always had for it.
  */
-export const START_DELAY_MIN_SECONDS = 0;
-export const START_DELAY_MAX_SECONDS = 60;
-export const START_DELAY_STEP_SECONDS = 5;
+const START_DELAY_MIN_SECONDS = 0;
+const START_DELAY_MAX_SECONDS = 60;
+const START_DELAY_STEP_SECONDS = 5;
 
 /**
  * Every delay that can be chosen: 0, then 5 s to 60 s. The editors are
@@ -69,7 +69,7 @@ function clampStartDelaySeconds(seconds: number): number {
   );
 }
 
-export interface Settings {
+interface Settings {
   serverBaseUrl: string;
   startDelaySeconds: number;
   theme: ThemePreference;
