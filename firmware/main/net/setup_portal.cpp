@@ -10,9 +10,9 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_netif.h"
-// Must follow esp_netif.h: the vendored dns_server.h uses esp_ip4_addr_t
-// without including the header that declares it, and it stays byte-identical
-// to upstream, so the ordering is fixed here rather than there.
+// Must follow esp_netif.h: dns_server.h uses esp_ip4_addr_t without including
+// the header that declares it, as upstream's does, so the ordering is fixed
+// here rather than by patching the fork further.
 #include "dns_server.h"
 #include "ssid_choice.h"
 #include "esp_wifi.h"
@@ -413,18 +413,19 @@ void run() {
 
   // Answers every A query with our own address, so any hostname a phone probes
   // lands on the setup page.
-  // ESP-IDF 6.0 turned on -Werror=missing-field-initializers, and the vendored
-  // DNS_SERVER_CONFIG_SINGLE macro does not initialise every member. The header
-  // stays byte-identical to upstream, so the suppression lives here.
+  // ESP-IDF 6.0 turned on -Werror=missing-field-initializers, and the
+  // DNS_SERVER_CONFIG_SINGLE macro, unchanged from upstream, does not
+  // initialise every member.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
   static dns_server_config_t dns_cfg = DNS_SERVER_CONFIG_SINGLE("*", "WIFI_AP_DEF");
 #pragma GCC diagnostic pop
-  // The vendored server logs "Waiting for data" once per loop turn. Upstream
+  // The forked server logs "Waiting for data" once per loop turn. Upstream
   // that is once per query; our local SO_RCVTIMEO of 250 ms - added so the task
   // can be stopped without deadlocking lwIP - makes it four lines a second,
-  // forever. The portal is the recovery path, so the console has to stay
-  // readable while it is up (#157). Errors and the address still print.
+  // forever, on top of the per-query lines the fork raised to INFO. The portal
+  // is the recovery path, so the console has to stay readable while it is up
+  // (#157). Errors and the address still print.
   esp_log_level_set("example_dns_redirect_server", ESP_LOG_WARN);
   start_dns_server(&dns_cfg);
 
