@@ -140,12 +140,21 @@ bool write_upload_index() {
   }
   out += '}';
 
+  // Staged and renamed into place, as programs::write_program does: a power
+  // cut mid-write would otherwise lose the index of every uploaded clip.
   storage::make_dirs(kUploadAudioDir);
-  FILE *f = fopen(index_path(kUploadAudioDir).c_str(), "wb");
+  const std::string path = index_path(kUploadAudioDir);
+  const std::string staging = path + ".tmp";
+  FILE *f = fopen(staging.c_str(), "wb");
   if (f == nullptr) return false;
   const size_t written = fwrite(out.data(), 1, out.size(), f);
   fclose(f);
-  return written == out.size();
+  // ::remove, not remove: unqualified lookup stops at audios::remove(int32_t).
+  if (written != out.size() || ::rename(staging.c_str(), path.c_str()) != 0) {
+    (void)::remove(staging.c_str());
+    return false;
+  }
+  return true;
 }
 
 }  // namespace
