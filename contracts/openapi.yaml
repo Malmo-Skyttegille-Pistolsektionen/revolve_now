@@ -109,11 +109,16 @@ info:
       no body (with the CORS headers above when the origin is allowed).
       Registered because nothing else answers `OPTIONS`, and a preflight that
       404s fails the real request behind it.
-    - `GET /*` — the built webapp, served from the LittleFS path
-      `/storage/webapp/` with `index.html` as the default file. Registered
-      last so it can never shadow an API route.
+    - `GET /*` — the built webapp, served from `/embedded/webapp/` (a
+      read-only filesystem inside the app image) with `index.html` as the
+      default file. Registered last so it can never shadow an API route.
 
-    An unmatched URI answers `404` with `/problems/route_not_found`.
+    An unmatched URI answers `404` with `/problems/route_not_found`, except
+    for a `GET` that looks like a webapp page: outside `/api` and `/sse`, with
+    no file extension in its last segment. That answers `200` with the
+    webapp's `index.html`, so a reload on a client-side route such as `/run`
+    lands on the app. A device built without the webapp answers `404` there
+    too.
 
     Provisioning (the SoftAP setup portal at `/` and `/save`) runs on a
     *separate* HTTP server that is only up when the device has no WiFi
@@ -121,11 +126,15 @@ info:
 
     ## Limits
 
-    - Request bodies and uploads are capped at 1 MiB (`kMaxUploadBytes`,
-      `firmware/main/config.h`). Exceeding it is answered `400` with a
-      **`text/html`** body, not a problem detail — that check lives in the
-      vendored HTTP layer, above every handler, and is the one failure in this
-      API that is not RFC 9457.
+    - Request bodies and uploads are capped at 4.5 MiB
+      (`kMaxFirmwareUploadBytes`, `firmware/main/config.h`), sized to the
+      firmware slot because a firmware image is the largest legitimate upload.
+      Exceeding it is answered `400` with a **`text/html`** body, not a problem
+      detail — that check lives in the vendored HTTP layer, above every
+      handler.
+    - An audio clip is further capped at 1 MiB (`kMaxUploadBytes`), counted as
+      it streams. Past that the upload is abandoned and the vendored layer
+      answers `500`, again with a `text/html` body.
     - At most 12 sockets are open at once, and each connected client holds one
       of them for `/sse/v2` on top of its REST traffic.
 
@@ -447,7 +456,7 @@ paths:
       operationId: createProgram
       description: |
         The `id` in the uploaded document is **ignored**: the device assigns
-        the next free id from 100 upwards and rewrites the file from the
+        the next free id from 1000 upwards and rewrites the file from the
         parsed program, so what is persisted is what will come back on the
         next boot. `readonly` in the document is ignored too — it follows from
         the directory the program lives in, and an upload is never read-only.
@@ -710,9 +719,8 @@ paths:
             - `/problems/start_id_required` — no body, unparseable JSON, or no
               integer `id`.
 
-            "Nothing is loaded" outranks the id check: it is the more precise
-            diagnosis, and it is what a client that has to load something first
-            needs to hear.
+            The id check comes first: a start without a well-formed body is
+            refused as such whether or not anything is loaded.
           content:
             application/problem+json:
               schema:
@@ -721,6 +729,9 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           description: |
+            - `/problems/program_running` — a firmware update is in progress
+              and the device is about to restart. Checked before anything
+              else, the body included.
             - `/problems/start_program_mismatch` — a different program is
               loaded. `detail` names both ids, because the operator needs to
               know what the device actually holds to decide what to do about
@@ -744,8 +755,8 @@ paths:
       description: >-
         Pauses and keeps the last published position, so `start` resumes
         from it. That is the ticker the last `stateUpdate` carried, not the
-        instant the pause arrived. Since `asyncapi.yaml` 3.0.0 replaced the
-        whole-second `tickerSeconds` with `tickerMs`, a pause a few hundred
+        instant the pause arrived. Since `tickerMs` replaced the whole-second
+        `tickerSeconds` (D-16), a pause a few hundred
         milliseconds into a series no longer rewinds to the start of it.
       security:
         - controlLockBearer: []
@@ -1150,6 +1161,23 @@ paths:
                 $ref: "#/components/schemas/Message"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            `/problems/hardware_config_window_closed` — the configuration
+            window is shut. The same guard as `PUT /config/hardware`: this
+            rewrites every value at once.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: |
+            `/problems/program_running` — a program is running. Checked before
+            the window, as on `PUT /config/hardware`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
 
   /wifi:
     get:
@@ -1434,6 +1462,10 @@ paths:
         Refused with `409` while a program is running: the targets are
         mid-sequence and somebody may be downrange acting on what the sequence
         is doing.
+      security:
+        - controlLockBearer: []
+        - controlLockCookie: []
+        - {}
       requestBody:
         required: true
         content:
@@ -1475,11 +1507,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "401":
-          description: The control lock is on and the request carried no valid session.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
+          $ref: "#/components/responses/Unauthorized"
         "409":
           description: |
             `/problems/program_running` — a program is running.
@@ -1595,8 +1623,8 @@ paths:
             - `/problems/audio_format_unsupported` — not a WAV in either
               accepted encoding.
 
-            A body over the 1 MiB ceiling is also answered `400`, but with a
-            `text/html` body rather than a problem detail.
+            A clip over the 1 MiB ceiling is answered by the HTTP layer with a
+            `text/html` body rather than a problem detail (see Limits in `info`).
           content:
             application/problem+json:
               schema:
@@ -2483,7 +2511,7 @@ components:
           format: int32
           description: >-
             The id the device assigned. Uploaded programs and clips are
-            numbered from 100 upwards, keeping them clear of the shipped ids.
+            numbered from 1000 upwards, keeping them clear of the shipped ids.
       additionalProperties: false
 
     StartRequest:
@@ -2759,7 +2787,7 @@ components:
       properties:
         name:
           type: string
-          description: The partition label from `partitions.csv`, e.g. `storage`.
+          description: The partition label from `partitions.csv`, e.g. `userdata`.
         kind:
           type: string
           enum: [app, data]
@@ -2931,7 +2959,7 @@ components:
           type: integer
           minimum: 0
           description: >-
-            The `storage` partition's size. Kept alongside `partitions`, which
+            The `userdata` partition's size. Kept alongside `partitions`, which
             reports the same figure — this pair predates it and clients still
             read it.
         storageUsedBytes:
@@ -2940,7 +2968,7 @@ components:
         partitions:
           type: array
           description: >-
-            Every partition in the flash table, in flash-offset order. `storage`
+            Every partition in the flash table, in flash-offset order. `userdata`
             is not the only one that can fill: the app slots decide whether an
             over-the-air image will fit, and NVS holds the provisioned
             credentials.

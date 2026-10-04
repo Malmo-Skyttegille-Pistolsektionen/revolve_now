@@ -237,7 +237,7 @@ export interface paths {
         /**
          * Upload a program
          * @description The `id` in the uploaded document is **ignored**: the device assigns
-         *     the next free id from 100 upwards and rewrites the file from the
+         *     the next free id from 1000 upwards and rewrites the file from the
          *     parsed program, so what is persisted is what will come back on the
          *     next boot. `readonly` in the document is ignored too — it follows from
          *     the directory the program lives in, and an upload is never read-only.
@@ -385,7 +385,7 @@ export interface paths {
         put?: never;
         /**
          * Pause the running program
-         * @description Pauses and keeps the last published position, so `start` resumes from it. That is the ticker the last `stateUpdate` carried, not the instant the pause arrived. Since `asyncapi.yaml` 3.0.0 replaced the whole-second `tickerSeconds` with `tickerMs`, a pause a few hundred milliseconds into a series no longer rewinds to the start of it.
+         * @description Pauses and keeps the last published position, so `start` resumes from it. That is the ticker the last `stateUpdate` carried, not the instant the pause arrived. Since `tickerMs` replaced the whole-second `tickerSeconds` (D-16), a pause a few hundred milliseconds into a series no longer rewinds to the start of it.
          */
         post: operations["stopProgram"];
         delete?: never;
@@ -1308,7 +1308,7 @@ export interface components {
         CreatedId: {
             /**
              * Format: int32
-             * @description The id the device assigned. Uploaded programs and clips are numbered from 100 upwards, keeping them clear of the shipped ids.
+             * @description The id the device assigned. Uploaded programs and clips are numbered from 1000 upwards, keeping them clear of the shipped ids.
              */
             id: number;
         };
@@ -1429,7 +1429,7 @@ export interface components {
             readonly: boolean;
         };
         PartitionInfo: {
-            /** @description The partition label from `partitions.csv`, e.g. `storage`. */
+            /** @description The partition label from `partitions.csv`, e.g. `userdata`. */
             name: string;
             /** @enum {string} */
             kind: "app" | "data";
@@ -1495,10 +1495,10 @@ export interface components {
             runningPartition: string;
             /** @description Whether a coredump image is waiting to be collected — that is, whether `GET /diagnostics/bundle` would carry a `coredump.bin`. False is the normal case: nothing has panicked since the partition was last erased, which is not something any update path does. */
             coredumpPresent: boolean;
-            /** @description The `storage` partition's size. Kept alongside `partitions`, which reports the same figure — this pair predates it and clients still read it. */
+            /** @description The `userdata` partition's size. Kept alongside `partitions`, which reports the same figure — this pair predates it and clients still read it. */
             storageTotalBytes: number;
             storageUsedBytes: number;
-            /** @description Every partition in the flash table, in flash-offset order. `storage` is not the only one that can fill: the app slots decide whether an over-the-air image will fit, and NVS holds the provisioned credentials. */
+            /** @description Every partition in the flash table, in flash-offset order. `userdata` is not the only one that can fill: the app slots decide whether an over-the-air image will fit, and NVS holds the provisioned credentials. */
             partitions: components["schemas"]["PartitionInfo"][];
             programCount: number;
             audioCount: number;
@@ -2158,9 +2158,8 @@ export interface operations {
              *     - `/problems/start_id_required` — no body, unparseable JSON, or no
              *       integer `id`.
              *
-             *     "Nothing is loaded" outranks the id check: it is the more precise
-             *     diagnosis, and it is what a client that has to load something first
-             *     needs to hear.
+             *     The id check comes first: a start without a well-formed body is
+             *     refused as such whether or not anything is loaded.
              */
             400: {
                 headers: {
@@ -2172,7 +2171,10 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             /**
-             * @description - `/problems/start_program_mismatch` — a different program is
+             * @description - `/problems/program_running` — a firmware update is in progress
+             *       and the device is about to restart. Checked before anything
+             *       else, the body included.
+             *     - `/problems/start_program_mismatch` — a different program is
              *       loaded. `detail` names both ids, because the operator needs to
              *       know what the device actually holds to decide what to do about
              *       it. The run state is untouched and no `stateUpdate` is published.
@@ -2534,6 +2536,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /**
+             * @description `/problems/hardware_config_window_closed` — the configuration
+             *     window is shut. The same guard as `PUT /config/hardware`: this
+             *     rewrites every value at once.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /**
+             * @description `/problems/program_running` — a program is running. Checked before
+             *     the window, as on `PUT /config/hardware`.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     getWifiStatus: {
@@ -2788,15 +2815,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The control lock is on and the request carried no valid session. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
             /**
              * @description `/problems/program_running` — a program is running.
              *
@@ -2895,8 +2914,8 @@ export interface operations {
              *     - `/problems/audio_format_unsupported` — not a WAV in either
              *       accepted encoding.
              *
-             *     A body over the 1 MiB ceiling is also answered `400`, but with a
-             *     `text/html` body rather than a problem detail.
+             *     A clip over the 1 MiB ceiling is answered by the HTTP layer with a
+             *     `text/html` body rather than a problem detail (see Limits in `info`).
              */
             400: {
                 headers: {

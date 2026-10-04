@@ -1748,7 +1748,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     }
 
     // POST /programs - Requires auth. The document's id is ignored: the device
-    // assigns the next free one from 100 up and stores what it parsed.
+    // assigns the next free one from 1000 up and stores what it parsed.
     if (endpoint === '/programs' && req.method === 'POST') {
       if (!checkControlLockAuth(req, res)) return;
       const raw = parseJsonObject(await parseBody(req));
