@@ -20,9 +20,13 @@ const rt::Program *get(int32_t id);
 
 const std::map<int32_t, rt::Program> &all();
 
+// add_uploaded()'s two failures, kept apart because they are answered
+// differently: the client's document (400) versus the device's flash (500).
+constexpr int32_t kUploadInvalid = -1;
+constexpr int32_t kUploadWriteFailed = -2;
+
 // Persist an uploaded document and add it, assigning the next free id from
-// kFirstUploadId. Returns the new id, or -1 if the document is invalid or
-// could not be written.
+// kFirstUploadId. Returns the new id, or one of the two values above.
 int32_t add_uploaded(const char *json, size_t len);
 
 enum class UpdateResult {

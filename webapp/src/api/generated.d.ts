@@ -1895,6 +1895,11 @@ export interface operations {
              */
             400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
+            /**
+             * @description - `/problems/program_store_failed` — the document was valid but
+             *       could not be written to flash. Nothing was added.
+             */
+            500: components["responses"]["Problem"];
         };
     };
     getProgram: {

@@ -424,6 +424,8 @@ void register_program_routes() {
     // otherwise be parsed as the prefix before it and rejected with a
     // misleading error.
     const int32_t id = programs::add_uploaded(body, length);
+    if (id == programs::kUploadWriteFailed)
+      return send_problem(res, rt::problem::kProgramStoreFailed, "Could not store program");
     if (id < 0) return send_problem(res, rt::problem::kProgramInvalid, "Invalid program");
 
     sse_hub::broadcast_library_changed(rt::library_kind::kProgram);
