@@ -168,7 +168,7 @@ esp_err_t bound_body(PsychicRequest *req, PsychicResponse *res, const PsychicMid
 }
 
 // s_server.on() with bound_body in front of the handler.
-void on_bounded(const char *uri, int method, PsychicHttpRequestCallback handler) {
+void on_bounded(const char *uri, int method, const PsychicHttpRequestCallback &handler) {
   s_server.on(uri, method, handler)->addMiddleware(bound_body);
 }
 
