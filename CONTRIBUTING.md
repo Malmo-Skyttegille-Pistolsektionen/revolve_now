@@ -142,6 +142,9 @@ cd firmware/host_test && cmake -S . -B build && cmake --build build && \
   (cd build && ctest --output-on-failure)
 
 contracts/validate.sh               # if you touched the API
+
+# if you touched the Python tooling; needs pytest and PyYAML
+python3 -m pytest firmware/tools firmware/scripts .github/scripts
 ```
 
 Every check runs on every pull request, deliberately — a required check that

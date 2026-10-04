@@ -99,3 +99,27 @@ jobs:
       # being built.
       - name: firmware sources are actually built
         run: python3 .github/scripts/check_build_membership.py
+
+  # The Python that runs inside the firmware build (packing the embedded
+  # filesystem, transcoding the shipped audio) and the checks that gate CI.
+  # The tests sit beside the code they test; there is no pytest config file.
+  tooling:
+    name: tooling tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14.8'
+
+      - name: Install pytest
+        run: |
+          # renovate: datasource=pypi depName=pytest
+          python -m pip install pytest==9.1.1
+          # renovate: datasource=pypi depName=pyyaml
+          python -m pip install pyyaml==6.0.3
+
+      - name: pytest
+        run: python -m pytest -p no:cacheprovider firmware/tools firmware/scripts .github/scripts

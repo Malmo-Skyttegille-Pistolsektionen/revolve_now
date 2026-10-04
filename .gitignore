@@ -9,5 +9,6 @@
 # Extracted by the contracts workflow to diff a PR against the base branch.
 .contracts-base/
 
-# Python bytecode from the MkDocs hooks
+# Python bytecode, and pytest's cache from the tooling tests
 __pycache__/
+.pytest_cache/
