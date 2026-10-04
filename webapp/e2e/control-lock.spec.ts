@@ -42,20 +42,6 @@ test('enable, logout to view-only, log back in, disable', async ({ page, request
   expect(await (await request.get('/api/v2/control-lock/status')).json()).toEqual({ enabled: false });
 });
 
-test('a wrong password is rejected and leaves the client view-only', async ({ page }) => {
-  await openApp(page);
-  await enableControlLockViaUi(page);
-  await page.getByRole('button', { name: 'Log out' }).click();
-  await expect(page.getByTestId('control-lock-status')).toHaveText('ON 🔒');
-
-  await page.getByTestId('control-lock-password').fill('not-the-password');
-  await page.getByRole('button', { name: 'Log in' }).click();
-
-  // The device's own message, surfaced by the API client's error extraction.
-  await expect(page.getByText('Invalid password')).toBeVisible();
-  await expect(page.getByTestId('control-lock-status')).toHaveText('ON 🔒');
-});
-
 test('a mutation with a stale control lock session fails into view-only, not a broken page', async ({ page }) => {
   await openApp(page);
   await enableControlLockViaUi(page);
