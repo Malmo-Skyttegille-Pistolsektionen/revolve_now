@@ -502,13 +502,28 @@ function banksRequiredOf(program: Program): number {
 function normalizeProgram(raw: Record<string, unknown>, id: number): Program | null {
   let refused = false;
 
-  const rawSeries = Array.isArray(raw.series) ? (raw.series as unknown[]) : [];
+  // `is_array_or_absent` and the per-entry checks in `rt::parse_program`:
+  // absent and `null` are an empty list, any other non-array refuses the
+  // program, and so does an entry of the wrong type.
+  const listOf = (value: unknown): unknown[] => {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) {
+      refused = true;
+      return [];
+    }
+    return value as unknown[];
+  };
+  const recordsOf = (value: unknown): Record<string, unknown>[] => {
+    const list = listOf(value);
+    if (!list.every(isRecord)) refused = true;
+    return list.filter(isRecord);
+  };
 
-  const series: Series[] = rawSeries.filter(isRecord).map((entry) => {
-    const rawEvents = Array.isArray(entry.events) ? (entry.events as unknown[]) : [];
-
-    const events: Event[] = rawEvents.filter(isRecord).map((rawEvent) => {
-      const duration = typeof rawEvent.duration === 'number' ? Math.trunc(rawEvent.duration) : MIN_DURATION_MS;
+  const series: Series[] = recordsOf(raw.series).map((entry) => {
+    const events: Event[] = recordsOf(entry.events).map((rawEvent) => {
+      // Required and an integer, as parse_event has it.
+      if (!Number.isInteger(rawEvent.duration)) refused = true;
+      const duration = Number.isInteger(rawEvent.duration) ? (rawEvent.duration as number) : 0;
       const event: Event = { duration: Math.min(Math.max(duration, MIN_DURATION_MS), MAX_DURATION_MS) };
 
       const command = parseCommand(rawEvent.command);
@@ -518,8 +533,13 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
       const banks = parseBanks(rawEvent.banks);
       if (!banks.ok) refused = true;
       else if (banks.banks !== undefined) event.banks = banks.banks;
-      if (Array.isArray(rawEvent.audio_ids)) {
-        event.audio_ids = (rawEvent.audio_ids as unknown[]).filter((v): v is number => typeof v === 'number');
+      if (rawEvent.audio_ids !== undefined && rawEvent.audio_ids !== null) {
+        const ids = listOf(rawEvent.audio_ids);
+        if (!ids.every((v) => Number.isInteger(v))) refused = true;
+        // An integer outside int32 is dropped, as `is<int32_t>()` drops it.
+        event.audio_ids = ids.filter(
+          (v): v is number => Number.isInteger(v) && (v as number) >= -2147483648 && (v as number) <= 2147483647,
+        );
       }
       return event;
     });

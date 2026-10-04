@@ -358,6 +358,36 @@ describe('program storage', () => {
     expect((await api('/programs', { method: 'POST' })).status).toBe(400);
   });
 
+  // `parse_program` in firmware/lib/rt_logic/program.cpp: a wrongly-typed
+  // value refuses the program rather than reading as its default.
+  it('refuses a missing or wrongly-typed duration, audio id, series or events', async () => {
+    const withEvent = (event: unknown) => ({ title: 'Typed', series: [{ name: 'Serie 1', events: [event] }] });
+    const refused: [string, unknown][] = [
+      ['no duration', withEvent({ command: 'show' })],
+      ['misspelt duration', withEvent({ durration: 5000 })],
+      ['null duration', withEvent({ duration: null })],
+      ['duration as text', withEvent({ duration: '5000' })],
+      ['fractional duration', withEvent({ duration: 500.7 })],
+      ['audio id as text', withEvent({ duration: 1000, audio_ids: ['1'] })],
+      ['null audio id', withEvent({ duration: 1000, audio_ids: [null] })],
+      ['fractional audio id', withEvent({ duration: 1000, audio_ids: [1.5] })],
+      ['audio_ids not a list', withEvent({ duration: 1000, audio_ids: 5 })],
+      ['event not an object', withEvent(5)],
+      ['events not a list', { title: 'Typed', series: [{ name: 'Serie 1', events: {} }] }],
+      ['series not a list', { title: 'Typed', series: 'x' }],
+      ['series entry not an object', { title: 'Typed', series: [5] }],
+    ];
+    for (const [name, body] of refused) {
+      expect((await upload(body)).status, name).toBe(400);
+    }
+
+    // An integer id outside int32 is well-formed, and dropped rather than refused.
+    const created = await upload(withEvent({ duration: 1000, audio_ids: [2_147_483_648, 7] }));
+    expect(created.status).toBe(201);
+    const { id } = await created.json();
+    expect((await (await api(`/programs/${id}`)).json()).series[0].events[0].audio_ids).toEqual([7]);
+  });
+
   // `parse_command` in firmware/lib/rt_logic/program.cpp: a command it does not
   // recognise is a typo, not an instruction, and fails the whole program.
   it('refuses a command that is not show or hide, on create and on replace', async () => {

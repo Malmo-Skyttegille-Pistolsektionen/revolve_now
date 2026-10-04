@@ -84,7 +84,8 @@ export const DIVERGENCES = {
   'audio-id-int32-range': {
     schema: '`type: integer` with no bounds.',
     validator: 'Accepts, and warns that an id outside int32 will be dropped and its clip never play.',
-    firmware: 'parse_event keeps an id only `if (id.is<int32_t>())`; the rest go silently.',
+    firmware:
+      'parse_event refuses a non-integer entry, but an integer that is not `is<int32_t>()` is well-formed and dropped silently.',
   },
   'readonly-imposed-by-device': {
     schema: '`type: boolean`, required — the document states it.',
@@ -298,9 +299,7 @@ const CASES: Case[] = [
     schema: 'refused',
     validator: 'refused',
   },
-  // The firmware would take this one — a missing duration reads as 0 and
-  // clamps to 1 ms — but a 1 ms event is never what the author meant, so both
-  // descriptions refuse it. Deliberately stricter than the device, in step.
+  // The device refuses it too: a misspelt key would otherwise upload as 1 ms.
   { name: 'no duration', doc: withEvent(without(anEvent(), 'duration')), schema: 'refused', validator: 'refused' },
 
   // --- command -------------------------------------------------------------
