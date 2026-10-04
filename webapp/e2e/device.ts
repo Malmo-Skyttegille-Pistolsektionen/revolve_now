@@ -102,7 +102,7 @@ export async function resetDevice(request: APIRequestContext): Promise<void> {
  * Open the app.
  *
  * Always at `/`: the firmware serves the bundle with a plain static handler
- * and no SPA fallback, so a deep link like `/run` is a 404 from LittleFS. `/`
+ * and no SPA fallback, so a deep link like `/run` is a 404 from the device. `/`
  * returns `index.html`, which client-side redirects to `/run`.
  */
 export async function openApp(page: Page): Promise<void> {

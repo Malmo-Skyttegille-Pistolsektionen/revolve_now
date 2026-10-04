@@ -27,6 +27,7 @@ loudly.
 |---|---|---|
 | `RT_TARGET_GPIO` | 5 | Drives the transistor that turns **bank A** |
 | `RT_TARGET_ACTIVE_LOW` | y | Whether **low** shows bank A |
+| `RT_TARGETS_HIDE_AT_BOOT` | n | Hide the targets at boot rather than leave them shown (D-31) |
 | `RT_RGB_LED_ENABLED` | y | Board has an addressable WS2812 |
 | `RT_RGB_LED_GPIO` | 48 | Its pin |
 | `RT_AUDIO_ENABLED` | y | Board has an I2S DAC |

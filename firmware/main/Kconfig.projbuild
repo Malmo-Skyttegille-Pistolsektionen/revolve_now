@@ -53,8 +53,8 @@ config RT_RGB_LED_ENABLED
     bool "Board has an addressable RGB LED"
     default y
     help
-        A WS2812 used as a boot/health indicator: red while joining, yellow in
-        the setup portal, green once serving. Turn off for a board without one;
+        A WS2812 used as a boot/health indicator; the colours are listed in
+        main/io/rgb_led.h. Turn off for a board without one;
         the firmware then skips the driver entirely rather than logging a
         failure on every boot.
 

@@ -29,7 +29,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-16 | `tickerMs` replaces `tickerSeconds` | Decided | 2026-08-20 |
 | D-17 | E2E runs against the firmware, in one CI job | Decided | 2026-08-20 |
 | D-18 | Program validation without ajv; the editor ports later | Decided | 2026-08-20 |
-| D-19 | REST errors become RFC 9457 problem details | Implemented | 2026-08-21 |
+| D-19 | REST errors become RFC 9457 problem details | Decided | 2026-08-21 |
 | D-20 | `Event.command` is a closed vocabulary | Decided | 2026-08-20 |
 | D-21 | An npm `override` must be truthful | Decided | 2026-08-20 |
 | D-22 | `POST /programs/unload` | Decided | 2026-08-21 |
@@ -141,6 +141,9 @@ remove the workarounds when the emulator is fixed.
   driver through MSPI timing tuning, another faulting path. The build half is
   still plain `idf.py`.
 
+**Amended by D-35/D-37 (#227):** the web app and the shipped content now live
+in the application image, not a LittleFS image; LittleFS holds uploads only.
+
 ## D-06 — E2E runs against the real backend, no mock *(Decided 2026-08-20)*
 
 **Decision:** webapp E2E (Playwright) runs against the QEMU-hosted firmware
@@ -149,6 +152,9 @@ demoted to a fast unit fixture.
 
 **Why:** makes mock/API drift structurally impossible — drift was the
 project's repeated failure mode.
+
+**Amended by D-35/D-37 (#227):** the web app and the shipped content now live
+in the application image, not a LittleFS image; LittleFS holds uploads only.
 
 ## D-07 — TUI is an SSE client, not backend-embedded *(Decided 2026-08-20; optional)*
 
@@ -161,7 +167,7 @@ the Linux targets implementation.
 and the SSE payload is serialized from the authoritative executor state under
 the same lock — it *is* the internal state, one serialization away.
 
-## D-08 — Target banks (A/B) deferred *(Deferred 2026-08-20)*
+## D-08 — Target banks (A/B) deferred *(Deferred 2026-08-20; superseded by D-41)*
 
 **Decision:** no bank work in the current plan.
 
@@ -264,7 +270,7 @@ is the only implementation of both)
 **Amended 2026-08-20:** the Audios tab and the Programs list/management
 views are now ported to React (#71, #72). What still exists only in
 `src_legacy` is the **WYSIWYG program editor** (#73) — so `src_legacy`
-stays until that lands. See [D-18](#d-18--program-validation-without-ajv-the-editor-ports-later); CI enforces a gzip size budget.
+stays until that lands. See [D-18](#d-18--program-validation-without-ajv-the-editor-ports-later-decided-2026-08-20); CI enforces a gzip size budget.
 
 **Amended 2026-08-21 (`src_legacy` removed):** the editor is ported (#73), so
 the condition this guardrail was waiting on is met and `src_legacy` is
@@ -374,6 +380,9 @@ framework for the same device).
 **Not covered:** `backend_issue`, which needs audio hardware — QEMU emulates
 no I2S, so the simulator profile builds with `RT_AUDIO_ENABLED` off and the
 event cannot be provoked from outside the device.
+
+**Amended by D-35/D-37 (#227):** the web app and the shipped content now live
+in the application image, not a LittleFS image; LittleFS holds uploads only.
 
 ## D-18 — Program validation without ajv; the editor ports later *(Decided 2026-08-20)*
 
@@ -733,6 +742,9 @@ the comment at `webapp/e2e/audios.spec.ts:35` says shipped clips answer `404`
 to a delete. All three must follow the firmware. Not done here: the React
 Programs and Audios work owns those files in parallel.
 
+**Done since:** the mock answers a shipped delete with `409`
+(`program_readonly` / `audio_readonly`), and both test suites assert it.
+
 ## D-24 — One `libraryChanged` SSE event *(Decided 2026-08-21)*
 
 **Decision:** v2 SSE gains a fourth event, `libraryChanged`, with the payload
@@ -1015,6 +1027,8 @@ of the previous.
    firmware boots from. They are one artifact, released together, under one tag.
    There are no `firmware-*` / `webapp-*` / `resources-*` tag lines, and there is
    no standalone webapp or resources release. Supersedes D-11's prefixes.
+   *Since #227 (D-37) that image is the application image, not LittleFS; the
+   reasoning is unchanged.*
 2. **Tags are bare semver — `2.0.0`.** No `v`, no component prefix, no `X.Y`
    shorthand. The tag string *is* the value the device reports
    (`esp_app_desc_t.version`, `GET /api/v2/version`) and the value the webapp
@@ -1331,6 +1345,133 @@ without it a rebuilt web app would assemble the previous blob.
 which is the disease, so it loses on merits rather than on cost. *A second OTA
 endpoint writing a littlefs image* — destroys uploads, which share the
 partition. Both are recorded in #227.
+## D-36 — Shipped audio is IMA ADPCM, transcoded in the build *(Decided 2026-08-25)*
+
+**Decision:** the shipped clips are transcoded to **IMA ADPCM** by
+`firmware/tools/wav_to_adpcm.py` as part of `idf.py build`, and decoded by
+`rt::decode_ima_adpcm_block` on the way to the DAC. Measured on the real corpus:
+77 clips, 158.8 s, **7.63 MB → 1.96 MB, 3.9×**. Uploaded clips stay PCM;
+transcoding somebody's upload is out of scope, so both formats reach the same
+player and which one a file is comes out of its header. (Narrowed by D-43:
+uploads are transcoded, in the browser.)
+
+**Why ADPCM, given it is the *least* compressed of the options measured.** FLAC
+4.46 MB (lossless), IMA ADPCM 1.96 MB, MP3@64k 1.33 MB, Opus@48k 0.92 MB,
+Opus@32k 0.62 MB. **Size was never the binding constraint — latency was.** At
+1.96 MB the budget already closes, so Opus's extra 1.3 MB buys nothing while
+costing 26 ms of algorithmic delay, a ~200 KB library, and a 48 kHz output rate
+that would change the per-clip I2S clock. These are **spoken range commands**;
+they tell a shooter when to fire. Predictability outranks ratio.
+
+FLAC was the serious alternative — bit-exact, so quality parity is a fact
+rather than a judgement. It costs 2.5 MB more per slot plus a real decoder —
+and **that framing is the trap, because it is not a fallback: it does not
+fit.** At 4.46 MB the FLAC corpus is around 180% of the 2,500,000 B audio
+share, and about 119% of the entire 3,774,873 B app-slot ceiling
+(`0x480000` × the 80% `APP_CEILING`) *before a byte of firmware code or the
+embedded web app*. `scripts/check_image_budget.py` fails the build on both
+counts. A 2.5 MB delta reads as affordable against a 4.5 MB slot only until
+you count that the slot is not otherwise empty, and that A/B means every
+shipped byte is paid for twice (#253).
+
+**So if ADPCM fails the on-hardware listening check, the in-budget
+alternatives are Opus and MP3** — at which point the latency argument above
+is the thing to re-examine, not the size one. Choosing FLAC anyway means
+repartitioning, paid for out of `userdata`, and uploads are stored as raw
+PCM rather than transcoded (until D-43), so that trade comes straight out of
+upload seconds.
+
+**A listening test on a laptop settled nothing** and is not cited as evidence
+here: all six codecs were indistinguishable from the original, including
+Opus@32k, which is not bit-transparent. A null result across *every* option
+means the instrument was the limit. Read it as "nothing here is grossly
+broken", not as licence to pick the smallest.
+
+**Standard IMA ADPCM WAV (`wFormatTag = 0x11`), not a private container.** A
+staged file drops into VLC and plays, which is the check that settles "does
+this sound right" without a board.
+
+**No ffmpeg.** It measured the options and must not be a build prerequisite: a
+large system package whose versions do not promise identical bytes, which would
+make builds non-reproducible. A stdlib-only Python encoder is ~150 lines and
+deterministic by construction, and ESP-IDF already requires Python 3.
+
+**The encoder and the decoder must agree on the reconstruction, exactly.** The
+IMA specification writes the step reconstruction as four separately-shifted
+terms; ffmpeg computes `((2n+1)*step)>>3` in one multiply. Those are
+algebraically equal and **numerically are not** — each term truncates on its
+own — so an encoder using one and a decoder the other drift apart over a block.
+Both use the ffmpeg form, and `host_test/test_ima_adpcm` pins the decoder
+against a vector ffmpeg produced, so "the same" is checkable rather than
+asserted.
+
+**Sample rates are left alone.** #227 proposed normalising the single 44.1 kHz
+clip to 24 kHz. Not done: the firmware sets the I2S clock per clip already, so
+a mixed-rate corpus costs nothing, and resampling in pure Python without a
+proper low-pass filter would trade real quality for tidiness.
+
+**The decoder lives in `rt_logic`**, like every other parser here: it turns
+bytes that arrived from outside this process into meaning, so it belongs where
+a host test and a sanitizer reach it. Behind a `FILE*` in an anonymous
+namespace nothing would ever have exercised a malformed block.
+
+## D-37 — One image, and uploads get a partition nothing updates *(Decided 2026-08-25)*
+
+**Decision:** `partitions.csv` is rewritten. The app slots grow from 3 MB to
+**4.5 MB** and carry firmware, web app, shipped audio and shipped programs
+together; `storage` is replaced by **`userdata`** (6.75 MB, uploads only) that
+**no update path writes** — not a guarded write, no write. `nvs` grows to
+80 KB and a 4 KB `nvs_keys` is parked, both paid for out of the 60 KB of dead
+flash the old table left between `otadata` and `ota_0`. The table sums to
+exactly 0x1000000 with no gaps and the app slots are 64 KB-aligned.
+
+Measured occupancy: **3.32 MB of 4.5 MB, 72%** — firmware 1.13, audio 1.96,
+web app 0.19, programs 0.075. (The current figure is kept in
+`firmware/partitions.csv`.)
+
+**What it buys.** One OTA updates everything. **Full A/B rollback for all of
+it**, inherited from the existing app-slot mechanism rather than built. Version
+drift becomes impossible: one binary, one `esp_app_desc_t.version`. And uploads
+are safe **structurally** — `userdata` has no image built for it, so `idf.py
+flash` stops destroying them, which it did every single time before.
+
+**What it costs, stated plainly.** Adding an audio clip becomes a firmware
+release. Every OTA transfers ~3.3 MB rather than ~1.3 MB. And **one cable pass
+over three boards, which also wipes NVS** — each needs its hardware
+configuration captured beforehand and re-provisioning afterwards. Taken now
+because the fleet is three boards, all in hand, and no release has been cut:
+this cost is at its historic minimum and rises with every board built.
+
+**The guardrails land with the table, deliberately.** It becomes effectively
+write-once at the first tag, so `scripts/check_image_budget.py` fails CI at 80%
+of the slot and separately if the shipped audio passes 2.5 MB. Two ceilings
+because they fail differently: the app grows when somebody writes code, the
+audio grows when somebody adds a file, and knowing which happened is the point.
+
+**`userdata` is formatted on first mount**, reversing the old refusal. While
+`storage` also held the shipped content, reformatting on a bad mount would
+silently discard it, so it refused. `userdata` holds only uploads and no image
+is flashed into it, so on a new board there is nothing to preserve and refusing
+would mean refusing to boot.
+
+**`nvs_keys` does nothing today.** It would hold NVS encryption keys; real use
+needs the `encrypted` flag plus eFuse flash encryption, which is one-way. It is
+in the table only because adding it later would cost a second cable pass.
+
+**A side effect worth having:** `readonly` stops depending on care. It is a
+property of the directory a resource was loaded from, and shipped resources now
+live inside the binary — so an uploaded file cannot reach where they are even
+in principle. D-15 (a loaded program cannot be updated via `PUT`) is unaffected.
+
+**Rejected** (all recorded in #227): *a shipped-content A/B pair* — 2 × 8.5 MB
+against 16 MB, which is arithmetic rather than judgement. *A second OTA endpoint
+writing a littlefs image to `storage`* — destroys uploads, which share the
+partition; a file-level merge instead has no rollback. *Manifest-driven file
+sync* — its guarantee is delivered by the partition split at a fraction of the
+code, and it could still return later as a transfer optimisation without
+touching the table. *Shipping audio uncompressed* — 8.65 MB per slot, 17.3 MB
+for the pair; does not fit.
+
 ## D-38 — Repo browsing is one card; titles ride on raw, not the API *(Decided 2026-08-25)*
 
 **Decision:** the Pages editor's two repository cards — "this repo" and
@@ -1501,132 +1642,6 @@ decided on purpose.
 **The guarantee to keep saying out loud:** it gates *changing* the device, never
 *looking at* it. Every `require_control_lock` on the tree was re-read against
 that sentence as part of this.
-
-## D-36 — Shipped audio is IMA ADPCM, transcoded in the build *(Decided 2026-08-25)*
-
-**Decision:** the shipped clips are transcoded to **IMA ADPCM** by
-`firmware/tools/wav_to_adpcm.py` as part of `idf.py build`, and decoded by
-`rt::decode_ima_adpcm_block` on the way to the DAC. Measured on the real corpus:
-77 clips, 158.8 s, **7.63 MB → 1.96 MB, 3.9×**. Uploaded clips stay PCM;
-transcoding somebody's upload is out of scope, so both formats reach the same
-player and which one a file is comes out of its header. (Narrowed by D-43:
-uploads are transcoded, in the browser.)
-
-**Why ADPCM, given it is the *least* compressed of the options measured.** FLAC
-4.46 MB (lossless), IMA ADPCM 1.96 MB, MP3@64k 1.33 MB, Opus@48k 0.92 MB,
-Opus@32k 0.62 MB. **Size was never the binding constraint — latency was.** At
-1.96 MB the budget already closes, so Opus's extra 1.3 MB buys nothing while
-costing 26 ms of algorithmic delay, a ~200 KB library, and a 48 kHz output rate
-that would change the per-clip I2S clock. These are **spoken range commands**;
-they tell a shooter when to fire. Predictability outranks ratio.
-
-FLAC was the serious alternative — bit-exact, so quality parity is a fact
-rather than a judgement. It costs 2.5 MB more per slot plus a real decoder —
-and **that framing is the trap, because it is not a fallback: it does not
-fit.** At 4.46 MB the FLAC corpus is around 180% of the 2,500,000 B audio
-share, and about 119% of the entire 3,774,873 B app-slot ceiling
-(`0x480000` × the 80% `APP_CEILING`) *before a byte of firmware code or the
-embedded web app*. `scripts/check_image_budget.py` fails the build on both
-counts. A 2.5 MB delta reads as affordable against a 4.5 MB slot only until
-you count that the slot is not otherwise empty, and that A/B means every
-shipped byte is paid for twice (#253).
-
-**So if ADPCM fails the on-hardware listening check, the in-budget
-alternatives are Opus and MP3** — at which point the latency argument above
-is the thing to re-examine, not the size one. Choosing FLAC anyway means
-repartitioning, paid for out of `userdata`, and uploads are stored as raw
-PCM rather than transcoded (until D-43), so that trade comes straight out of
-upload seconds.
-
-**A listening test on a laptop settled nothing** and is not cited as evidence
-here: all six codecs were indistinguishable from the original, including
-Opus@32k, which is not bit-transparent. A null result across *every* option
-means the instrument was the limit. Read it as "nothing here is grossly
-broken", not as licence to pick the smallest.
-
-**Standard IMA ADPCM WAV (`wFormatTag = 0x11`), not a private container.** A
-staged file drops into VLC and plays, which is the check that settles "does
-this sound right" without a board.
-
-**No ffmpeg.** It measured the options and must not be a build prerequisite: a
-large system package whose versions do not promise identical bytes, which would
-make builds non-reproducible. A stdlib-only Python encoder is ~150 lines and
-deterministic by construction, and ESP-IDF already requires Python 3.
-
-**The encoder and the decoder must agree on the reconstruction, exactly.** The
-IMA specification writes the step reconstruction as four separately-shifted
-terms; ffmpeg computes `((2n+1)*step)>>3` in one multiply. Those are
-algebraically equal and **numerically are not** — each term truncates on its
-own — so an encoder using one and a decoder the other drift apart over a block.
-Both use the ffmpeg form, and `host_test/test_ima_adpcm` pins the decoder
-against a vector ffmpeg produced, so "the same" is checkable rather than
-asserted.
-
-**Sample rates are left alone.** #227 proposed normalising the single 44.1 kHz
-clip to 24 kHz. Not done: the firmware sets the I2S clock per clip already, so
-a mixed-rate corpus costs nothing, and resampling in pure Python without a
-proper low-pass filter would trade real quality for tidiness.
-
-**The decoder lives in `rt_logic`**, like every other parser here: it turns
-bytes that arrived from outside this process into meaning, so it belongs where
-a host test and a sanitizer reach it. Behind a `FILE*` in an anonymous
-namespace nothing would ever have exercised a malformed block.
-
-## D-37 — One image, and uploads get a partition nothing updates *(Decided 2026-08-25)*
-
-**Decision:** `partitions.csv` is rewritten. The app slots grow from 3 MB to
-**4.5 MB** and carry firmware, web app, shipped audio and shipped programs
-together; `storage` is replaced by **`userdata`** (6.75 MB, uploads only) that
-**no update path writes** — not a guarded write, no write. `nvs` grows to
-80 KB and a 4 KB `nvs_keys` is parked, both paid for out of the 60 KB of dead
-flash the old table left between `otadata` and `ota_0`. The table sums to
-exactly 0x1000000 with no gaps and the app slots are 64 KB-aligned.
-
-Measured occupancy: **3.32 MB of 4.5 MB, 72%** — firmware 1.13, audio 1.96,
-web app 0.19, programs 0.075.
-
-**What it buys.** One OTA updates everything. **Full A/B rollback for all of
-it**, inherited from the existing app-slot mechanism rather than built. Version
-drift becomes impossible: one binary, one `esp_app_desc_t.version`. And uploads
-are safe **structurally** — `userdata` has no image built for it, so `idf.py
-flash` stops destroying them, which it did every single time before.
-
-**What it costs, stated plainly.** Adding an audio clip becomes a firmware
-release. Every OTA transfers ~3.3 MB rather than ~1.3 MB. And **one cable pass
-over three boards, which also wipes NVS** — each needs its hardware
-configuration captured beforehand and re-provisioning afterwards. Taken now
-because the fleet is three boards, all in hand, and no release has been cut:
-this cost is at its historic minimum and rises with every board built.
-
-**The guardrails land with the table, deliberately.** It becomes effectively
-write-once at the first tag, so `scripts/check_image_budget.py` fails CI at 80%
-of the slot and separately if the shipped audio passes 2.5 MB. Two ceilings
-because they fail differently: the app grows when somebody writes code, the
-audio grows when somebody adds a file, and knowing which happened is the point.
-
-**`userdata` is formatted on first mount**, reversing the old refusal. While
-`storage` also held the shipped content, reformatting on a bad mount would
-silently discard it, so it refused. `userdata` holds only uploads and no image
-is flashed into it, so on a new board there is nothing to preserve and refusing
-would mean refusing to boot.
-
-**`nvs_keys` does nothing today.** It would hold NVS encryption keys; real use
-needs the `encrypted` flag plus eFuse flash encryption, which is one-way. It is
-in the table only because adding it later would cost a second cable pass.
-
-**A side effect worth having:** `readonly` stops depending on care. It is a
-property of the directory a resource was loaded from, and shipped resources now
-live inside the binary — so an uploaded file cannot reach where they are even
-in principle. D-15 (a loaded program cannot be updated via `PUT`) is unaffected.
-
-**Rejected** (all recorded in #227): *a shipped-content A/B pair* — 2 × 8.5 MB
-against 16 MB, which is arithmetic rather than judgement. *A second OTA endpoint
-writing a littlefs image to `storage`* — destroys uploads, which share the
-partition; a file-level merge instead has no rollback. *Manifest-driven file
-sync* — its guarantee is delivered by the partition split at a fraction of the
-code, and it could still return later as a transfer optimisation without
-touching the table. *Shipping audio uncompressed* — 8.65 MB per slot, 17.3 MB
-for the pair; does not fit.
 
 ## D-41 — Target banks: letters, baseline plus overrides, refuse rather than clamp *(Decided 2026-09-08)*
 

@@ -130,8 +130,8 @@ the device always matches it, however the device was updated.
 That includes an update sent over the network, which used to be the awkward
 case: it replaced the firmware and left the web app behind, so a device could
 serve a page older than the firmware running it until somebody flashed it over
-USB. That cannot happen any more. The shipped programs and audio are still
-stored separately and are still not updated over the network.
+USB. That cannot happen any more, and the shipped programs and audio are part
+of the same image, so they are updated with it.
 
 So a mismatch now means one thing: **this page did not come from that device.**
 A development build, or a copy served from a laptop, pointed at a board built

@@ -148,7 +148,7 @@ workflows both calling `deploy-pages` would race each other for it.
 
 The E2E suite (`e2e/`, Playwright) runs against the **real firmware** booted in
 QEMU — not the mock server, and not a dev-server proxy. The webapp is built,
-its `dist` is baked into the LittleFS image through `RT_WEBAPP_DIR`, that image
+its `dist` is baked into the application image through `RT_WEBAPP_DIR`, that image
 is booted, and the browser is pointed at the forwarded guest port. The bundle
 under test is the artefact the board actually serves, so the webapp cannot
 drift away from the backend without a red build.

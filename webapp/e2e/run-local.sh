@@ -5,7 +5,7 @@
 #   . ~/esp/esp-idf-6.0.2/export.sh
 #   webapp/e2e/run-local.sh                 # or: npm run e2e:local
 #
-# It builds the webapp, bakes `dist` into the LittleFS image the firmware
+# It builds the webapp, bakes `dist` into the application image the firmware
 # flashes (RT_WEBAPP_DIR), boots that image in QEMU, and runs Playwright
 # against the forwarded guest port. No mock and no dev server: what the browser
 # talks to is the same binary the board runs.
@@ -64,7 +64,7 @@ if [ "${SKIP_BUILD}" -eq 0 ]; then
     (cd "${WEBAPP_DIR}" && npm run build)
 
     # RT_WEBAPP_DIR defaults to ../webapp/dist, so the build above is what gets
-    # baked into the LittleFS image by the build below. Order matters.
+    # baked into the application image by the build below. Order matters.
     echo "==> Building the QEMU firmware profile with that dist baked in"
     "${REPO_ROOT}/firmware/scripts/run-qemu.sh" --build-only
 fi

@@ -4,7 +4,7 @@ import { openApp } from './device';
 /**
  * The webapp and the firmware are one artifact under one tag (D-29), and this
  * is the check that says so against the real thing: the bundle the browser is
- * running was baked into the LittleFS image of the firmware answering the API,
+ * running was baked into the application image of the firmware answering the API,
  * so the version it displays must be exactly the one the device reports.
  *
  * A failure here means the two `git describe` invocations - Vite's in

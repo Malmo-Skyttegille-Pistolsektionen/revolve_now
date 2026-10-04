@@ -10,9 +10,8 @@ Eigenbrod TP2 rotation target system. It runs shooting programs — turning the
 targets over a GPIO and playing spoken commands over I2S — and serves the React
 webapp over REST (`/api/v2`) and SSE (`/sse/v2`).
 
-It is a port of `rotation_target_backend_esp32_micropython` at its API v2
-revision. Both backends serve the same contract and are meant to stay
-interchangeable from the webapp's point of view.
+It began as a port of the now-retired `rotation_target_backend_esp32_micropython`
+at its API v2 revision; the contract it serves is [`../contracts/`](../contracts/README.md).
 
 > ⚠️ **This firmware controls targets on a live shooting range.** The target
 > position and the audio commands are what tell shooters when to fire and when
@@ -37,8 +36,9 @@ datasheet: **ESP32-S3 (QFN56) rev v0.2, 16 MB quad flash @ 3.3 V, embedded
 "flash type: quad" reading refers to the flash only, and selecting the wrong
 PSRAM mode leaves it undetected at boot rather than failing loudly.
 
-Pins live in `main/config.h`, ported from the MicroPython `config.py`: target
-GPIO5, I2S BCK 10 / DIN 11 / LCK 12, WS2812 on 48. The two "ESP32-C6" comments
+Pin defaults live in `main/Kconfig.projbuild` (table in
+[`docs/HARDWARE.md`](docs/HARDWARE.md#configuration)), ported from the
+MicroPython `config.py`. The two "ESP32-C6" comments
 in that MicroPython file are wrong; `RGG_LED_PIN = 48` is the clue that fits.
 
 ## Build, flash, test

@@ -22,13 +22,12 @@ The control lock is opt-in and lives in RAM only, so a reboot returns the device
 the unprotected state. **Until a client enables it, every mutating endpoint is
 open** — including `POST /api/v2/targets/show` and `POST /api/v2/programs/start`.
 
-This is parity with the frontend mock contract and the MicroPython backend, and
-changing it unilaterally would break the interchangeability the two backends are
-built for. It is documented in [`docs/api-v2.md`](docs/api-v2.md#auth).
+It is documented in [`docs/api-v2.md`](docs/api-v2.md#auth).
 
 If that posture is not acceptable for a given deployment, the fix is to persist
-the password in NVS and provision it out of band — a change to the shared
-contract, and one that should be agreed across the backends and the webapp.
+the password in NVS and provision it out of band — a change to the contract in
+[`../contracts/`](../contracts/README.md), the firmware and the webapp
+together.
 
 ### First caller sets the password
 

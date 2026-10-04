@@ -5,7 +5,7 @@ test.beforeEach(async ({ request }) => {
   await resetDevice(request);
 });
 
-test('the app is served out of the LittleFS image, pre-compressed', async ({ page }) => {
+test('the app is served out of the app image, pre-compressed', async ({ page }) => {
   // Recorded before the navigation so the module script's response is caught.
   // `index-*` because `index.html` is the only entry: it was `main-*` while the
   // build named its inputs to keep `legacy.html` alongside it.

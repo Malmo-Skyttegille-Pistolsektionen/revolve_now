@@ -39,7 +39,7 @@ short and identical for every occurrence of a type, so it says nothing about
 may change at any time. `instance` is omitted: it identifies a single
 occurrence and there are no request ids on this device.
 
-The reason this exists is that four distinct refusals answer `409` and a client
+The reason this exists is that many distinct refusals answer `409` and a client
 has to react differently to each. Before D-19 the only way to tell them apart
 was to string-match English prose — which broke on any rewording and could
 never be translated for a Swedish club.
@@ -230,7 +230,7 @@ different reasons.
 | `unload` | Clears the selection; `409` while running |
 
 When a series finishes and another follows, execution pauses at the start of the
-next series and the targets are hidden. When the last series finishes, execution
+next series and the targets stay where the last event left them (D-31). When the last series finishes, execution
 stops with the series still selected.
 
 `start` carries `{"id": N}` — the program the caller decided to start — and a
@@ -349,7 +349,7 @@ incident is diagnosable without a USB cable:
   "freePsramBytes": 8210432,
   "runningPartition": "ota_0",
   "coredumpPresent": true,
-  "storageTotalBytes": 10223616, "storageUsedBytes": 7812096,
+  "storageTotalBytes": 7077888, "storageUsedBytes": 524288,
   "programCount": 7, "audioCount": 77,
   "ipAddress": "192.168.1.42",
   "banks": [                        // one entry per bank, lettered by position
@@ -457,7 +457,7 @@ the two writes it applies — D-42 for why, and for why the setup portal
 ## Uploads
 
 `POST /api/v2/programs` takes a JSON body. The id in the document is ignored:
-the device assigns the next free id from 100 and rewrites the file from the
+the device assigns the next free id from 1000 (`kFirstUploadId`) and rewrites the file from the
 parsed program, so what is persisted is what will come back on the next boot.
 Unknown fields are dropped in that rewrite, and each `duration` is clamped to
 1…3600000 ms. Posting a document that carries an existing id creates a second

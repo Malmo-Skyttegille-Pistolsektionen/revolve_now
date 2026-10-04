@@ -51,19 +51,19 @@ client could break on — a removed field, a narrowed type, a changed status cod
 — is a new `/api/v3` prefix, which means a deliberate migration for the webapp
 and every other client, not a quiet edit here.
 
-**Recorded exceptions, D-16, D-23, D-27, D-19, D-40 and D-41 (stage 4):**
+**Recorded exceptions, D-16, D-23, D-27, D-19, D-40, D-41 (stage 4) and D-44:**
 `tickerSeconds` was replaced by `tickerMs` in the `stateUpdate` payload without
 moving to `/sse/v3`; `DELETE` on a read-only program or clip changed from `404`
 to `409`; `POST /programs/start` grew a **required** body; every error body
 changed from `{"error": "prose"}` to an RFC 9457 problem detail served as
 `application/problem+json`; the control lock's route segment, problem slugs,
-response field, security schemes and cookie were all renamed; and the
+response field, security schemes and cookie were all renamed; the
 single-target fields (`targetStatus`, `HardwareConfig.targetGpio` /
 `targetActiveLow`, `DiagnosticsInfo.targetGpio` / `targetGpioLevel`) were
-removed in favour of `banks` and `targetBanks` — none of them moving to
-`/api/v3`. The webapp ships inside the firmware image, so client and server are
-deployed atomically and there is no deployed client to break; no release has
-ever been cut. See `docs/DECISIONS.md`.
+removed in favour of `banks` and `targetBanks`; and the default host in both
+specs' `servers` was renamed — none of them moving to `/api/v3`. The webapp
+ships inside the firmware image, so client and server are deployed atomically
+and there is no deployed client to break; no release has ever been cut. See `docs/DECISIONS.md`.
 
 The rule is not "no more exceptions after this one". It is: **an exception is
 available only while no release has been cut, and each one is a decision record

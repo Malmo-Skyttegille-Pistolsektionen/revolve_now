@@ -53,7 +53,7 @@ test('an upload through the UI reaches the device (#250)', async ({ page }) => {
   await expect(page.getByTestId('audios-feedback')).toContainText('Unsupported audio format');
 });
 
-test('the library is the clips the LittleFS image carries, all shipped', async ({ page, request }) => {
+test('the library is the clips the app image carries, all shipped', async ({ page, request }) => {
   const { audios } = (await (await request.get('/api/v2/audios')).json()) as {
     audios: { id: number; title: string; readonly: boolean }[];
   };

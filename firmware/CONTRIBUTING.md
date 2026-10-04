@@ -161,15 +161,15 @@ is already a patched fork; its `CMakeLists.txt` lists the changes.
 
 ## The API contract
 
-[`docs/api-v2.md`](docs/api-v2.md) is shared with the MicroPython backend and
-the webapp. Changing a payload shape means changing it there too, and recording
-any divergence in its "Deviations" section. The two backends are meant to stay
-interchangeable from a client's point of view.
+[`../contracts/`](../contracts/README.md) is canonical, and a payload change
+lands there in the same PR as the implementation — see
+[*The seams*](../AGENTS.md#the-seams). [`docs/api-v2.md`](docs/api-v2.md) is
+the prose behind it; keep it true of what you change.
 
 ## Releases
 
-Version is derived from git — ESP-IDF fills `esp_app_desc_t.version` from
-`git describe --always --tags --dirty`, and `GET /api/v2/version` reports it.
+Version is derived from git at build time — see
+[*Where the version comes from*](../docs/RELEASING.md#where-the-version-comes-from).
 There is no version constant in the source and there must not be one.
 
 Releasing is **not** `git tag && git push --tags`: the `release` workflow is

@@ -99,9 +99,10 @@ prepare  ->  checks  ->  [approval]  ->  build + prerelease + assets
 - **prepare** resolves the version, refuses a ref that is not on main, refuses a
   commit that already carries a release tag, refuses a tag that exists, and
   generates the notes. Nothing durable happens; a dry run stops here.
-- **checks** calls `firmware-build`, `webapp-build`, `webapp-e2e` and `lint` as
-  reusable workflows at the same commit — so the reviewer at the gate approves
-  something already green rather than a version string. All four, because one
+- **checks** calls `firmware-build`, `webapp-build`, `webapp-e2e`, `lint` and
+  `contracts` as reusable workflows at the same commit — so the reviewer at the
+  gate approves something already green rather than a version string. All of
+  them, because one
   image carries all three components: the E2E suite is the only check that
   proves the bundle about to be baked in drives the firmware it is baked into.
 - **build** sits behind the `release` environment (see below), creates the tag
