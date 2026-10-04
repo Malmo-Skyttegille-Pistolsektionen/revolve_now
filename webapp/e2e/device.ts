@@ -2,6 +2,9 @@ import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 import type { StateUpdatePayload } from '../src/api/types';
+import { CONTROL_LOCK_PASSWORD } from './device-constants';
+
+export { CONTROL_LOCK_PASSWORD, SHIPPED_PROGRAM_IDS } from './device-constants';
 
 /**
  * Helpers for driving the one shared device the suite runs against.
@@ -10,9 +13,6 @@ import type { StateUpdatePayload } from '../src/api/types';
  * - there is no fresh fixture to hand out - so every spec calls `resetDevice`
  * in a `beforeEach` and leaves the device in the same state it wants to find.
  */
-
-/** The password every spec turns the control lock on with. See `resetDevice`. */
-export const CONTROL_LOCK_PASSWORD = 'e2e-secret';
 
 /**
  * Program 40 "Fältträning": the shortest shipped program, and the only one
@@ -28,16 +28,6 @@ export const TEST_PROGRAM = {
   /** Index of the first event that shows the targets, and when it starts. */
   firstShowAtSeconds: 7,
 } as const;
-
-/**
- * The shipped image carries exactly these, one JSON file each. Sorted, because
- * every assertion on it sorts the ids it compares.
- *
- * 41 is "Fältträning, 4 mål", the four-bank example (#207): it lists and loads
- * on this one-bank device and is refused only at start, which is the whole
- * point of shipping it.
- */
-export const SHIPPED_PROGRAM_IDS = [1, 2, 20, 40, 41, 50, 100, 101];
 
 const API = '/api/v2';
 

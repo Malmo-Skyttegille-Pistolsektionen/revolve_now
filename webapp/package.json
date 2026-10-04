@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:contract": "vitest run test/mock-server/contract.test.ts",
     "generate:api": "openapi-typescript ../contracts/openapi.yaml -o src/api/generated.d.ts",
     "format": "prettier --write .",
     "e2e": "playwright test",
