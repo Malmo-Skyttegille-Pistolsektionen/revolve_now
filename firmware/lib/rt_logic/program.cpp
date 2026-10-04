@@ -64,12 +64,31 @@ bool parse_banks(JsonVariantConst src, Event &e) {
   return true;
 }
 
+// ArduinoJson's is<int64_t>() is false for a float (`1.5`, and also `1e3` or
+// `1000.0`) and for an integer past INT64_MAX, which still fits uint64_t.
+bool is_integer(JsonVariantConst v) {
+  return v.is<int64_t>() || v.is<uint64_t>();
+}
+
+// Absent and JSON `null` mean "no list". Anything else that is not an array is
+// refused rather than read as empty, for the same reason as `command` (D-20).
+bool is_array_or_absent(JsonVariantConst v) {
+  return v.isNull() || v.is<JsonArrayConst>();
+}
+
 bool parse_event(JsonObjectConst src, Event &e) {
+  // A duration that is present must be an integer: `"5000"` or `500.7` used to
+  // read as 0 and clamp to 1 ms, an upload that succeeds and a target that
+  // never turns. Absent still reads as 0.
+  JsonVariantConst raw_duration = src["duration"];
+  if (!raw_duration.isNull() && !is_integer(raw_duration)) return false;
   // Clamped, not merely read: `duration` is attacker-controlled via program
   // upload, and Series::total_ms() sums these into an int32. Unbounded values
   // overflow that sum (UB), and a negative one makes the run loop complete the
   // series on its first tick. kMaxEventMs is far longer than any real event.
-  const int64_t duration = src["duration"] | static_cast<int64_t>(0);
+  const int64_t duration = raw_duration.is<int64_t>() ? raw_duration.as<int64_t>()
+                           : raw_duration.isNull()    ? 0
+                                                      : kMaxEventMs;  // past INT64_MAX
   // Floor of 1 ms, not 0: locate_event() uses a half-open interval, so a
   // zero-duration event can never contain any elapsed time - its command and
   // audio would be silently skipped rather than fired.
@@ -79,8 +98,12 @@ bool parse_event(JsonObjectConst src, Event &e) {
   if (!parse_command(src["command"], e.command)) return false;
   if (!parse_banks(src["banks"], e)) return false;
 
+  if (!is_array_or_absent(src["audio_ids"])) return false;
   JsonArrayConst ids = src["audio_ids"];
   for (JsonVariantConst id : ids) {
+    if (!is_integer(id)) return false;
+    // An integer outside int32 is dropped, not refused: well-formed, just not an
+    // id this device can have. program-document.ts warns about it.
     if (id.is<int32_t>()) e.audio_ids.push_back(id.as<int32_t>());
   }
   return true;
@@ -90,11 +113,15 @@ bool parse_series(JsonObjectConst src, Series &s) {
   s.name = src["name"] | "";
   s.optional = src["optional"] | false;
 
+  if (!is_array_or_absent(src["events"])) return false;
   JsonArrayConst events = src["events"];
   s.events.reserve(events.size());
-  for (JsonObjectConst e : events) {
+  for (JsonVariantConst e : events) {
+    // A non-object would otherwise read as an event with every field absent:
+    // 1 ms, no command, no audio.
+    if (!e.is<JsonObjectConst>()) return false;
     Event event;
-    if (!parse_event(e, event)) return false;
+    if (!parse_event(e.as<JsonObjectConst>(), event)) return false;
     s.events.push_back(std::move(event));
   }
 
@@ -133,11 +160,13 @@ bool parse_program(const char *json, size_t len, bool readonly, Program &out, bo
   out.description = root["description"] | "";
   out.readonly = readonly;
 
+  if (!is_array_or_absent(root["series"])) return false;
   JsonArrayConst series = root["series"];
   out.series.reserve(series.size());
-  for (JsonObjectConst s : series) {
+  for (JsonVariantConst s : series) {
+    if (!s.is<JsonObjectConst>()) return false;
     Series parsed;
-    if (!parse_series(s, parsed)) return false;
+    if (!parse_series(s.as<JsonObjectConst>(), parsed)) return false;
     out.series.push_back(std::move(parsed));
   }
 

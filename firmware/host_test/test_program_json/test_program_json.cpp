@@ -269,6 +269,85 @@ void test_a_hostile_duration_is_clamped() {
   TEST_ASSERT_EQUAL_INT32(rt::kMaxEventMs + rt::kMinEventMs, p.series[0].total_ms());
 }
 
+// --- types that used to read as defaults ------------------------------------
+//
+// Each of these once parsed: a wrongly-typed value read as its default, so the
+// upload succeeded and the event ran as 1 ms or without its audio. Refused for
+// the same reason `command` is (D-20).
+
+namespace {
+
+bool event_parses(const char *event) {
+  rt::Program p;
+  const std::string doc = std::string("{\"id\":1,\"series\":[{\"events\":[") + event + "]}]}";
+  return rt::parse_program(doc.c_str(), doc.size(), false, p);
+}
+
+}  // namespace
+
+void test_a_non_integer_duration_fails_the_whole_program() {
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":\"5000\"}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":500.7}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":true}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":[5000]}"));
+}
+
+void test_an_absent_or_integer_duration_still_parses() {
+  TEST_ASSERT_TRUE(event_parses("{}"));
+  TEST_ASSERT_TRUE(event_parses("{\"duration\":null}"));
+  TEST_ASSERT_TRUE(event_parses("{\"duration\":5000}"));
+
+  // Past INT64_MAX is still an integer, and clamps like any other.
+  rt::Program p;
+  const char *doc = "{\"id\":1,\"series\":[{\"events\":[{\"duration\":18446744073709551615}]}]}";
+  TEST_ASSERT_TRUE(rt::parse_program(doc, strlen(doc), false, p));
+  TEST_ASSERT_EQUAL_INT32(rt::kMaxEventMs, p.series[0].events[0].duration_ms);
+}
+
+void test_a_non_integer_audio_id_fails_the_whole_program() {
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[\"1\"]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[null]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[1.5]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[1,\"2\"]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":5}"));
+}
+
+void test_an_audio_id_outside_int32_is_dropped_not_refused() {
+  rt::Program p;
+  const char *doc =
+      "{\"id\":1,\"series\":[{\"events\":[{\"duration\":100,"
+      "\"audio_ids\":[2147483648,7,-2147483649]}]}]}";
+  TEST_ASSERT_TRUE(rt::parse_program(doc, strlen(doc), false, p));
+  TEST_ASSERT_EQUAL_size_t(1, p.series[0].events[0].audio_ids.size());
+  TEST_ASSERT_EQUAL_INT32(7, p.series[0].events[0].audio_ids[0]);
+}
+
+void test_series_that_is_not_an_array_fails_the_whole_program() {
+  rt::Program p;
+  const char *string_series = "{\"id\":1,\"series\":\"x\"}";
+  TEST_ASSERT_FALSE(rt::parse_program(string_series, strlen(string_series), false, p));
+  const char *object_series = "{\"id\":1,\"series\":{}}";
+  TEST_ASSERT_FALSE(rt::parse_program(object_series, strlen(object_series), false, p));
+  const char *non_object_entry = "{\"id\":1,\"series\":[5]}";
+  TEST_ASSERT_FALSE(rt::parse_program(non_object_entry, strlen(non_object_entry), false, p));
+
+  const char *null_series = "{\"id\":1,\"series\":null}";
+  TEST_ASSERT_TRUE(rt::parse_program(null_series, strlen(null_series), false, p));
+}
+
+void test_events_that_is_not_an_array_fails_the_whole_program() {
+  rt::Program p;
+  const char *object_events = "{\"id\":1,\"series\":[{\"events\":{}}]}";
+  TEST_ASSERT_FALSE(rt::parse_program(object_events, strlen(object_events), false, p));
+  const char *string_events = "{\"id\":1,\"series\":[{\"events\":\"x\"}]}";
+  TEST_ASSERT_FALSE(rt::parse_program(string_events, strlen(string_events), false, p));
+  TEST_ASSERT_FALSE(event_parses("5"));
+
+  const char *no_events = "{\"id\":1,\"series\":[{\"name\":\"Empty\"}]}";
+  TEST_ASSERT_TRUE(rt::parse_program(no_events, strlen(no_events), false, p));
+  TEST_ASSERT_EQUAL_size_t(0, p.series[0].events.size());
+}
+
 // --- the command vocabulary ------------------------------------------------
 
 void test_show_and_hide_are_accepted() {
@@ -569,6 +648,12 @@ int main() {
   RUN_TEST(test_a_non_numeric_filename_is_refused);
   RUN_TEST(test_a_filename_id_past_int32_is_refused);
   RUN_TEST(test_a_hostile_duration_is_clamped);
+  RUN_TEST(test_a_non_integer_duration_fails_the_whole_program);
+  RUN_TEST(test_an_absent_or_integer_duration_still_parses);
+  RUN_TEST(test_a_non_integer_audio_id_fails_the_whole_program);
+  RUN_TEST(test_an_audio_id_outside_int32_is_dropped_not_refused);
+  RUN_TEST(test_series_that_is_not_an_array_fails_the_whole_program);
+  RUN_TEST(test_events_that_is_not_an_array_fails_the_whole_program);
 
   RUN_TEST(test_show_and_hide_are_accepted);
   RUN_TEST(test_an_absent_command_is_accepted);

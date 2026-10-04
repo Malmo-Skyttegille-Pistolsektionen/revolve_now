@@ -84,7 +84,8 @@ export const DIVERGENCES = {
   'audio-id-int32-range': {
     schema: '`type: integer` with no bounds.',
     validator: 'Accepts, and warns that an id outside int32 will be dropped and its clip never play.',
-    firmware: 'parse_event keeps an id only `if (id.is<int32_t>())`; the rest go silently.',
+    firmware:
+      'parse_event refuses a non-integer entry, but an integer that is not `is<int32_t>()` is well-formed and dropped silently.',
   },
   'readonly-imposed-by-device': {
     schema: '`type: boolean`, required — the document states it.',
