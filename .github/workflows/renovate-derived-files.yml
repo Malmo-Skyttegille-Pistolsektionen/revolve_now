@@ -40,8 +40,7 @@ jobs:
           # the patch is applied to the branch.
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: ./.github/actions/trust-workspace
 
       # Build directory and SDKCONFIG outside the tree, so the lock is the only
       # file this can change.

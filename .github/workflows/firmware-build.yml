@@ -32,8 +32,23 @@ jobs:
     # Runs first and on its own: the host tests need only IDF's Unity source,
     # not the cross toolchain, so they fail in ~a minute instead of after the
     # firmware build's toolchain download.
-    name: host tests
+    #
+    # The sanitized run is a second entry rather than a replacement for the
+    # plain one: the sanitizers change codegen and force -O1, so a clean
+    # sanitized run is not evidence the -O0 build is clean, or vice versa. The
+    # job names are the required-check contract (see AGENTS.md).
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: host tests
+            build_dir: build
+            cmake_args: -DCMAKE_BUILD_TYPE=Debug
+          - name: host tests (asan+ubsan)
+            build_dir: build-san
+            cmake_args: -DRT_SANITIZE=ON
     defaults:
       run:
         working-directory: firmware/host_test
@@ -61,46 +76,9 @@ jobs:
         env:
           IDF_PATH: ${{ github.workspace }}/esp-idf
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build -j"$(nproc)"
-          cd build && ctest --output-on-failure
-
-  host-test-sanitized:
-    # Same suites under ASan + UBSan. Kept as a separate job rather than
-    # replacing the plain run: the sanitizers change codegen and force -O1, so a
-    # clean sanitized run is not evidence the -O0 build is clean, or vice versa.
-    name: host tests (asan+ubsan)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: firmware/host_test
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          submodules: false
-
-      - name: Check out ESP-IDF (for Unity only)
-        uses: actions/checkout@v7.0.1
-        with:
-          repository: espressif/esp-idf
-          ref: v6.1
-          path: esp-idf
-          submodules: false
-
-      - name: Fetch the Unity submodule
-        # esp-idf vendors Unity's source as a git submodule; a plain
-        # submodules:false checkout leaves components/unity/unity empty.
-        # Fetch only that one submodule rather than all of esp-idf's.
-        working-directory: esp-idf
-        run: git submodule update --init --depth 1 -- components/unity/unity
-
-      - name: Build and run
-        env:
-          IDF_PATH: ${{ github.workspace }}/esp-idf
-        run: |
-          cmake -B build-san -DRT_SANITIZE=ON
-          cmake --build build-san -j"$(nproc)"
-          cd build-san && ctest --output-on-failure
+          cmake -B ${{ matrix.build_dir }} ${{ matrix.cmake_args }}
+          cmake --build ${{ matrix.build_dir }} -j"$(nproc)"
+          cd ${{ matrix.build_dir }} && ctest --output-on-failure
 
   firmware:
     name: firmware (esp32s3)
@@ -116,12 +94,7 @@ jobs:
           # submodule; a plain checkout already brings it along.
           submodules: false
 
-      # The container runs as root over a workspace git considers foreign, so
-      # without this `git describe` fails and CMake bakes "unknown" into the
-      # image instead of a version. Silent until something reads the version
-      # back - which is exactly what the release workflow and the E2E suite do.
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: ./.github/actions/trust-workspace
 
       - name: Build
         shell: bash
@@ -195,8 +168,7 @@ jobs:
         with:
           submodules: false
 
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: ./.github/actions/trust-workspace
 
       # Not in the image's default tool set, and not optional: upstream LLVM
       # has no Xtensa backend, so a plain clang-tidy fails on this firmware
@@ -246,12 +218,7 @@ jobs:
         with:
           submodules: false
 
-      # The container runs as root over a workspace git considers foreign, so
-      # without this `git describe` fails and CMake bakes "unknown" into the
-      # image instead of a version. Silent until something reads the version
-      # back - which is exactly what the release workflow and the E2E suite do.
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: ./.github/actions/trust-workspace
 
       - name: Build the QEMU profile
         shell: bash
