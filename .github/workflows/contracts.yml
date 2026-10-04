@@ -47,7 +47,9 @@ jobs:
       # Pinned like every other tool here: an unpinned CLI can turn main red
       # from an upstream rule change with no commit of ours behind it.
       - name: Install check-jsonschema
-        run: pip install check-jsonschema==0.38.0
+        run: |
+          # renovate: datasource=pypi depName=check-jsonschema
+          pip install check-jsonschema==0.38.0
 
       # Lints openapi.yaml and asyncapi.yaml, checks program.schema.json is a
       # valid schema, and validates every shipped program against it.
