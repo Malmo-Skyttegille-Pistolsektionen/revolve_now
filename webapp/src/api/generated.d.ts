@@ -1265,9 +1265,10 @@ export interface components {
         };
         /**
          * @description An RFC 9457 problem detail — the shape every handler uses for a
-         *     failure, served as `application/problem+json` (D-19). The one
-         *     exception is a request body over the size ceiling, rejected by the
-         *     HTTP layer with a `text/html` body.
+         *     failure, served as `application/problem+json` (D-19). The exception
+         *     is whatever the HTTP layer rejects before a handler runs: an oversized
+         *     body, a malformed multipart upload or oversized headers (see Limits
+         *     in `info`).
          *
          *     RFC 9457 permits extension members; this device emits none, which is
          *     what `additionalProperties: false` records.

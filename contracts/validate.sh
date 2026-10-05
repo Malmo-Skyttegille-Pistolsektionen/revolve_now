@@ -18,6 +18,10 @@ check-jsonschema --schemafile program.schema.json ../resources/programs/files/*.
 # dependency.
 python3 ./check_problem_types.py || status=1
 
+# Program, Series and Event are declared in both the OpenAPI document and the
+# program schema; this fails when their structure drifts apart.
+python3 ./check_program_schema.py || status=1
+
 # Pinned: an unpinned CLI can turn main red from an upstream rule change with
 # no commit of ours behind it. redocly.yaml configures the rules.
 # renovate: datasource=npm depName=@redocly/cli

@@ -135,6 +135,12 @@ info:
     - An audio clip is further capped at 1 MiB (`kMaxUploadBytes`), counted as
       it streams. Past that the upload is abandoned and the vendored layer
       answers `500`, again with a `text/html` body.
+    - Failures raised below the handlers are never problem details: a
+      multipart upload without a boundary is a `400` and one the HTTP layer
+      cannot process a `500`, both `text/html`; request headers over the
+      server's limit are a `431` from ESP-IDF's `esp_http_server`, with a
+      plain-text body. Clients branch on the status when the content type is
+      not `application/problem+json`.
     - At most 12 sockets are open at once, and each connected client holds one
       of them for `/sse/v2` on top of its REST traffic.
 
@@ -2271,9 +2277,10 @@ components:
       type: object
       description: |
         An RFC 9457 problem detail — the shape every handler uses for a
-        failure, served as `application/problem+json` (D-19). The one
-        exception is a request body over the size ceiling, rejected by the
-        HTTP layer with a `text/html` body.
+        failure, served as `application/problem+json` (D-19). The exception
+        is whatever the HTTP layer rejects before a handler runs: an oversized
+        body, a malformed multipart upload or oversized headers (see Limits
+        in `info`).
 
         RFC 9457 permits extension members; this device emits none, which is
         what `additionalProperties: false` records.
