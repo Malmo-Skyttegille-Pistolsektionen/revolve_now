@@ -3,7 +3,7 @@
 #
 # Regenerate with FreeCAD 1.1 (see README.md):
 #   freecadcmd hardware/enclosure/enclosure.py
-# It writes enclosure.FCStd, enclosure-base.step and enclosure-lid.step here.
+# It writes enclosure.FCStd and enclosure-{base,lid}.{step,stl} here.
 #
 # Frame: KiCad (x, y) -> X = x - 100, Y = 150 - y. The board is X 0..100,
 # Y 0..100. Y = 0 is the connector edge (J1, J2, J7, U11), Y = 100 the edge the
@@ -160,9 +160,8 @@ def fit_check():
     return parts
 
 
-def mesh_ok(shape):
-    mesh = MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.05, AngularDeflection=0.2)
-    return mesh.isSolid() and not mesh.hasNonManifolds()
+def mesh_of(shape):
+    return MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.05, AngularDeflection=0.2)
 
 
 def main():
@@ -171,11 +170,13 @@ def main():
     doc.LicenseURL = "https://opensource.org/licenses/MIT"
     base, lid = build_base(), build_lid()
     for name, shp in (("Base", base), ("Lid", lid)):
-        if not (shp.isClosed() and mesh_ok(shp)):
+        mesh = mesh_of(shp)
+        if not (shp.isClosed() and mesh.isSolid() and not mesh.hasNonManifolds()):
             raise RuntimeError(f"{name} would not print as a closed, manifold solid")
         obj = doc.addObject("Part::Feature", name)
         obj.Shape = shp
         shp.exportStep(os.path.join(HERE, f"enclosure-{name.lower()}.step"))
+        mesh.write(os.path.join(HERE, f"enclosure-{name.lower()}.stl"))
         print(f"{name}: {shp.Volume / 1000:.1f} cm3, Z {shp.BoundBox.ZMin:.1f}..{shp.BoundBox.ZMax:.1f}")
     grp = doc.addObject("App::DocumentObjectGroup", "FitCheck")
     for name, shp in fit_check():

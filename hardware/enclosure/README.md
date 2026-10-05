@@ -5,7 +5,8 @@ A 3D-printable box for the rev 1 board: a base tray the board screws into and a 
 | File | What it is |
 |---|---|
 | `enclosure.py` | The parametric model and the only source. Every dimension is a named constant at the top |
-| `enclosure-base.step`, `enclosure-lid.step` | The two parts, ready for a slicer. Bambu Studio and PrusaSlicer import STEP directly |
+| `enclosure-base.step`, `enclosure-lid.step` | The two parts, ready for a slicer. Bambu Studio and PrusaSlicer import STEP directly, and it is the more exact format |
+| `enclosure-base.stl`, `enclosure-lid.stl` | The same two parts as meshes, for slicers or printing services that only take STL |
 | `enclosure.FCStd` | The same model in FreeCAD, with stand-ins for the board and its tall parts in a `FitCheck` group |
 
 ## What it fits
@@ -47,4 +48,4 @@ freecadcmd hardware/enclosure/enclosure.py
 # or: FreeCAD.AppImage freecadcmd hardware/enclosure/enclosure.py
 ```
 
-This rewrites all three output files. The script refuses to save a part that isn't a single closed, manifold solid, and it also fails if a stand-in collides with the walls.
+This rewrites all five output files. The script refuses to save a part that isn't a single closed, manifold solid, and it also fails if a stand-in collides with the walls.
