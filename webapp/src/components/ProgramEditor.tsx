@@ -41,6 +41,7 @@ import { NoticeBanner } from './NoticeBanner';
 import { Timeline } from './Timeline';
 import { downloadJson, programFilename } from '../lib/download';
 import styles from './ProgramEditor.module.css';
+import { IssueList } from './IssueList';
 
 /**
  * What the session is for. `copy` and `edit` both need the full document —
@@ -535,25 +536,13 @@ function ProgramEditorForm({
               {pendingSave.warnings.length > 0 && (
                 <>
                   <p>{t.editor.pendingSave.storedAs}</p>
-                  <ul data-testid='editor-warnings'>
-                    {pendingSave.warnings.map((warning) => (
-                      <li key={`${warning.path}:${warning.message}`}>
-                        <code>{warning.path || '/'}</code> — {warning.message}
-                      </li>
-                    ))}
-                  </ul>
+                  <IssueList issues={pendingSave.warnings} testId='editor-warnings' />
                 </>
               )}
               {pendingSave.carried.length > 0 && (
                 <>
                   <p>{t.editor.pendingSave.carried}</p>
-                  <ul data-testid='editor-carried'>
-                    {pendingSave.carried.map((issue) => (
-                      <li key={`${issue.path}:${issue.message}`}>
-                        <code>{issue.path || '/'}</code> — {issue.message}
-                      </li>
-                    ))}
-                  </ul>
+                  <IssueList issues={pendingSave.carried} testId='editor-carried' />
                 </>
               )}
             </>

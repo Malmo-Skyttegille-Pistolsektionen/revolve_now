@@ -19,6 +19,7 @@ import { PROGRAMS_PATH } from '../lib/pr-url';
 import { fetchRepoAudioCatalogue } from '../lib/github-contents';
 import { parseProgramDocument } from '../lib/program-document';
 import styles from './StandaloneEditorApp.module.css';
+import { IssueList } from '../components/IssueList';
 
 const CANONICAL_OWNER = 'Malmo-Skyttegille-Pistolsektionen';
 const CANONICAL_REPO = 'revolve_now';
@@ -410,13 +411,7 @@ function ConfirmOpen({ opened, onCancel, onConfirm }: ConfirmOpenProps): React.R
       <section className={styles.card} data-testid='picker-confirm-invalid'>
         <h2 className={styles.cardTitle}>{t.standalone.confirm.invalidTitle}</h2>
         <p className={styles.hint}>{opened.originLabel}:</p>
-        <ul className={styles.issues}>
-          {parsed.errors.map((issue) => (
-            <li key={`${issue.path}:${issue.message}`}>
-              <code>{issue.path || '/'}</code> — {issue.message}
-            </li>
-          ))}
-        </ul>
+        <IssueList issues={parsed.errors} className={styles.issues} />
         <button className={styles.button} onClick={onCancel}>
           {t.standalone.confirm.back}
         </button>
