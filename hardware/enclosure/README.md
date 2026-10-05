@@ -35,7 +35,7 @@ The KiCad project has no 3D models, so connector heights and face widths are typ
 | Audio J7 | barrel axis 2.6 mm above the board | `OPENINGS` |
 | USB-C J4 | connector centre 1.63 mm above the board | `OPENINGS` |
 
-Measure the board you have, update the constants, and regenerate. The rev 1 boards in use play audio through a PCM5102A breakout glued onto the board, whose jack is not where J7 is. Measure that jack's position too if the box is for one of those boards.
+The openings are deliberately generous for a first test print, at least 1 mm around each connector body. Tighten them in `OPENINGS` once a print fits. Measure the board you have, update the constants, and regenerate. The rev 1 boards in use play audio through a PCM5102A breakout glued onto the board, whose jack is not where J7 is. Measure that jack's position too if the box is for one of those boards.
 
 ## Printing and assembly
 

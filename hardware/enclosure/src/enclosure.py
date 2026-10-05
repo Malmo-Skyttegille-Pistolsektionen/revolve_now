@@ -51,14 +51,15 @@ LOGO_WIDTH = 90.0   # thinnest stroke is then ~0.75 mm, fine for a 0.4 mm nozzle
 LOGO_DEPTH = 0.6    # into the 2 mm lid top; prints face-down on the bed
 
 # Openings. side: front (Y=0), right (X=100), left (X=0). centre is along the
-# side in board coords; z is relative to PCB top. Widths/heights include clearance.
+# side in board coords; z is relative to PCB top. Widths/heights include clearance:
+# 1 mm or more on every side of the connector body.
 OPENINGS = [
     # ref, side, centre, kind, width, height (rect: bottom at PCB top) / dia + axis z (round)
-    dict(ref="J1 RJ45 Power/Turn 0-1", side="front", c=22.5,   kind="rect", w=16.8, h=14.0),
-    dict(ref="J2 RJ45 Power/Turn 2-3", side="front", c=42.5,   kind="rect", w=16.8, h=14.0),
-    dict(ref="J7 audio PJ-320A",       side="front", c=60.5,   kind="round", d=7.0, z=2.6),
-    dict(ref="U11 Ethernet MagJack",   side="front", c=78.215, kind="rect", w=17.0, h=14.3),
-    dict(ref="J4 USB-C",               side="right", c=84.71,  kind="slot", w=12.5, h=7.0, z=1.63, r=2.5),
+    dict(ref="J1 RJ45 Power/Turn 0-1", side="front", c=22.5,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J2 RJ45 Power/Turn 2-3", side="front", c=42.5,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J7 audio PJ-320A",       side="front", c=60.5,   kind="round", d=9.0, z=2.6),
+    dict(ref="U11 Ethernet MagJack",   side="front", c=78.215, kind="rect", w=19.0, h=16.3),
+    dict(ref="J4 USB-C",               side="right", c=84.71,  kind="slot", w=14.5, h=9.0, z=1.63, r=2.5),
 ]
 # J3 (trigger RJ45, left edge, centre Y=53.44) is not fitted on rev 1; flip on if needed.
 TRIGGER_OPENING = False
@@ -111,7 +112,7 @@ def checked(op, before, label):
 
 def opening_cutter(o):
     """A solid that removes one connector opening from whichever part it crosses."""
-    t = WALL + GAP + 4.0  # cut through the wall and the gap behind it
+    t = WALL + 2.0  # through the wall only, 1 mm either side, so no cutter reaches a post
     if o["kind"] == "rect":
         z0 = Z_PCB_TOP + o.get("z0", -0.01)  # z0: bottom relative to the PCB top
         z1 = z0 + o["h"]
@@ -119,10 +120,10 @@ def opening_cutter(o):
         if o["side"] == "front":
             return Part.makeBox(a1 - a0, t, z1 - z0, V(a0, OUT_Y0 - 1, z0))
         if o["side"] == "back":
-            return Part.makeBox(a1 - a0, t, z1 - z0, V(a0, IN_Y1 - 3, z0))
+            return Part.makeBox(a1 - a0, t, z1 - z0, V(a0, IN_Y1 - 1, z0))
         if o["side"] == "left":
             return Part.makeBox(t, a1 - a0, z1 - z0, V(OUT_X0 - 1, a0, z0))
-        return Part.makeBox(t, a1 - a0, z1 - z0, V(IN_X1 - 3, a0, z0))
+        return Part.makeBox(t, a1 - a0, z1 - z0, V(IN_X1 - 1, a0, z0))
     zc = Z_PCB_TOP + o["z"]
     if o["kind"] == "round":
         # round hole; open downwards to the split plane so the lid drops over the jack
@@ -134,8 +135,17 @@ def opening_cutter(o):
     # slot: rounded rectangle through the right wall. Rotating about Y by 90 deg
     # sends local Z (extrusion) to +X and local X to -Z, so height goes in local X.
     plate = rounded_box(-o["h"] / 2, -o["w"] / 2, o["h"] / 2, o["w"] / 2, 0, t, o["r"])
-    plate.Placement = App.Placement(V(IN_X1 - 3, o["c"], zc), App.Rotation(V(0, 1, 0), 90))
+    plate.Placement = App.Placement(V(IN_X1 - 1, o["c"], zc), App.Rotation(V(0, 1, 0), 90))
     return plate
+
+
+def check_openings_clear_bosses():
+    for o in OPENINGS:
+        cut = opening_cutter(o)
+        for (x, y) in HOLES:
+            boss = Part.makeCylinder(BOSS_D / 2, Z_TOP, V(x, y, 0))
+            if cut.common(boss).Volume > 1e-6:
+                raise RuntimeError(f"{o['ref']} opening would cut into the screw post at {x},{y}")
 
 
 def build_base():
@@ -220,6 +230,7 @@ def write_3mf(base, lid, path):
 
 def main():
     os.makedirs(GENERATED, exist_ok=True)
+    check_openings_clear_bosses()
     doc = App.newDocument("enclosure")
     doc.License = "MIT"  # FreeCAD defaults to "All rights reserved"; the repo is MIT
     doc.LicenseURL = "https://opensource.org/licenses/MIT"
