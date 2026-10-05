@@ -108,7 +108,7 @@ export function ControlLockSection(): React.ReactNode {
             />
             <button
               className={clsx(styles.button, styles.buttonPrimary)}
-              onClick={handleEnable}
+              onClick={() => void handleEnable()}
               disabled={!password.trim() || isPending}
             >
               {isPending ? s.locking : s.turnOn}
@@ -143,7 +143,7 @@ export function ControlLockSection(): React.ReactNode {
             />
             <button
               className={clsx(styles.button, styles.buttonPrimary)}
-              onClick={handleLogin}
+              onClick={() => void handleLogin()}
               disabled={!password.trim() || isPending}
             >
               {isLoginPending ? s.loggingIn : s.logIn}
@@ -173,7 +173,7 @@ export function ControlLockSection(): React.ReactNode {
           </button>
           <button
             className={clsx(styles.button, styles.buttonDestructive)}
-            onClick={handleDisable}
+            onClick={() => void handleDisable()}
             disabled={isPending}
           >
             {isPending ? s.unlocking : s.turnOff}

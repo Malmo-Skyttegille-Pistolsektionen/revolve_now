@@ -97,7 +97,9 @@ describe('connection', () => {
     renderSSE();
     act(() => FakeEventSource.latest.open());
     act(() => FakeEventSource.latest.error());
-    act(() => vi.advanceTimersByTime(5000));
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
 
     act(() => FakeEventSource.latest.open());
@@ -120,10 +122,14 @@ describe('connection', () => {
     expect(first.closed).toBe(true);
     expect(FakeEventSource.instances).toHaveLength(1);
 
-    act(() => vi.advanceTimersByTime(4999));
+    act(() => {
+      vi.advanceTimersByTime(4999);
+    });
     expect(FakeEventSource.instances).toHaveLength(1);
 
-    act(() => vi.advanceTimersByTime(1));
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(FakeEventSource.instances).toHaveLength(2);
     expect(FakeEventSource.latest.closed).toBe(false);
   });

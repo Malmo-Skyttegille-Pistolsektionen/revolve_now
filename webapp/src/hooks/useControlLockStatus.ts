@@ -23,10 +23,10 @@ export function useControlLockStatus() {
     mutationFn: (password: string) => controlLockApi.enable(password),
     onSuccess: (data) => {
       setControlLockToken(data.token);
-      queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
     },
   });
 
@@ -35,10 +35,10 @@ export function useControlLockStatus() {
     mutationFn: (password: string) => controlLockApi.login(password),
     onSuccess: (data) => {
       setControlLockToken(data.token);
-      queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
     },
   });
 
@@ -47,7 +47,7 @@ export function useControlLockStatus() {
     mutationFn: () => controlLockApi.disable(),
     onSuccess: () => {
       logoutControlLock();
-      queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['control-lock-status'] });
     },
   });
 

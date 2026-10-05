@@ -99,7 +99,7 @@ export function ServerUrlSection(): React.ReactNode {
         />
         <button
           className={clsx(styles.button, styles.buttonPrimary)}
-          onClick={handleUrlSave}
+          onClick={() => void handleUrlSave()}
           disabled={!urlValid || !urlChanged}
         >
           {t.common.save}
