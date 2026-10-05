@@ -66,9 +66,13 @@ idf.py -B build-pcb -D SDKCONFIG=build-pcb/sdkconfig \
 | Banks B–D | — | GPIO18, 12, 10 (Turn1–3), added in Expert mode |
 | Active low | yes | yes |
 | I2S BCK / WS / DIN | 10 / 12 / 11 | 47 / 14 / 21 |
-| I2S MCLK | not used | GPIO48, required by the hand-fitted breakout |
+| I2S MCLK | not used | GPIO48, required by the hand-fitted breakout from a cold power-up |
 | Status LED | WS2812 on GPIO48 | off: six APA102s on GPIO0/46, which the driver cannot drive |
 | Serial console | USB Serial/JTAG | off: the native USB pins are not wired. Logs reach UART0 |
+
+**Test MCLK from a cold power-up.** The DAC stays powered through an ESP
+restart and keeps the clock a previous boot gave it, so after a soft restart
+the breakout plays even with MCLK undriven.
 
 **Polarity is the same on both boards.** On the PCB, a high pin lights the
 LTV-847's LED and its transistor conducts, which is the same job the BC547B
