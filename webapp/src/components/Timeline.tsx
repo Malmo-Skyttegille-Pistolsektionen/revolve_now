@@ -4,13 +4,7 @@ import type { Program, Series, Event } from '../api/types';
 import { useT, type Messages } from '../i18n';
 import { aggregateBankState, simulateBanks, type EventBankState } from '../lib/bank-state';
 import { BANK_LETTERS } from '../lib/program-document';
-import {
-  anchorMs,
-  anchorRelativeSeconds,
-  formatRunClock,
-  formatSeconds,
-  seriesTotalMs,
-} from '../lib/run-position';
+import { anchorMs, anchorRelativeSeconds, formatRunClock, formatSeconds, seriesTotalMs } from '../lib/run-position';
 import styles from './Timeline.module.css';
 
 type TimelineProps = {
