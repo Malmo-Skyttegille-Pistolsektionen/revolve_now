@@ -1,0 +1,26 @@
+# Revolve Now - the PCB rev 1 profile.
+#
+# Layered *on top of* sdkconfig.defaults, which stays the PoC (DevKitC-1):
+#
+#   idf.py -B build-pcb \
+#          -D SDKCONFIG=build-pcb/sdkconfig \
+#          -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.pcb-rev1" \
+#          build
+#
+# Pin map and what this board still lacks: docs/HARDWARE.md, "Board profiles".
+
+# Turn0. Refused by the validator until #505 - boot falls back to these
+# defaults and still drives it, but saving any hardware config fails.
+CONFIG_RT_TARGET_GPIO=3
+
+# Six APA102s on GPIO0/46, which the WS2812 driver cannot drive. Off also keeps
+# the driver away from GPIO48, which is the DAC's SCK on this board.
+CONFIG_RT_RGB_LED_ENABLED=n
+
+CONFIG_RT_I2S_BCK_GPIO=47
+CONFIG_RT_I2S_WS_GPIO=14
+CONFIG_RT_I2S_DOUT_GPIO=21
+
+# USB Serial/JTAG only, and the native USB pins are not wired. Logs still
+# reach UART0 (GPIO43/44).
+CONFIG_RT_CONSOLE_ENABLED=n

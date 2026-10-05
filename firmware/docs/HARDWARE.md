@@ -7,8 +7,10 @@ are in use:
 
 | Board | Module | Notes |
 |---|---|---|
-| ESP32-S3-DevKitC-1 N16R8 | ESP32-S3-WROOM-1 N16R8 | Development board. Has an onboard WS2812 on GPIO48. |
-| REVOLVENOW Rev 1 | ESP32-S3-WROOM-1 N16R8 | The club's own board (open source hardware). Trigger outputs with selectable 3.3 / 5 / 12 V rails, Ethernet section, hand-fitted PCM5102A audio breakout on the Rev 1 prototypes. No onboard WS2812. |
+| **PoC** — ESP32-S3-DevKitC-1 N16R8 | ESP32-S3-WROOM-1 N16R8 | The proof of concept: a development board with a BC547B stage and a PCM5102A on jumper wires. Has an onboard WS2812 on GPIO48. |
+| **PCB rev 1** — REVOLVENOW Rev 1 | ESP32-S3-WROOM-1 N16R8 | The club's own board (open source hardware). Trigger outputs with selectable 3.3 / 5 / 12 V rails, Ethernet section, hand-fitted PCM5102A audio breakout on the Rev 1 prototypes. No onboard WS2812. |
+
+Each has its own pin settings; see [Board profiles](#board-profiles).
 
 Confirmed against real silicon with `esptool flash-id`: ESP32-S3 (QFN56)
 rev v0.2, 16 MB **quad** flash at 3.3 V, embedded **8 MB octal** PSRAM. The
@@ -46,6 +48,57 @@ stale — the pin numbers beside them are correct, the chip name is not.
 > switches a relay directly needs it off — and if it is wrong, the boot state in
 > `targets::init()` is inverted, so the targets face away when they should be
 > face-on (D-31).
+
+### Board profiles
+
+`sdkconfig.defaults` is the PoC. The PCB adds `sdkconfig.defaults.pcb-rev1` on
+top, the same way the [QEMU profile](QEMU.md) does:
+
+```bash
+idf.py -B build-pcb -D SDKCONFIG=build-pcb/sdkconfig \
+       -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.pcb-rev1" build
+```
+
+| Setting | PoC | PCB rev 1 |
+|---|---|---|
+| Bank A | GPIO5 | GPIO3 (Turn0) |
+| Banks B–D | — | GPIO18, 12, 10 (Turn1–3), added in Expert mode |
+| Active low | yes | yes |
+| I2S BCK / WS / DIN | 10 / 12 / 11 | 47 / 14 / 21 |
+| I2S MCLK | not used | GPIO48 to the DAC's SCK; not driven yet (#506) |
+| Status LED | WS2812 on GPIO48 | off: six APA102s on GPIO0/46, which the driver cannot drive |
+| Serial console | USB Serial/JTAG | off: the native USB pins are not wired. Logs reach UART0 |
+
+**Polarity is the same on both boards.** On the PCB, a high pin lights the
+LTV-847's LED and its transistor conducts, which is the same job the BC547B
+does on the PoC. So high is hidden and low is shown, and R28's pull-down
+leaves the targets shown at boot.
+
+**Gaps on the PCB rev 1:**
+
+- **GPIO3 is refused** (#505). The board boots on the compiled defaults and
+  drives it, but saving any hardware config fails while bank A is on GPIO3,
+  so banks B–D cannot be added until that is fixed.
+- **Power0–3** (GPIO9, 8, 13, 11) have no firmware support and stay low.
+- **Trigger inputs** (GPIO7, 15, 16, 17) and the **W5500 Ethernet** have no
+  firmware support.
+
+The PCB pin map, from the KiCad netlist in #436:
+
+| Function | GPIO | Connector |
+|---|---|---|
+| Turn0 / Power0 | 3 / 9 | J1 pins 3-4 / 1-2 |
+| Turn1 / Power1 | 18 / 8 | J1 pins 7-8 / 5-6 |
+| Turn2 / Power2 | 12 / 13 | J2 pins 3-4 / 1-2 |
+| Turn3 / Power3 | 10 / 11 | J2 pins 7-8 / 5-6 |
+| Trigger0–3 (inputs, active low) | 7, 15, 16, 17 | J3 |
+| I2S BCK / WS / DIN / MCLK | 47 / 14 / 21 / 48 | PCM5102A (U2) |
+| APA102 data / clock | 0 / 46 | — |
+| UART0 TX / RX | 43 / 44 | R25 / R24 (U7, the FT232RL, is not fitted on rev 1) |
+| FLASH button | 0 | shared with the APA102 data line |
+
+Each output is a bare LTV-847 phototransistor, isolated from the board:
+collector on the odd pin, emitter on the even pin.
 
 ### Target banks
 
@@ -87,7 +140,7 @@ entirely rather than failing at runtime. A target that only turns, with no
 audio, is a supported configuration: programs still run and the API still lists
 clips, they simply do not play.
 
-## Wiring (prototype)
+## Wiring (PoC)
 
 | ESP32 pin | Connects to | Function |
 |---|---|---|
