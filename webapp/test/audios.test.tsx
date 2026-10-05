@@ -20,6 +20,7 @@ import { FakeEventSource } from './fake-event-source';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
 import { enableControlLockElsewhere } from './other-client';
+import { backendIssueAtom } from '../src/lib/sse-store';
 
 // Out of the Linux ephemeral range, and not the port useControlLockStatus.test.tsx
 // binds — vitest runs the two files in parallel.
@@ -582,7 +583,7 @@ describe('backend_issue', () => {
     expect(screen.queryByTestId('backend-issue-banner')).toBeNull();
 
     // What `useSSE` does when a backend_issue frame arrives.
-    queryClient.setQueryData(['backend-issue'], playbackFailed);
+    backendIssueAtom.set(playbackFailed);
 
     const banner = await screen.findByTestId('backend-issue-banner');
     expect(text(banner)).toContain('Could not open /userdata/audio/1000.wav');
@@ -599,7 +600,7 @@ describe('backend_issue', () => {
     expect(screen.queryByTestId('backend-issue-banner')).toBeNull();
 
     // A later issue is a fresh object, so it shows again.
-    queryClient.setQueryData(['backend-issue'], { ...playbackFailed, message: 'Could not configure I2S' });
+    backendIssueAtom.set({ ...playbackFailed, message: 'Could not configure I2S' });
     expect(text(await screen.findByTestId('backend-issue-banner'))).toContain('Could not configure I2S');
   });
 
@@ -607,7 +608,7 @@ describe('backend_issue', () => {
     renderAudios();
     await waitForClips();
 
-    queryClient.setQueryData(['backend-issue'], {
+    backendIssueAtom.set({
       code: 'storage_full',
       message: 'The uploads partition is full',
     } satisfies BackendIssuePayload);
@@ -619,7 +620,7 @@ describe('backend_issue', () => {
     renderAudios();
     await waitForClips();
 
-    queryClient.setQueryData(['backend-issue'], {
+    backendIssueAtom.set({
       code: 'program_invalid',
       message: 'Skipped /userdata/programs/7.json',
     } satisfies BackendIssuePayload);

@@ -18,6 +18,7 @@ export default defineConfig({
     // `styles.active` by its source name. Plain CSS stays stubbed out.
     css: { include: [/\.module\.css$/], modules: { classNameStrategy: 'non-scoped' } },
     include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
+    setupFiles: ['test/setup.ts'],
     restoreMocks: true,
     unstubGlobals: true,
   },

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useProgramsApi } from '../api/programs';
-import type { Program, ProgramSummary, StateUpdatePayload } from '../api/types';
+import type { Program, ProgramSummary } from '../api/types';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NoticeBanner } from '../components/NoticeBanner';
 import { ProgramDetails } from '../components/ProgramDetails';
@@ -22,6 +22,8 @@ import {
   type Notice,
 } from '../lib/program-notices';
 import styles from './programs.module.css';
+import { stateAtom } from '../lib/sse-store';
+import { useSelector } from '@tanstack/react-store';
 
 export const Route = createFileRoute('/programs')({
   component: ProgramsView,
@@ -77,12 +79,7 @@ export function ProgramsView(): React.ReactNode {
 
   // Written by `useSSE`; read here for the "Loaded" marker and to explain the
   // 409 a loaded program answers an update with.
-  const { data: state } = useQuery<StateUpdatePayload | null>({
-    queryKey: ['state'],
-    queryFn: async () => null,
-    initialData: null,
-    enabled: false,
-  });
+  const state = useSelector(stateAtom);
   const loadedProgramId = state?.loadedProgramId ?? null;
   // Null until the first SSE frame: nothing is refused on a guess.
   const bankCount = deviceBankCount(state);

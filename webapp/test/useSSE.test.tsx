@@ -8,6 +8,7 @@ import type { StateUpdatePayload } from '../src/api/types';
 import { SettingsProvider, useSettings } from '../src/context/SettingsContext';
 import { useSSE } from '../src/hooks/useSSE';
 import { FakeEventSource } from './fake-event-source';
+import { backendIssueAtom, sseStatusAtom, stateAtom } from '../src/lib/sse-store';
 
 const RUNNING_STATE: StateUpdatePayload = {
   loadedProgramId: 40,
@@ -72,10 +73,10 @@ describe('connection', () => {
   it('reports connection status on open and on error', () => {
     renderSSE();
     act(() => FakeEventSource.latest.open());
-    expect(queryClient.getQueryData(['sse-status'])).toBe('connected');
+    expect(sseStatusAtom.get()).toBe('connected');
 
     act(() => FakeEventSource.latest.error());
-    expect(queryClient.getQueryData(['sse-status'])).toBe('error');
+    expect(sseStatusAtom.get()).toBe('error');
   });
 
   // The stream carries change notifications and sends no snapshot on connect,
@@ -159,7 +160,7 @@ describe('frames', () => {
     act(() => {
       FakeEventSource.latest.emit('stateUpdate', RUNNING_STATE);
     });
-    expect(queryClient.getQueryData(['state'])).toEqual(RUNNING_STATE);
+    expect(stateAtom.get()).toEqual(RUNNING_STATE);
   });
 
   it('survives a malformed stateUpdate and keeps the last good one', () => {
@@ -170,18 +171,18 @@ describe('frames', () => {
     act(() => {
       FakeEventSource.latest.emit('stateUpdate', '{not json');
     });
-    expect(queryClient.getQueryData(['state'])).toEqual(RUNNING_STATE);
+    expect(stateAtom.get()).toEqual(RUNNING_STATE);
   });
 
   it('treats a heartbeat as proof the stream is alive', () => {
     renderSSE();
     act(() => FakeEventSource.latest.error());
-    expect(queryClient.getQueryData(['sse-status'])).toBe('error');
+    expect(sseStatusAtom.get()).toBe('error');
 
     act(() => {
       FakeEventSource.latest.emit('heartbeat', { id: 3 });
     });
-    expect(queryClient.getQueryData(['sse-status'])).toBe('connected');
+    expect(sseStatusAtom.get()).toBe('connected');
   });
 
   it('delivers a backend_issue instead of dropping it, and keeps running', () => {
@@ -199,19 +200,19 @@ describe('frames', () => {
     act(() => {
       expect(FakeEventSource.latest.emit('backend_issue', issue)).toBe(true);
     });
-    expect(queryClient.getQueryData(['backend-issue'])).toEqual(issue);
+    expect(backendIssueAtom.get()).toEqual(issue);
 
     // An unknown code is a client's problem to tolerate, not the hook's.
     act(() => {
       FakeEventSource.latest.emit('backend_issue', { code: 'something_new_in_v3', message: 'Unheard of' });
     });
-    expect(queryClient.getQueryData(['backend-issue'])).toMatchObject({ code: 'something_new_in_v3' });
+    expect(backendIssueAtom.get()).toMatchObject({ code: 'something_new_in_v3' });
 
     // And the stream still works afterwards.
     act(() => {
       FakeEventSource.latest.emit('stateUpdate', RUNNING_STATE);
     });
-    expect(queryClient.getQueryData(['state'])).toEqual(RUNNING_STATE);
+    expect(stateAtom.get()).toEqual(RUNNING_STATE);
   });
 
   it('refetches the library the device says changed, and only that one', () => {
@@ -250,7 +251,7 @@ describe('frames', () => {
       FakeEventSource.latest.emit('libraryChanged', '{not json');
       FakeEventSource.latest.emit('stateUpdate', RUNNING_STATE);
     });
-    expect(queryClient.getQueryData(['state'])).toEqual(RUNNING_STATE);
+    expect(stateAtom.get()).toEqual(RUNNING_STATE);
   });
 
   it('refetches nothing when the device only changes what it is doing', () => {
@@ -272,7 +273,7 @@ describe('frames', () => {
     act(() => {
       expect(FakeEventSource.latest.emit('somethingElse', { a: 1 })).toBe(false);
     });
-    expect(queryClient.getQueryData(['state'])).toBeUndefined();
+    expect(stateAtom.get()).toBeNull();
     expect(FakeEventSource.latest.closed).toBe(false);
   });
 });

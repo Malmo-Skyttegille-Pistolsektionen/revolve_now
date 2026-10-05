@@ -21,6 +21,7 @@ import { HardwarePage } from '../src/routes/hardware';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
 import { enableControlLockElsewhere, requestElsewhere } from './other-client';
+import { sseStatusAtom, stateAtom } from '../src/lib/sse-store';
 
 // Distinct per suite - vitest runs files in parallel, so a shared port is an
 // EADDRINUSE flake. Pick the next free number for a new suite.
@@ -85,7 +86,7 @@ async function saveHardware(gpio = 7): Promise<void> {
 
 /** What `useSSE` would have written after a start. */
 function pretendRunning(): void {
-  queryClient.setQueryData(['state'], {
+  stateAtom.set({
     loadedProgramId: 40,
     programState: { running: true, currentSeriesIndex: 0, currentEventIndex: 0, tickerMs: 0 },
     targetBanks: { A: 'shown' },
@@ -184,7 +185,7 @@ describe('restart to apply (#341)', () => {
     // which is what `useSSE` does on reconnect.
     server.restart();
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
       await queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
     });
 
@@ -211,7 +212,7 @@ describe('restart to apply (#341)', () => {
     await saveHardware();
     renderApp('/hardware');
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
     });
 
     fireEvent.click(await screen.findByTestId('restart-to-apply'));
@@ -225,7 +226,7 @@ describe('restart to apply (#341)', () => {
 
     // The stream has not moved, and there is still something pending.
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
     });
     expect((screen.getByTestId('restart-to-apply') as HTMLButtonElement).disabled).toBe(true);
 
@@ -236,13 +237,13 @@ describe('restart to apply (#341)', () => {
     // the next write can land before this one has reached the component - which
     // never then renders with 'error', and the test fails a few runs in ten.
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'error');
+      sseStatusAtom.set('error');
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect((screen.getByTestId('restart-to-apply') as HTMLButtonElement).disabled).toBe(true);
 
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
     });
 
     await waitFor(() => {
