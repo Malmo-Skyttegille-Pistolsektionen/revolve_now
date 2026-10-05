@@ -9,8 +9,7 @@
 #
 # Pin map and what this board still lacks: docs/HARDWARE.md, "Board profiles".
 
-# Turn0. Refused by the validator until #505 - boot falls back to these
-# defaults and still drives it, but saving any hardware config fails.
+# Turn0.
 CONFIG_RT_TARGET_GPIO=3
 
 # Six APA102s on GPIO0/46, which the WS2812 driver cannot drive. Off also keeps

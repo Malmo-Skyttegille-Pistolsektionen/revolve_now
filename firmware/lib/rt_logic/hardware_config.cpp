@@ -147,7 +147,7 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
       return "GPIO 19 and 20 are the USB serial connection. Using one would remove the serial "
              "console, which is how this setting is put back if it turns out to be wrong.";
     case ConfigRefusal::kGpioStrapping:
-      return "GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can "
+      return "GPIO 0 and 45 are read at reset to decide how the chip boots. Driving one can "
              "stop the device starting at all.";
     case ConfigRefusal::kHttpPortOutOfRange:
       return "The HTTP port must be between " + std::to_string(kMinHttpPort) + " and " +

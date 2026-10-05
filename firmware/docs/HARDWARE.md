@@ -76,9 +76,6 @@ leaves the targets shown at boot.
 
 **Gaps on the PCB rev 1:**
 
-- **GPIO3 is refused** (#505). The board boots on the compiled defaults and
-  drives it, but saving any hardware config fails while bank A is on GPIO3,
-  so banks B–D cannot be added until that is fixed.
 - **Power0–3** (GPIO9, 8, 13, 11) have no firmware support and stay low.
 - **Trigger inputs** (GPIO7, 15, 16, 17) and the **W5500 Ethernet** have no
   firmware support.
@@ -123,7 +120,7 @@ recovery from getting one wrong is a USB cable and a reflash.
 
 | Pins | Why |
 |---|---|
-| 0, 3, 45 | Strapping — latched at reset; the board simply does not come up |
+| 0, 45 | Strapping — latched at reset; the board simply does not come up. GPIO3 is strapping too, but only for the JTAG source, so it is allowed |
 | 19, 20 | USB Serial/JTAG D-/D+ — the recovery path |
 | 22–25 | Absent from the ESP32-S3 package |
 | 26–32 | In-package SPI flash and PSRAM |

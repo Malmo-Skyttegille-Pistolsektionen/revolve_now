@@ -158,8 +158,11 @@ inline bool gpio_is_usb_serial(int32_t gpio) {
 //
 // GPIO46 is strapping too and is already refused as not output-capable; it is
 // listed there rather than here so the message names the more useful reason.
+// GPIO3 is strapping only for the JTAG source, and only with
+// EFUSE_STRAP_JTAG_SEL burned, so it cannot stop a boot - and the PCB rev 1
+// puts Turn0 on it (#505).
 inline bool gpio_is_strapping(int32_t gpio) {
-  return gpio == 0 || gpio == 3 || gpio == 45;
+  return gpio == 0 || gpio == 45;
 }
 
 // Input-only pins cannot drive anything. On the ESP32-S3 there are none in the

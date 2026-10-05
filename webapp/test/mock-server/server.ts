@@ -132,8 +132,8 @@ function pinRefusal(gpio: number): string | null {
   if (gpio === 19 || gpio === 20) {
     return 'GPIO 19 and 20 are the USB serial connection. Using one would remove the serial console, which is how this setting is put back if it turns out to be wrong.';
   }
-  if (gpio === 0 || gpio === 3 || gpio === 45) {
-    return 'GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.';
+  if (gpio === 0 || gpio === 45) {
+    return 'GPIO 0 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.';
   }
   if (gpio === 46) return 'That GPIO cannot drive an output on this chip.';
   return null;

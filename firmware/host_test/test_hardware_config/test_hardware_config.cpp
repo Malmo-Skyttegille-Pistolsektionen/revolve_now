@@ -141,11 +141,19 @@ void test_the_usb_serial_pins_are_refused() {
 // Latched at reset: the symptom is a board that is simply dead afterwards,
 // with nothing pointing at the configuration change that caused it.
 void test_the_strapping_pins_are_refused() {
-  for (const int32_t gpio : {0, 3, 45}) {
+  for (const int32_t gpio : {0, 45}) {
     HardwareConfig config = good();
     config.banks[0].gpio = gpio;
     TEST_ASSERT_EQUAL(ConfigRefusal::kGpioStrapping, rt::validate(config));
   }
+}
+
+// GPIO3 only selects the JTAG source, so it cannot stop a boot - and it is
+// Turn0 on the PCB rev 1 (#505).
+void test_gpio3_is_a_usable_bank_pin() {
+  HardwareConfig config = good();
+  config.banks[0].gpio = 3;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 }
 
 // Passes every per-pin check and still does not work: whichever peripheral is
@@ -367,6 +375,7 @@ int main() {
   RUN_TEST(test_the_edges_of_the_usable_range_are_accepted);
   RUN_TEST(test_the_usb_serial_pins_are_refused);
   RUN_TEST(test_the_strapping_pins_are_refused);
+  RUN_TEST(test_gpio3_is_a_usable_bank_pin);
   RUN_TEST(test_two_peripherals_on_one_pin_are_refused);
   RUN_TEST(test_pins_of_absent_peripherals_are_ignored);
   RUN_TEST(test_the_i2s_port_and_the_numeric_settings_are_bounded);
