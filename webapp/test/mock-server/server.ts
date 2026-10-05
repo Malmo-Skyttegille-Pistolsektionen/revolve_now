@@ -1179,6 +1179,23 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   }
 
   /**
+   * `rt::Executor::enter_through`: enter every event after the current one up
+   * to and including `index`, in order, so a late tick cannot step over one.
+   */
+  function enterThrough(series: Series, index: number): void {
+    if (!state.programState) return;
+
+    const current = state.programState.currentEventIndex;
+    let next = current === null ? index : current + 1;
+    if (index < next - 1) next = index;
+
+    for (; next <= index; next++) {
+      state.programState.currentEventIndex = next;
+      enterEvent(series.events[next]);
+    }
+  }
+
+  /**
    * `rt::Executor::enter_event`. The resolution rule is stated once, on
    * `banks` in `contracts/program.schema.json`.
    */
@@ -1203,6 +1220,9 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     const elapsedMs = clock.now() - state.seriesStartTime;
 
     if (elapsedMs >= seriesTotalMs(series)) {
+      // A tick past the end still owes the events it crossed.
+      enterThrough(series, series.events.length - 1);
+
       const nextSeriesIndex = currentSeriesIndex + 1;
 
       if (state.loadedProgram && nextSeriesIndex < state.loadedProgram.series.length) {
@@ -1229,11 +1249,12 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
     const publishedSeconds =
       state.programState.tickerMs === null ? null : Math.floor(state.programState.tickerMs / 1000);
-    const changed = state.programState.currentEventIndex !== location.index || publishedSeconds !== elapsedSeconds;
+    const crossed = state.programState.currentEventIndex !== location.index;
+    const changed = crossed || publishedSeconds !== elapsedSeconds;
 
     if (changed) {
       state.programState.tickerMs = elapsedMs;
-      applyLocation(series, location);
+      if (crossed) enterThrough(series, location.index);
       broadcastState();
     }
   }

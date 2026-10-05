@@ -64,6 +64,108 @@ void tearDown() {
   h = nullptr;
 }
 
+// --- late wake-ups ---------------------------------------------------------
+
+// `1000 show | 1 hide + audio 9 | 1000 show`: the 1 ms event is crossed
+// entirely by any wake-up that is late at all.
+rt::Program short_event_program() {
+  rt::Program p;
+  p.id = kFixtureId;
+  rt::Series s;
+  s.name = "S";
+  s.events.push_back(rt::Event{1000, "show", {}});
+  s.events.push_back(rt::Event{1, "hide", {9}});
+  s.events.push_back(rt::Event{1000, "show", {}});
+  p.series.push_back(s);
+  return p;
+}
+
+void assert_short_event_fires(int32_t jitter_ms) {
+  g_program = short_event_program();
+  h->jitter_ms = jitter_ms;
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->run_to_idle();
+
+  // start() entered the first show; what is left is hide, show.
+  TEST_ASSERT_EQUAL_size_t(2, h->effects.target_history.size());
+  TEST_ASSERT_FALSE(h->effects.target_history[0].shown);
+  TEST_ASSERT_TRUE(h->effects.target_history[1].shown);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.played.size());
+  TEST_ASSERT_EQUAL_INT32(9, h->effects.played[0][0]);
+}
+
+void test_a_short_event_fires_on_an_on_time_wakeup() {
+  assert_short_event_fires(0);
+}
+void test_a_short_event_fires_on_a_1ms_late_wakeup() {
+  assert_short_event_fires(1);
+}
+void test_a_short_event_fires_on_a_30ms_late_wakeup() {
+  assert_short_event_fires(30);
+}
+
+void test_a_long_stall_enters_every_crossed_event_in_order() {
+  g_program = rt::Program{};
+  g_program.id = kFixtureId;
+  rt::Series s;
+  s.name = "S";
+  s.events.push_back(rt::Event{500, "show", {1}});
+  s.events.push_back(rt::Event{500, "hide", {2}});
+  s.events.push_back(rt::Event{500, "show", {3}});
+  s.events.push_back(rt::Event{500, "hide", {4}});
+  s.events.push_back(rt::Event{500, "show", {5}});
+  s.events.push_back(rt::Event{5000, "hide", {6}});
+  g_program.series.push_back(s);
+
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->clock.advance(2750);  // a stall: events 1-4 crossed, now inside 5
+  h->executor.tick();
+
+  TEST_ASSERT_EQUAL_INT32(5, h->state.current_event_index.value);
+  TEST_ASSERT_EQUAL_size_t(5, h->effects.target_history.size());
+  const bool expected[] = {false, true, false, true, false};
+  for (size_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL(expected[i], h->effects.target_history[i].shown);
+  }
+  TEST_ASSERT_EQUAL_size_t(5, h->effects.played.size());
+  for (size_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_INT32(static_cast<int32_t>(i) + 2, h->effects.played[i][0]);
+  }
+  TEST_ASSERT_FALSE(h->state.bank_a_shown());  // event 5 hides
+}
+
+void test_a_stall_past_the_end_still_enters_the_last_events() {
+  g_program = short_event_program();
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->clock.advance(10000);  // well past the 2001 ms series
+  h->executor.tick();
+
+  TEST_ASSERT_FALSE(h->state.running);
+  TEST_ASSERT_EQUAL_size_t(2, h->effects.target_history.size());
+  TEST_ASSERT_TRUE(h->state.bank_a_shown());  // the final "show" ran
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.played.size());
+}
+
+void test_an_on_time_run_enters_each_event_once() {
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->run_to_idle();
+
+  // S0 is show, hide; start() entered the show.
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.target_history.size());
+}
+
 // --- load ------------------------------------------------------------------
 
 void test_load_sets_the_start_position() {
@@ -1032,6 +1134,12 @@ int main() {
   RUN_TEST(test_toggling_a_bank_the_device_does_not_have_changes_nothing);
   RUN_TEST(test_flip_moves_each_named_bank_against_its_own_state);
   RUN_TEST(test_a_split_flip_drives_each_direction_once);
+  RUN_TEST(test_a_short_event_fires_on_an_on_time_wakeup);
+  RUN_TEST(test_a_short_event_fires_on_a_1ms_late_wakeup);
+  RUN_TEST(test_a_short_event_fires_on_a_30ms_late_wakeup);
+  RUN_TEST(test_a_long_stall_enters_every_crossed_event_in_order);
+  RUN_TEST(test_a_stall_past_the_end_still_enters_the_last_events);
+  RUN_TEST(test_an_on_time_run_enters_each_event_once);
   RUN_TEST(test_flipping_no_banks_does_nothing);
   RUN_TEST(test_setting_one_bank_leaves_the_others_alone);
   RUN_TEST(test_init_banks_adopts_the_boot_state_on_every_bank);

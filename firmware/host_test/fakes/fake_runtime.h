@@ -78,13 +78,18 @@ struct Harness {
     state.init_banks(bank_count, false);
   }
 
+  // How late every wake-up is, on top of what tick() asked to sleep. The real
+  // loop wakes late routinely; with 0 the harness is blind to anything that
+  // only happens then.
+  int32_t jitter_ms = 0;
+
   // Run the loop until it goes idle or `max_iterations` is hit, advancing the
   // clock by exactly what tick() asked to sleep. Returns the iteration count;
   // a value equal to max_iterations means the loop never terminated.
   int run_to_idle(int max_iterations = 10000) {
     for (int i = 0; i < max_iterations; i++) {
       if (!state.running) return i;
-      clock.advance(executor.tick());
+      clock.advance(executor.tick() + jitter_ms);
     }
     return max_iterations;
   }
@@ -95,8 +100,8 @@ struct Harness {
     while (remaining > 0 && state.running) {
       int32_t sleep = executor.tick();
       if (sleep > remaining) sleep = static_cast<int32_t>(remaining);
-      clock.advance(sleep);
-      remaining -= sleep;
+      clock.advance(sleep + jitter_ms);
+      remaining -= sleep + jitter_ms;
     }
   }
 };

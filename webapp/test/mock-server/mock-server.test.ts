@@ -202,6 +202,45 @@ describe('simulation on a fake clock', () => {
     expect(completed.targetBanks).toEqual({ A: 'hidden' });
   });
 
+  it('enters an event a late tick stepped over, as rt::Executor::tick does', async () => {
+    // A 1 ms event closes the series: the tick that finds the series over has
+    // crossed it, and its "hide" is the state the program declares.
+    const program = {
+      id: 41,
+      title: 'Short tail',
+      description: '',
+      readonly: false,
+      series: [
+        {
+          name: 'S',
+          optional: false,
+          events: [
+            { duration: 1050, command: 'show' as const },
+            { duration: 1, command: 'hide' as const },
+          ],
+        },
+      ],
+    };
+    const short = createMockServer({ clock, seed: { programs: { 41: program }, audios: [] } });
+    const shortBase = `http://127.0.0.1:${await short.listen()}/api/v2`;
+    const shortSse = await openSSE(short.port);
+    try {
+      await fetch(`${shortBase}/programs/41/load`, { method: 'POST' });
+      await fetch(`${shortBase}/programs/start`, { method: 'POST', body: JSON.stringify({ id: 41 }) });
+      await flushIO();
+
+      clock.advance(2000);
+      await flushIO();
+
+      const completed = last(shortSse.payloads<StateUpdatePayload>('stateUpdate'));
+      expect(completed.programState?.running).toBe(false);
+      expect(completed.targetBanks).toEqual({ A: 'hidden' });
+    } finally {
+      shortSse.close();
+      await short.close();
+    }
+  });
+
   it('stop pauses and start resumes from the same millisecond', async () => {
     await api('/programs/40/load', { method: 'POST' });
     await start(40);
