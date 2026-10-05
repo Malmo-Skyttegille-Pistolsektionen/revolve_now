@@ -13,10 +13,11 @@
 # Positions are read off the KiCad file. Connector heights and face widths are
 # not in it (no 3D models), so those are datasheet-typical; see README.md.
 
+import math
 import os
+import zipfile
 import FreeCAD as App
 import Part
-import Mesh
 import MeshPart
 from FreeCAD import Vector as V
 
@@ -40,15 +41,25 @@ ANT_GAP = 1.0       # with ANTENNA_CUTOUT off: module tip to the inner wall of a
 R_OUT = 3.0         # outer vertical corner radius
 STANDOFF_H = 5.0    # floor to PCB underside (THT leads stick out ~2-3 mm)
 HEADROOM = 16.0     # PCB top to lid underside; tallest part is an RJ45 (~13.5)
-BOSS_D = 8.0        # standoff / lid-post diameter (stays clear of parts around holes)
-INSERT_D, INSERT_DEPTH = 4.0, 6.0   # M3 heat-set insert in the standoff
-SCREW_D = 3.4       # M3 clearance through the lid posts; M3x25 pan head from the top
+BOSS_D = 8.0        # standoff / lid-post diameter at the board (clears J4's pads by 0.5 mm)
 
-# The logo is engraved into the lid top, read from the web app's copy so the box
+# Fastening: M3x16 socket-head screws (ISO 4762) up through the base into hex nuts
+# captive in the lid posts, so the lid top stays unbroken. No heat-set inserts.
+SCREW_D = 3.4       # M3 clearance
+HEAD_D, HEAD_H = 6.0, 3.2       # counterbore in the base underside; the head sits flush
+FOOT_D = 10.0       # standoff widened round the counterbore, below where THT leads reach
+NUT_AF, NUT_H = 5.8, 2.7        # M3 nut (5.5 AF, 2.4 thick) plus clearance; slid in from the side
+NUT_Z = 5.0         # nut slot bottom above the PCB top; the post is solid below it
+POST_STEP = 4.5     # above this height over the PCB the lid post widens to POST_D (J4 is 3.3 tall)
+POST_D = 9.6        # leaves 1.45 mm of wall round the nut's corners
+LAYER = 0.2         # print layer height, for the bridging steps over the counterbore
+
+# The logo and its frame are inlaid in the lid top, read from the web app's copy so the box
 # follows any change to it. It reads upright with the connector edge facing you.
 LOGO_SVG = os.path.join(SRC, "..", "..", "..", "webapp", "public", "revolve-now-logo.svg")
-LOGO_WIDTH = 90.0   # thinnest stroke is then ~0.75 mm, fine for a 0.4 mm nozzle
+LOGO_WIDTH = 80.0   # thinnest stroke is then ~0.67 mm, fine for a 0.4 mm nozzle
 LOGO_DEPTH = 0.6    # into the 2 mm lid top; prints face-down on the bed
+FRAME_PAD, FRAME_STROKE, FRAME_R = 4.0, 1.2, 4.0   # rounded-rectangle frame round the logo
 
 # Openings. side: front (Y=0), right (X=100), left (X=0). centre is along the
 # side in board coords; z is relative to PCB top. Widths/heights include clearance:
@@ -143,7 +154,7 @@ def check_openings_clear_bosses():
     for o in OPENINGS:
         cut = opening_cutter(o)
         for (x, y) in HOLES:
-            boss = Part.makeCylinder(BOSS_D / 2, Z_TOP, V(x, y, 0))
+            boss = Part.makeCylinder(max(BOSS_D, POST_D, FOOT_D) / 2, Z_TOP, V(x, y, 0))
             if cut.common(boss).Volume > 1e-6:
                 raise RuntimeError(f"{o['ref']} opening would cut into the screw post at {x},{y}")
 
@@ -155,15 +166,42 @@ def build_base():
     base = checked(shell.cut(cavity), v * 0.2, "base cavity")
     for (x, y) in HOLES:
         boss = Part.makeCylinder(BOSS_D / 2, STANDOFF_H + 0.5, V(x, y, FLOOR - 0.5))
-        base = checked(base.fuse(boss), base.Volume, f"standoff {x},{y}")
-        hole = Part.makeCylinder(INSERT_D / 2, INSERT_DEPTH + 0.01, V(x, y, Z_PCB_BOT - INSERT_DEPTH))
-        base = checked(base.cut(hole), base.Volume, f"insert hole {x},{y}")
+        foot = Part.makeCylinder(FOOT_D / 2, HEAD_H + 2 * LAYER + 1.0 - FLOOR + 0.5, V(x, y, FLOOR - 0.5))
+        base = checked(base.fuse([boss, foot]), base.Volume, f"standoff {x},{y}")
+        base = checked(base.cut(screw_bore(x, y)), base.Volume, f"screw bore {x},{y}")
     for o in OPENINGS:
         base = checked(base.cut(opening_cutter(o)), base.Volume, o["ref"])
     return base
 
 
-def logo_cutter():
+def screw_bore(x, y):
+    """Counterbore from below, then the clearance hole. The two one-layer steps between
+    them let the printer bridge the counterbore ceiling instead of drooping into it."""
+    cb = Part.makeCylinder(HEAD_D / 2, HEAD_H + 1, V(x, y, -1))
+    step1 = Part.makeBox(SCREW_D, HEAD_D, LAYER, V(x - SCREW_D / 2, y - HEAD_D / 2, HEAD_H - 0.01))
+    step2 = Part.makeBox(SCREW_D, SCREW_D, 2 * LAYER, V(x - SCREW_D / 2, y - SCREW_D / 2, HEAD_H - 0.01))
+    bore = Part.makeCylinder(SCREW_D / 2, Z_PCB_BOT + 1, V(x, y, 0))
+    return cb.fuse([step1, step2, bore]).removeSplitter()
+
+
+def nut_slot(x, y):
+    """Hex pocket round the screw axis, open towards the middle of the box to slide the nut in."""
+    z0 = Z_PCB_TOP + NUT_Z
+    r = NUT_AF / 3 ** 0.5  # circumradius
+    pts = [V(x + r * math.cos(math.radians(60 * i)), y + r * math.sin(math.radians(60 * i)), z0)
+           for i in range(7)]
+    pocket = Part.Face(Part.makePolygon(pts)).extrude(V(0, 0, NUT_H))
+    reach = POST_D / 2 + 1.0
+    channel = Part.makeBox(reach, NUT_AF, NUT_H, V(x, y - NUT_AF / 2, z0))
+    # turn the channel to point at the box centre; the hexagon's flats line up with it
+    ang = math.degrees(math.atan2(PCB_D / 2 - y, PCB_W / 2 - x))
+    channel.rotate(V(x, y, z0), V(0, 0, 1), ang)
+    pocket.rotate(V(x, y, z0), V(0, 0, 1), ang)
+    return pocket.fuse(channel).removeSplitter()
+
+
+def logo_faces():
+    """The logo inside its rounded-rectangle frame, as flat faces on the lid top, centred."""
     import importSVG  # Draft's importer; headless it assumes 96 dpi, and we rescale anyway
 
     tmp = App.newDocument("logo_import")
@@ -176,9 +214,22 @@ def logo_cutter():
     m.scale(k, k, k)  # uniform: non-uniform scaling of a shape corrupts later booleans
     logo = logo.transformGeometry(m)
     bb = logo.BoundBox
-    logo.translate(V((OUT_X0 + OUT_X1) / 2 - bb.Center.x, (OUT_Y0 + OUT_Y1) / 2 - bb.Center.y,
-                     Z_TOP - LOGO_DEPTH - bb.ZMin))
-    return logo.extrude(V(0, 0, LOGO_DEPTH + 1))
+    logo.translate(V((OUT_X0 + OUT_X1) / 2 - bb.Center.x, (OUT_Y0 + OUT_Y1) / 2 - bb.Center.y, -bb.ZMin))
+    bb = logo.BoundBox
+    outer = rounded_box(bb.XMin - FRAME_PAD - FRAME_STROKE, bb.YMin - FRAME_PAD - FRAME_STROKE,
+                        bb.XMax + FRAME_PAD + FRAME_STROKE, bb.YMax + FRAME_PAD + FRAME_STROKE, 0, 1, FRAME_R)
+    inner = rounded_box(bb.XMin - FRAME_PAD, bb.YMin - FRAME_PAD, bb.XMax + FRAME_PAD, bb.YMax + FRAME_PAD,
+                        -1, 2, FRAME_R - FRAME_STROKE)
+    frame = outer.cut(inner).Faces
+    frame = [f for f in frame if abs(f.normalAt(0, 0).z + 1) < 1e-6]  # its underside: the ring at z=0
+    return logo.fuse(frame).removeSplitter()
+
+
+def logo_solid(extra=0.0):
+    """The logo and frame LOGO_DEPTH deep below the lid top, plus `extra` above it."""
+    faces = logo_faces().copy()
+    faces.translate(V(0, 0, Z_TOP - LOGO_DEPTH))
+    return faces.extrude(V(0, 0, LOGO_DEPTH + extra))
 
 
 def build_lid():
@@ -188,12 +239,15 @@ def build_lid():
     lid = checked(shell.cut(cavity), v * 0.2, "lid cavity")
     for (x, y) in HOLES:
         post = Part.makeCylinder(BOSS_D / 2, Z_TOP - LID_T - Z_PCB_TOP + 0.5, V(x, y, Z_PCB_TOP))
-        lid = checked(lid.fuse(post), lid.Volume, f"post {x},{y}")
-        bore = Part.makeCylinder(SCREW_D / 2, Z_TOP - Z_PCB_TOP + 2, V(x, y, Z_PCB_TOP - 1))
-        lid = checked(lid.cut(bore), lid.Volume, f"screw bore {x},{y}")
+        upper = Part.makeCylinder(POST_D / 2, Z_TOP - LID_T - Z_PCB_TOP - POST_STEP + 0.5,
+                                  V(x, y, Z_PCB_TOP + POST_STEP))
+        lid = checked(lid.fuse([post, upper]), lid.Volume, f"post {x},{y}")
+        # the bore stops under the lid top, so no screw shows there
+        bore = Part.makeCylinder(SCREW_D / 2, Z_TOP - LID_T - Z_PCB_TOP + 1, V(x, y, Z_PCB_TOP - 1))
+        lid = checked(lid.cut(bore.fuse(nut_slot(x, y))), lid.Volume, f"screw bore {x},{y}")
     for o in OPENINGS:
         lid = checked(lid.cut(opening_cutter(o)), lid.Volume, o["ref"])
-    return checked(lid.cut(logo_cutter()), lid.Volume, "logo")
+    return checked(lid.cut(logo_solid(extra=1.0)), lid.Volume, "logo")
 
 
 def fit_check():
@@ -212,20 +266,96 @@ def mesh_of(shape):
     return MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.05, AngularDeflection=0.2)
 
 
-def write_3mf(base, lid, path):
-    """Both parts on one plate as printed: the base as modelled, the lid on its top beside it."""
-    lid_p = lid.copy()
-    lid_p.rotate(V(0, 0, 0), V(1, 0, 0), 180)
-    bb = lid_p.BoundBox
-    lid_p.translate(V(base.BoundBox.XMax + 10 - bb.XMin, base.BoundBox.YMin - bb.YMin, -bb.ZMin))
-    plate = App.newDocument("enclosure_plate")  # scratch document; keeps enclosure.FCStd as modelled
-    parts = []
-    for name, shp in (("Base", base), ("Lid", lid_p)):
-        o = plate.addObject("Mesh::Feature", name)
-        o.Mesh = mesh_of(shp)
-        parts.append(o)
-    Mesh.export(parts, path)
-    App.closeDocument(plate.Name)
+def write_3mf(base, lid, inlay, path, slicer):
+    """Both parts on one plate as printed: the base as modelled, the lid on its top beside it.
+
+    The lid is one object of two parts, its body on filament 1 and the logo on filament 2,
+    so the logo prints in whatever colour slot 2 holds. Slicers only agree on the plain
+    geometry, not on how an object is split into parts, hence one file per slicer family:
+    "bambu" (Bambu Studio, OrcaSlicer: components + model_settings.config) and
+    "prusa" (PrusaSlicer: one mesh with triangle ranges in Slic3r_PE_model.config).
+    """
+    flip = lid.copy()
+    flip.rotate(V(0, 0, 0), V(1, 0, 0), 180)
+    bb = flip.BoundBox
+    shift = V(base.BoundBox.XMax + 10 - bb.XMin, base.BoundBox.YMin - bb.YMin, -bb.ZMin)
+
+    def flipped(shape):
+        c = shape.copy()
+        c.rotate(V(0, 0, 0), V(1, 0, 0), 180)
+        c.translate(shift)
+        return c
+
+    def topology(shape):
+        pts, tris = mesh_of(shape).Topology
+        return [(p.x, p.y, p.z) for p in pts], list(tris)
+
+    def mesh_xml(verts, tris):
+        return ("   <mesh>\n    <vertices>\n"
+                + "".join(f'     <vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>\n' for x, y, z in verts)
+                + "    </vertices>\n    <triangles>\n"
+                + "".join(f'     <triangle v1="{a}" v2="{b}" v3="{c}"/>\n' for a, b, c in tris)
+                + "    </triangles>\n   </mesh>\n")
+
+    objects = [("Base", [("Base", topology(base), 1)]),
+               ("Lid", [("Lid", topology(flipped(lid)), 1), ("Logo", topology(flipped(inlay)), 2)])]
+    resources, build, config = [], [], []
+    next_id = 1
+    for name, parts in objects:
+        if slicer == "bambu":
+            part_ids = []
+            for pname, (verts, tris), _ in parts:
+                resources.append(f'  <object id="{next_id}" type="model" name="{pname}">\n'
+                                 + mesh_xml(verts, tris) + "  </object>\n")
+                part_ids.append(next_id)
+                next_id += 1
+            resources.append(f'  <object id="{next_id}" type="model" name="{name}">\n   <components>\n'
+                             + "".join(f'    <component objectid="{i}"/>\n' for i in part_ids)
+                             + "   </components>\n  </object>\n")
+            config.append(f'  <object id="{next_id}">\n    <metadata key="name" value="{name}"/>\n'
+                          + "".join(f'    <part id="{i}" subtype="normal_part">\n'
+                                    f'      <metadata key="name" value="{pname}"/>\n'
+                                    f'      <metadata key="extruder" value="{filament}"/>\n    </part>\n'
+                                    for i, (pname, _, filament) in zip(part_ids, parts))
+                          + "  </object>\n")
+        else:
+            verts, tris, ranges = [], [], []
+            for pname, (pv, pt), filament in parts:
+                ranges.append((pname, filament, len(tris), len(tris) + len(pt) - 1))
+                tris += [(a + len(verts), b + len(verts), c + len(verts)) for a, b, c in pt]
+                verts += pv
+            resources.append(f'  <object id="{next_id}" type="model" name="{name}">\n'
+                             + mesh_xml(verts, tris) + "  </object>\n")
+            config.append(f'  <object id="{next_id}" instances_count="1">\n'
+                          f'    <metadata type="object" key="name" value="{name}"/>\n'
+                          + "".join(f'    <volume firstid="{first}" lastid="{last}">\n'
+                                    f'      <metadata type="volume" key="name" value="{pname}"/>\n'
+                                    f'      <metadata type="volume" key="extruder" value="{filament}"/>\n'
+                                    "    </volume>\n" for pname, filament, first, last in ranges)
+                          + "  </object>\n")
+        build.append(f'  <item objectid="{next_id}"/>\n')
+        next_id += 1
+
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    config_name = "model_settings.config" if slicer == "bambu" else "Slic3r_PE_model.config"
+    files = {
+        "[Content_Types].xml": xml + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n'
+        ' <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n'
+        ' <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>\n'
+        ' <Default Extension="config" ContentType="text/xml"/>\n</Types>\n',
+        "_rels/.rels": xml + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
+        ' <Relationship Target="/3D/3dmodel.model" Id="rel0" '
+        'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>\n',
+        "3D/3dmodel.model": xml + '<model unit="millimeter" xml:lang="en-US" '
+        'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n <resources>\n'
+        + "".join(resources) + " </resources>\n <build>\n" + "".join(build) + " </build>\n</model>\n",
+        "Metadata/" + config_name: xml + "<config>\n" + "".join(config) + "</config>\n",
+    }
+    with zipfile.ZipFile(path, "w") as z:
+        for name, data in files.items():
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))  # reproducible bytes
+            info.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(info, data)
 
 
 def main():
@@ -235,9 +365,10 @@ def main():
     doc.License = "MIT"  # FreeCAD defaults to "All rights reserved"; the repo is MIT
     doc.LicenseURL = "https://opensource.org/licenses/MIT"
     base, lid = build_base(), build_lid()
-    for name, shp in (("Base", base), ("Lid", lid)):
+    inlay = logo_solid()
+    for name, shp in (("Base", base), ("Lid", lid), ("Logo", inlay)):
         mesh = mesh_of(shp)
-        if not (shp.isClosed() and mesh.isSolid() and not mesh.hasNonManifolds()):
+        if not (all(s.isClosed() for s in shp.Solids) and mesh.isSolid() and not mesh.hasNonManifolds()):
             raise RuntimeError(f"{name} would not print as a closed, manifold solid")
         obj = doc.addObject("Part::Feature", name)
         obj.Shape = shp
@@ -259,7 +390,8 @@ def main():
     if os.path.exists(fcstd):
         os.remove(fcstd)  # saving over it would leave a .FCBak beside it
     doc.saveAs(fcstd)
-    write_3mf(base, lid, os.path.join(GENERATED, "enclosure.3mf"))
+    write_3mf(base, lid, inlay, os.path.join(GENERATED, "enclosure.3mf"), "bambu")
+    write_3mf(base, lid, inlay, os.path.join(GENERATED, "enclosure-prusaslicer.3mf"), "prusa")
     print(f"outer {OUT_X1 - OUT_X0:.1f} x {OUT_Y1 - OUT_Y0:.1f} x {Z_TOP:.1f} mm, split at Z={Z_PCB_TOP:.1f}")
 
 
