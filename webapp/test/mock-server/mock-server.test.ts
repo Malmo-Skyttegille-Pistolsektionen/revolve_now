@@ -1098,7 +1098,7 @@ describe('target banks', () => {
       title: 'Invalid hardware configuration',
       status: 400,
       detail:
-        'GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.',
+        'GPIO 0 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.',
     });
   });
 
