@@ -65,7 +65,7 @@ idf.py -B build-pcb -D SDKCONFIG=build-pcb/sdkconfig \
 | Banks B–D | — | GPIO18, 12, 10 (Turn1–3), added in Expert mode |
 | Active low | yes | yes |
 | I2S BCK / WS / DIN | 10 / 12 / 11 | 47 / 14 / 21 |
-| I2S MCLK | not used | GPIO48 to the DAC's SCK; not driven yet (#506) |
+| I2S MCLK | not used | GPIO48, required by the hand-fitted breakout; not driven yet (#506) |
 | Status LED | WS2812 on GPIO48 | off: six APA102s on GPIO0/46, which the driver cannot drive |
 | Serial console | USB Serial/JTAG | off: the native USB pins are not wired. Logs reach UART0 |
 
@@ -76,6 +76,8 @@ leaves the targets shown at boot.
 
 **Gaps on the PCB rev 1:**
 
+- **No audio until MCLK is driven** (#506). The hand-fitted breakout stays
+  silent with GPIO48 undriven, and plays once it carries MCLK.
 - **Power0–3** (GPIO9, 8, 13, 11) have no firmware support and stay low.
 - **Trigger inputs** (GPIO7, 15, 16, 17) and the **W5500 Ethernet** have no
   firmware support.
