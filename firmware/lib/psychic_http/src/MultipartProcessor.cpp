@@ -72,7 +72,8 @@ esp_err_t MultipartProcessor::process()
       if (received == HTTPD_SOCK_ERR_TIMEOUT)
         continue;
       // bail if we got an error
-      else if (received == HTTPD_SOCK_ERR_FAIL) {
+      // Local patch (see CMakeLists.txt): 0 (peer FIN) and other errors fail too.
+      else {
         ESP_LOGE(PH_TAG, "Socket error");
         err = ESP_FAIL;
         break;
