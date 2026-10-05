@@ -44,13 +44,14 @@ async function open(): Promise<void> {
 /** The testid a field is rendered with, to the config key it edits. */
 const TESTID_TO_KEY: Record<
   string,
-  'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'httpPort' | 'wifiMaxRetries'
+  'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'i2sMclkGpio' | 'httpPort' | 'wifiMaxRetries'
 > = {
   'hardware-led-gpio': 'ledGpio',
   'hardware-i2s-port': 'i2sPort',
   'hardware-i2s-bck': 'i2sBckGpio',
   'hardware-i2s-ws': 'i2sWsGpio',
   'hardware-i2s-dout': 'i2sDoutGpio',
+  'hardware-i2s-mclk': 'i2sMclkGpio',
   'hardware-http-port': 'httpPort',
   'hardware-wifi-retries': 'wifiMaxRetries',
 };
@@ -120,6 +121,28 @@ describe('the hardware section', () => {
     };
     expect(state.saved.displayName).toBe('Bana 1');
     expect(state.saved.banks[0].gpio).toBe(HARDWARE_DEFAULTS.banks[0].gpio);
+  });
+
+  // MCLK starts undriven (-1) and takes a pin like the other three (#506).
+  it('saves an I2S master clock pin', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    expect(field('hardware-i2s-mclk').value).toBe('-1');
+    await type('hardware-i2s-mclk', '48');
+    // 48 is the LED's on the PoC defaults; this is the PCB, which has none.
+    await type('hardware-led-gpio', '2');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('hardware-notice')).toBeTruthy());
+
+    const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
+      saved: { i2sMclkGpio: number };
+    };
+    expect(state.saved.i2sMclkGpio).toBe(48);
   });
 
   // The device's RFC 9457 `detail` is the sentence written for the situation -
@@ -207,6 +230,7 @@ describe('the hardware section', () => {
       'hardware-i2s-bck',
       'hardware-i2s-ws',
       'hardware-i2s-dout',
+      'hardware-i2s-mclk',
       'hardware-http-port',
       'hardware-wifi-retries',
     ]) {

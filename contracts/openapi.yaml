@@ -1850,6 +1850,7 @@ components:
           i2sBckGpio,
           i2sWsGpio,
           i2sDoutGpio,
+          i2sMclkGpio,
           httpPort,
           wifiMaxRetries,
         ]
@@ -1944,6 +1945,15 @@ components:
           minimum: 0
           maximum: 48
           description: The I2S serial data output pin, into the amplifier.
+        i2sMclkGpio:
+          type: integer
+          format: int32
+          minimum: -1
+          maximum: 48
+          description: >-
+            The I2S master clock pin, into the DAC's SCK, or -1 to leave it
+            undriven. Most PCM5102A boards derive their clock from BCK and want
+            -1; some breakouts stay silent without it.
         httpPort:
           type: integer
           format: int32
@@ -2054,6 +2064,8 @@ components:
           $ref: "#/components/schemas/HardwareConfig/properties/i2sWsGpio"
         i2sDoutGpio:
           $ref: "#/components/schemas/HardwareConfig/properties/i2sDoutGpio"
+        i2sMclkGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/i2sMclkGpio"
         httpPort:
           $ref: "#/components/schemas/HardwareConfig/properties/httpPort"
         wifiMaxRetries:

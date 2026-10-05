@@ -98,6 +98,15 @@ config RT_I2S_DOUT_GPIO
     range 0 48
     depends on RT_AUDIO_ENABLED
 
+config RT_I2S_MCLK_GPIO
+    int "I2S master clock (SCK on the DAC) GPIO, -1 for none"
+    default -1
+    range -1 48
+    depends on RT_AUDIO_ENABLED
+    help
+        Most PCM5102A boards make their own clock from BCK and need nothing
+        here. The PCB rev 1's hand-fitted breakout does not, and needs 48.
+
 endmenu
 
 config RT_CONSOLE_ENABLED

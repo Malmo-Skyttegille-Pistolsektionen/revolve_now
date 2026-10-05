@@ -27,6 +27,7 @@ constexpr const char *kI2sPort = "hw_i2s_port";
 constexpr const char *kI2sBck = "hw_i2s_bck";
 constexpr const char *kI2sWs = "hw_i2s_ws";
 constexpr const char *kI2sDout = "hw_i2s_dout";
+constexpr const char *kI2sMclk = "hw_i2s_mclk";
 constexpr const char *kHttpPort = "hw_http_port";
 constexpr const char *kWifiRetry = "hw_wifi_retry";
 }  // namespace hw_key

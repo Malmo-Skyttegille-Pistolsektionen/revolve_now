@@ -286,7 +286,9 @@ bool init() {
           I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
       .gpio_cfg =
           {
-              .mclk = I2S_GPIO_UNUSED,
+              .mclk = hw.i2s_mclk_gpio == rt::kI2sPinUnused
+                          ? I2S_GPIO_UNUSED
+                          : static_cast<gpio_num_t>(hw.i2s_mclk_gpio),
               .bclk = static_cast<gpio_num_t>(hw.i2s_bck_gpio),
               .ws = static_cast<gpio_num_t>(hw.i2s_ws_gpio),
               .dout = static_cast<gpio_num_t>(hw.i2s_dout_gpio),
@@ -307,9 +309,9 @@ bool init() {
     return false;
   }
 
-  ESP_LOGI(TAG, "I2S ready (port=%d BCK=%d WS=%d DIN=%d)", static_cast<int>(hw.i2s_port),
+  ESP_LOGI(TAG, "I2S ready (port=%d BCK=%d WS=%d DIN=%d MCLK=%d)", static_cast<int>(hw.i2s_port),
            static_cast<int>(hw.i2s_bck_gpio), static_cast<int>(hw.i2s_ws_gpio),
-           static_cast<int>(hw.i2s_dout_gpio));
+           static_cast<int>(hw.i2s_dout_gpio), static_cast<int>(hw.i2s_mclk_gpio));
   return true;
 }
 

@@ -57,6 +57,10 @@ export const hardware = {
       label: 'I2S data out (DOUT)',
       hint: 'To DIN on the amplifier board — the names cross over, which is the usual way to wire this wrong.',
     },
+    i2sMclkGpio: {
+      label: 'I2S master clock (MCLK)',
+      hint: 'To SCK on the DAC board, or -1 to leave it undriven. Most PCM5102A boards make their own clock and want -1; if yours stays silent with the other pins right, it may need this.',
+    },
     httpPort: {
       label: 'HTTP port',
       hint: 'Where the web app is served. Leave at 80 unless something else on the device needs it — mDNS advertises the port, but a browser typed at by hand does not, so a moved port has to be remembered.',

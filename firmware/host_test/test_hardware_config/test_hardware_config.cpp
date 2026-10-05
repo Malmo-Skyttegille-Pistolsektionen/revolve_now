@@ -185,6 +185,30 @@ void test_pins_of_absent_peripherals_are_ignored() {
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, none));
 }
 
+// MCLK is optional (#506): unused is not a pin, so it is neither checked nor
+// counted, and a pin given for it is held to every rule the other three are.
+void test_the_i2s_master_clock_is_optional() {
+  HardwareConfig config = good();
+  TEST_ASSERT_EQUAL_INT32(rt::kI2sPinUnused, config.i2s_mclk_gpio);
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.i2s_mclk_gpio = 47;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.i2s_mclk_gpio = config.i2s_bck_gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(config));
+
+  config.i2s_mclk_gpio = 19;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioUsbSerial, rt::validate(config));
+
+  config.i2s_mclk_gpio = -2;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(config));
+
+  rt::Peripherals no_audio;
+  no_audio.audio = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, no_audio));
+}
+
 void test_the_i2s_port_and_the_numeric_settings_are_bounded() {
   HardwareConfig config = good();
   config.i2s_port = 2;
@@ -378,6 +402,7 @@ int main() {
   RUN_TEST(test_gpio3_is_a_usable_bank_pin);
   RUN_TEST(test_two_peripherals_on_one_pin_are_refused);
   RUN_TEST(test_pins_of_absent_peripherals_are_ignored);
+  RUN_TEST(test_the_i2s_master_clock_is_optional);
   RUN_TEST(test_the_i2s_port_and_the_numeric_settings_are_bounded);
   RUN_TEST(test_an_empty_hostname_is_refused);
   RUN_TEST(test_a_hostname_longer_than_the_ssid_suffix_allows_is_refused);

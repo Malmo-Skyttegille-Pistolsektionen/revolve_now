@@ -1226,6 +1226,8 @@ std::string hardware_config_json(const rt::HardwareConfig &config) {
   out += std::to_string(config.i2s_ws_gpio);
   out += ",\"i2sDoutGpio\":";
   out += std::to_string(config.i2s_dout_gpio);
+  out += ",\"i2sMclkGpio\":";
+  out += std::to_string(config.i2s_mclk_gpio);
   out += ",\"httpPort\":";
   out += std::to_string(config.http_port);
   out += ",\"wifiMaxRetries\":";
@@ -1350,6 +1352,8 @@ void register_config_routes() {
     if (!doc["i2sWsGpio"].isNull()) config.i2s_ws_gpio = doc["i2sWsGpio"] | config.i2s_ws_gpio;
     if (!doc["i2sDoutGpio"].isNull())
       config.i2s_dout_gpio = doc["i2sDoutGpio"] | config.i2s_dout_gpio;
+    if (!doc["i2sMclkGpio"].isNull())
+      config.i2s_mclk_gpio = doc["i2sMclkGpio"] | config.i2s_mclk_gpio;
     if (!doc["httpPort"].isNull()) config.http_port = doc["httpPort"] | config.http_port;
     if (!doc["wifiMaxRetries"].isNull())
       config.wifi_max_retries = doc["wifiMaxRetries"] | config.wifi_max_retries;

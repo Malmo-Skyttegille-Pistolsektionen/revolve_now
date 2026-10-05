@@ -167,7 +167,9 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
   if (!Number.isInteger(config.i2sPort) || config.i2sPort < 0 || config.i2sPort > 1) {
     return 'The I2S port must be 0 or 1 - this chip has two.';
   }
+  // MCLK is optional (#506): -1 is not a pin, so it is neither checked nor counted.
   const i2s = [config.i2sBckGpio, config.i2sWsGpio, config.i2sDoutGpio];
+  if (config.i2sMclkGpio !== -1) i2s.push(config.i2sMclkGpio);
   for (const gpio of i2s) {
     const refusal = pinRefusal(gpio);
     if (refusal !== null) return refusal;
@@ -211,6 +213,7 @@ export const HARDWARE_DEFAULTS: HardwareConfig = {
   i2sBckGpio: 10,
   i2sWsGpio: 12,
   i2sDoutGpio: 11,
+  i2sMclkGpio: -1,
   httpPort: 80,
   wifiMaxRetries: 10,
 };

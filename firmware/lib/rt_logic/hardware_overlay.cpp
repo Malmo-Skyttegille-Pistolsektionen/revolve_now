@@ -67,7 +67,7 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
       {hw_key::kLedGpio, &out.led_gpio},           {hw_key::kI2sPort, &out.i2s_port},
       {hw_key::kI2sBck, &out.i2s_bck_gpio},        {hw_key::kI2sWs, &out.i2s_ws_gpio},
       {hw_key::kI2sDout, &out.i2s_dout_gpio},      {hw_key::kHttpPort, &out.http_port},
-      {hw_key::kWifiRetry, &out.wifi_max_retries},
+      {hw_key::kWifiRetry, &out.wifi_max_retries}, {hw_key::kI2sMclk, &out.i2s_mclk_gpio},
   };
   for (const auto &scalar : scalars) {
     int32_t value = 0;

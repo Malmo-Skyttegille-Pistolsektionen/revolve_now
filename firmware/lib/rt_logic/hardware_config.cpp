@@ -47,13 +47,13 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
 
   // Every pin in use, with the bank that owns it, so a collision can say which
   // two banks are on it. Grown rather than a fixed array: the count is now the
-  // bank count plus the LED plus the three I2S lines.
+  // bank count plus the LED plus up to four I2S lines.
   struct PinUse {
     int32_t gpio;
     size_t bank;  // kNoBank for the LED and the audio pins.
   };
   std::vector<PinUse> in_use;
-  in_use.reserve(config.banks.size() + 4);
+  in_use.reserve(config.banks.size() + 5);
 
   // The bank pins first: they are the ones whose recovery needs a cable.
   for (size_t i = 0; i < config.banks.size(); i++) {
@@ -78,6 +78,11 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
       const ConfigRefusal pin = validate_pin(gpio);
       if (pin != ConfigRefusal::kNone) return pin;
       in_use.push_back({gpio, ValidationDetail::kNoBank});
+    }
+    if (config.i2s_mclk_gpio != kI2sPinUnused) {
+      const ConfigRefusal pin = validate_pin(config.i2s_mclk_gpio);
+      if (pin != ConfigRefusal::kNone) return pin;
+      in_use.push_back({config.i2s_mclk_gpio, ValidationDetail::kNoBank});
     }
   }
 
