@@ -2,12 +2,15 @@
 
 A 3D-printable box for the rev 1 board: a base tray the board screws into and a lid that drops over the connectors. It is 105 × 110.8 × 26.6 mm.
 
-| File | What it is |
+| Path | What it is |
 |---|---|
-| `enclosure.py` | The parametric model and the only source. Every dimension is a named constant at the top |
-| `enclosure-base.step`, `enclosure-lid.step` | The two parts, ready for a slicer. Bambu Studio and PrusaSlicer import STEP directly, and it is the more exact format |
-| `enclosure-base.stl`, `enclosure-lid.stl` | The same two parts as meshes, for slicers or printing services that only take STL |
-| `enclosure.FCStd` | The same model in FreeCAD, with stand-ins for the board and its tall parts in a `FitCheck` group |
+| `src/enclosure.py` | The parametric model and the only source. Every dimension is a named constant at the top |
+| `src/enclosure.FCStd` | The same model in FreeCAD, with stand-ins for the board and its tall parts in a `FitCheck` group |
+| `generated/enclosure.3mf` | Both parts on one plate, laid out as printed: the base as modelled, the lid upside down beside it. Plate footprint 220 × 111 mm |
+| `generated/enclosure-{base,lid}.step` | Each part on its own, in the more exact format. Bambu Studio and PrusaSlicer import STEP directly |
+| `generated/enclosure-{base,lid}.stl` | Each part as a mesh, for slicers or printing services that only take STL |
+
+Everything under `generated/` is written by the script; edit `src/enclosure.py` and regenerate rather than changing an export.
 
 ## What it fits
 
@@ -35,7 +38,7 @@ Measure the board you have, update the constants, and regenerate. The rev 1 boar
 
 ## Printing and assembly
 
-- **No supports needed.** Print the base as modelled and the lid upside down; every connector opening is a notch open towards the split line.
+- **No supports needed.** `enclosure.3mf` already has both parts the right way up: the base as modelled, the lid upside down. Every connector opening is a notch open towards the split line.
 - **Base:** press an M3 heat-set insert into each standoff (4.0 mm hole, 6 mm deep).
 - **Assembly:** lay the board on the standoffs, put the lid on, and fit 4 × M3×25 pan-head screws from the top. They clamp the board between the lid posts and the standoffs.
 
@@ -44,8 +47,8 @@ Measure the board you have, update the constants, and regenerate. The rev 1 boar
 With FreeCAD 1.1 (`freecadcmd` ships with it; the AppImage takes it as its first argument):
 
 ```bash
-freecadcmd hardware/enclosure/enclosure.py
-# or: FreeCAD.AppImage freecadcmd hardware/enclosure/enclosure.py
+freecadcmd hardware/enclosure/src/enclosure.py
+# or: FreeCAD.AppImage freecadcmd hardware/enclosure/src/enclosure.py
 ```
 
-This rewrites all five output files. The script refuses to save a part that isn't a single closed, manifold solid, and it also fails if a stand-in collides with the walls.
+This rewrites `src/enclosure.FCStd` and everything in `generated/`. The script refuses to save a part that isn't a single closed, manifold solid, and it also fails if a stand-in collides with the walls.

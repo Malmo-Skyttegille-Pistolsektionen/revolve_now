@@ -2,8 +2,9 @@
 # the KiCad layout (hardware/revolvenow_hardware.kicad_pcb, PR #436).
 #
 # Regenerate with FreeCAD 1.1 (see README.md):
-#   freecadcmd hardware/enclosure/enclosure.py
-# It writes enclosure.FCStd and enclosure-{base,lid}.{step,stl} here.
+#   freecadcmd hardware/enclosure/src/enclosure.py
+# It saves enclosure.FCStd beside itself and writes the STEP, STL and 3MF
+# exports to ../generated/.
 #
 # Frame: KiCad (x, y) -> X = x - 100, Y = 150 - y. The board is X 0..100,
 # Y 0..100. Y = 0 is the connector edge (J1, J2, J7, U11), Y = 100 the edge the
@@ -15,10 +16,12 @@
 import os
 import FreeCAD as App
 import Part
+import Mesh
 import MeshPart
 from FreeCAD import Vector as V
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.dirname(os.path.abspath(__file__))           # enclosure.py, enclosure.FCStd
+GENERATED = os.path.join(os.path.dirname(SRC), "generated")     # STEP, STL and 3MF exports
 
 # --- Board (from KiCad) -------------------------------------------------------
 PCB_W, PCB_D, PCB_T = 100.0, 100.0, 1.6
@@ -164,7 +167,24 @@ def mesh_of(shape):
     return MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.05, AngularDeflection=0.2)
 
 
+def write_3mf(base, lid, path):
+    """Both parts on one plate as printed: the base as modelled, the lid on its top beside it."""
+    lid_p = lid.copy()
+    lid_p.rotate(V(0, 0, 0), V(1, 0, 0), 180)
+    bb = lid_p.BoundBox
+    lid_p.translate(V(base.BoundBox.XMax + 10 - bb.XMin, base.BoundBox.YMin - bb.YMin, -bb.ZMin))
+    plate = App.newDocument("enclosure_plate")  # scratch document; keeps enclosure.FCStd as modelled
+    parts = []
+    for name, shp in (("Base", base), ("Lid", lid_p)):
+        o = plate.addObject("Mesh::Feature", name)
+        o.Mesh = mesh_of(shp)
+        parts.append(o)
+    Mesh.export(parts, path)
+    App.closeDocument(plate.Name)
+
+
 def main():
+    os.makedirs(GENERATED, exist_ok=True)
     doc = App.newDocument("enclosure")
     doc.License = "MIT"  # FreeCAD defaults to "All rights reserved"; the repo is MIT
     doc.LicenseURL = "https://opensource.org/licenses/MIT"
@@ -175,8 +195,8 @@ def main():
             raise RuntimeError(f"{name} would not print as a closed, manifold solid")
         obj = doc.addObject("Part::Feature", name)
         obj.Shape = shp
-        shp.exportStep(os.path.join(HERE, f"enclosure-{name.lower()}.step"))
-        mesh.write(os.path.join(HERE, f"enclosure-{name.lower()}.stl"))
+        shp.exportStep(os.path.join(GENERATED, f"enclosure-{name.lower()}.step"))
+        mesh.write(os.path.join(GENERATED, f"enclosure-{name.lower()}.stl"))
         print(f"{name}: {shp.Volume / 1000:.1f} cm3, Z {shp.BoundBox.ZMin:.1f}..{shp.BoundBox.ZMax:.1f}")
     grp = doc.addObject("App::DocumentObjectGroup", "FitCheck")
     for name, shp in fit_check():
@@ -189,10 +209,11 @@ def main():
             if clash > 0.01:
                 raise RuntimeError(f"{name} collides with the {part_name}: {clash:.2f} mm3")
     doc.recompute()
-    fcstd = os.path.join(HERE, "enclosure.FCStd")
+    fcstd = os.path.join(SRC, "enclosure.FCStd")
     if os.path.exists(fcstd):
         os.remove(fcstd)  # saving over it would leave a .FCBak beside it
     doc.saveAs(fcstd)
+    write_3mf(base, lid, os.path.join(GENERATED, "enclosure.3mf"))
     print(f"outer {OUT_X1 - OUT_X0:.1f} x {OUT_Y1 - OUT_Y0:.1f} x {Z_TOP:.1f} mm, split at Z={Z_PCB_TOP:.1f}")
 
 
