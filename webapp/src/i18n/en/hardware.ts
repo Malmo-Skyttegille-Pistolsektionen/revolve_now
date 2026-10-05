@@ -34,6 +34,7 @@ export const hardware = {
     targets: 'Targets',
     led: 'Status LED',
     audio: 'Audio',
+    ethernet: 'Ethernet (W5500)',
     network: 'Network',
   },
   fields: {
@@ -60,6 +61,30 @@ export const hardware = {
     i2sMclkGpio: {
       label: 'I2S master clock (MCLK)',
       hint: 'To SCK on the DAC board, or -1 to leave it undriven. Most PCM5102A boards make their own clock and want -1; if yours stays silent with the other pins right, it may need this.',
+    },
+    ethCsGpio: {
+      label: 'W5500 chip select (CS)',
+      hint: 'To SCS on the W5500, or -1 for no Ethernet. With a pin here the device looks for the chip at every start and carries on over WiFi if it is not there.',
+    },
+    ethSclkGpio: {
+      label: 'W5500 SPI clock (SCLK)',
+      hint: 'To SCLK on the W5500.',
+    },
+    ethMosiGpio: {
+      label: 'W5500 MOSI',
+      hint: 'To MOSI (sometimes MI) on the W5500 — data into the chip.',
+    },
+    ethMisoGpio: {
+      label: 'W5500 MISO',
+      hint: 'To MISO (sometimes MO) on the W5500 — data out of the chip.',
+    },
+    ethIntGpio: {
+      label: 'W5500 interrupt (INT)',
+      hint: 'To INT on the W5500, or -1 to have the device ask the chip every few milliseconds instead.',
+    },
+    ethRstGpio: {
+      label: 'W5500 reset (RST)',
+      hint: 'To RST on the W5500, or -1 to leave it unconnected — most modules pull it up themselves.',
     },
     httpPort: {
       label: 'HTTP port',

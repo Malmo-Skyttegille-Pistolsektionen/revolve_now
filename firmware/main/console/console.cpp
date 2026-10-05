@@ -23,6 +23,7 @@
 #include "audios.h"
 #include "factory_reset.h"
 #include "console_command.h"
+#include "ethernet.h"
 #include "net_mgr.h"
 #include "partitions.h"
 #include "programs.h"
@@ -97,7 +98,7 @@ std::string status_text() {
   // The question at the range was "which network did it actually join, and on
   // what address" - HTTP could not answer it, because the laptop could not
   // reach the device at all.
-  const std::string ip = net_mgr::ip_address();
+  const std::string ip = net_mgr::wifi_ip_address();
   if (ip.empty()) {
     out += "network    not connected\r\n";
   } else {
@@ -109,6 +110,21 @@ std::string status_text() {
                net_mgr::rssi());
     }
     out += line;
+  }
+
+  // The wired side (#262), only on a build that can have one.
+  if (ethernet::supported()) {
+    const ethernet::Status eth = ethernet::status();
+    if (!eth.present) {
+      out += "ethernet   not fitted\r\n";
+    } else if (!eth.link_up) {
+      out += "ethernet   no link\r\n";
+    } else {
+      snprintf(line, sizeof(line), "ethernet   %s (%d Mbit/s %s duplex)\r\n",
+               eth.ip.empty() ? "no address" : eth.ip.c_str(), eth.speed_mbps,
+               eth.full_duplex ? "full" : "half");
+      out += line;
+    }
   }
 
   // Both halves: what the firmware drove, and what is actually on the pad. One

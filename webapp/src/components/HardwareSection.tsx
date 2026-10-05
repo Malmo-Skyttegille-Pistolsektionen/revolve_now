@@ -42,7 +42,20 @@ import styles from './HardwareSection.module.css';
 type NumericField = {
   key: keyof HardwareConfigPatch &
     (
-      'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'i2sMclkGpio' | 'httpPort' | 'wifiMaxRetries'
+      | 'ledGpio'
+      | 'i2sPort'
+      | 'i2sBckGpio'
+      | 'i2sWsGpio'
+      | 'i2sDoutGpio'
+      | 'i2sMclkGpio'
+      | 'ethCsGpio'
+      | 'ethSclkGpio'
+      | 'ethMosiGpio'
+      | 'ethMisoGpio'
+      | 'ethIntGpio'
+      | 'ethRstGpio'
+      | 'httpPort'
+      | 'wifiMaxRetries'
     );
   testId: string;
 };
@@ -69,6 +82,16 @@ const AUDIO_FIELDS: NumericField[] = [
   { key: 'i2sWsGpio', testId: 'hardware-i2s-ws' },
   { key: 'i2sDoutGpio', testId: 'hardware-i2s-dout' },
   { key: 'i2sMclkGpio', testId: 'hardware-i2s-mclk' },
+];
+
+// CS first: -1 there means no W5500, and the other five are then unused (#262).
+const ETHERNET_FIELDS: NumericField[] = [
+  { key: 'ethCsGpio', testId: 'hardware-eth-cs' },
+  { key: 'ethSclkGpio', testId: 'hardware-eth-sclk' },
+  { key: 'ethMosiGpio', testId: 'hardware-eth-mosi' },
+  { key: 'ethMisoGpio', testId: 'hardware-eth-miso' },
+  { key: 'ethIntGpio', testId: 'hardware-eth-int' },
+  { key: 'ethRstGpio', testId: 'hardware-eth-rst' },
 ];
 
 const NETWORK_FIELDS: NumericField[] = [
@@ -419,6 +442,8 @@ export function HardwareSection(): React.ReactNode {
         {group(t.groups.led, 'hardware-group-led', LED_FIELDS.map(numeric))}
 
         {group(t.groups.audio, 'hardware-group-audio', AUDIO_FIELDS.map(numeric))}
+
+        {group(t.groups.ethernet, 'hardware-group-ethernet', ETHERNET_FIELDS.map(numeric))}
 
         {group(
           t.groups.network,

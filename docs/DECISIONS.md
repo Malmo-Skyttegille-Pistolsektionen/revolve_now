@@ -56,6 +56,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-43 | Uploads are converted to IMA ADPCM in the browser | Decided | 2026-10-03 |
 | D-44 | The product is Revolve Now, down to the firmware project name | Decided | 2026-10-03 |
 | D-45 | Swedish in the web app and the docs; the device keeps speaking English | Decided | 2026-10-04 |
+| D-46 | Wired Ethernet beside WiFi, probed at boot, with no onboarding of its own | Decided | 2026-10-06 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -1976,6 +1977,40 @@ the shared `img/` and `snippets/` paths); *translating device text in the
 client* (string-matching English prose is the failure D-19 was decided to
 end); *a Swedish-only app* (the English the tests and the e2e suite assert on
 would have become a second-class translation of itself).
+
+## D-46 — Wired Ethernet beside WiFi, probed at boot, with no onboarding of its own *(Decided 2026-10-06)*
+
+**Decision:** a board may carry a W5500 SPI Ethernet controller and connect to
+the range's router or switch by cable (#262). The firmware probes for one at
+every boot and, if it answers, runs it beside WiFi with a DHCP client; the
+server and mDNS answer on both. Its six pins are hardware configuration like
+any other (#144) — NVS over Kconfig, validated, collisions refused — with CS
+-1 meaning "none". The defaults are the PCB rev 1's U10 nets, so a module on
+the PoC and a populated PCB share one configuration.
+
+**Onboarding is unchanged.** A cable needs no credentials, so there is nothing
+to provision: the device takes a lease and is at `<hostname>.local`. Boot
+returns as soon as *either* interface has an address, and WiFi keeps joining
+in the background. The setup portal comes up only when neither can serve —
+WiFi has nothing to join or gave up, and Ethernet has no link or no lease
+within its grace — and a portal that then sees Ethernet get an address
+restarts into the normal path. While Ethernet serves, a WiFi that failed its
+initial join is retried every minute rather than abandoned.
+
+**Why probe rather than a build or runtime switch:** the probe is one register
+read and costs nothing on a board without the chip, so the stock image works
+with or without a module. CS -1 is the switch for a board that needs those
+pins for something else.
+
+**Why the Ethernet address wins `DiagnosticsInfo.ipAddress`:** a cable is
+plugged in because it is the dependable link. `GET /wifi` and the new
+`GET /ethernet` each report their own address.
+
+**Rejected:** *USB-NCM, PPP or a serial HTTP shim* (#262's original options) —
+those serve a laptop at the bench, and the need is the device on the range
+network; the PCB's native USB pins are not wired anyway. *A DHCP server on the
+wired port* for direct laptop connections — plugged into a club LAN, it would
+hand out conflicting leases.
 
 ## Open questions
 

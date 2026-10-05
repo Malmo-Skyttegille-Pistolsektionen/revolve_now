@@ -20,6 +20,18 @@ A device that has never been configured, or that has been moved to a site whose
 WiFi it does not know, comes up **blue**. There is no address to find yet — the
 network it should join does not exist from its point of view.
 
+## A network cable instead { #a-network-cable }
+
+A board with an [Ethernet module](hardware.md#ethernet) fitted needs no setup
+at all on a wired network. Plug a cable from it into the router or a switch,
+power it up, and it takes an address from the router by itself — there is
+nothing to type in, so there is no setup portal. Go straight to
+[Finding the device](#finding-the-device).
+
+It still joins WiFi if it knows a network, and then it answers on both. It only
+comes up **blue** if neither works: no WiFi it can join, and no address over
+the cable either.
+
 ## The setup portal
 
 A **blue** LED means the device is running a small access point of its own. Its

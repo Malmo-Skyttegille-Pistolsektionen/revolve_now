@@ -19,6 +19,7 @@ veta vilken som är vilken innan du ändrar något:
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
 | Lagring | enhet | Hur mycket plats flashpartitionerna har |
 | WiFi | enhet | Vilket nätverk den är på, och hur bra länken är |
+| Ethernet | enhet | Kabellänken och dess adress — bara på ett kort med en [Ethernet-modul](hardware.md#ethernet) |
 | Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
 
 ![Sidan Inställningar](img/settings.png)
@@ -125,6 +126,14 @@ fungerar den av den rena turen att stå i rätt byggnad.
 För att *byta* nätverk, se [Expertläge](expert-mode.md#wifi). Det är ett beslut
 per plats bakom knapptrycket på kortet, vilket är varför det inte finns på den
 här sidan.
+
+## Ethernet { #ethernet }
+
+Visas bara på ett kort med en [Ethernet-modul](hardware.md#ethernet) som
+enheten hittade när den startade. **Länk** säger om en kabel sitter i och något
+svarar i andra änden, och i vilken hastighet; **Adress** är den routern gav den
+över kabeln. En enhet på både WiFi och kabel har två adresser, och båda når
+den.
 
 ## Om { #about }
 

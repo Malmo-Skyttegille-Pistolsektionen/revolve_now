@@ -97,4 +97,33 @@ in the repository.
 audio DAC that plays the range commands, and the [status LED](status-led.md).
 A target that only turns, with no audio, is a supported configuration.
 
+## Ethernet (optional) { #ethernet }
+
+A board can take a **W5500 Ethernet module** — a small, inexpensive board with
+a network socket — and then connect to the range's router or switch with a
+cable as well as, or instead of, WiFi. Where the WiFi is unreliable, that is
+the dependable way in.
+
+The device looks for the module every time it starts. If it finds one, it
+takes an address from the router over the cable and answers there, beside
+WiFi; if it does not, it carries on over WiFi as before. Nothing needs to be
+switched on, and [connecting](connecting.md#a-network-cable) needs no setup.
+
+Wire it to these pins — the same on the ESP32-S3-DevKitC-1 and on the club's
+own Revolve Now board, whose unfitted W5500 uses them:
+
+| Module pin | GPIO |
+|---|---|
+| SCLK | 41 |
+| MOSI (sometimes MI) | 39 |
+| MISO (sometimes MO) | 40 |
+| SCS / CS | 42 |
+| INT | 38 |
+| RST | not needed |
+| 3.3V (or 5V, if the module has a regulator) | 3.3V (or 5V) |
+| GND | GND |
+
+Read the pin names off the module itself — the order differs between makers.
+Other pins can be set in [Expert mode](expert-mode.md#hardware).
+
 <!-- TODO: a photograph of the DB9 connector and the transistor as actually wired -->

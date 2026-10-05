@@ -34,6 +34,7 @@ import type {
   Event,
   ProblemType,
   WifiStatus,
+  EthernetStatus,
   WifiNetwork,
 } from '../../src/api/types';
 import type { EventLocation } from '../../src/lib/run-position';
@@ -146,7 +147,7 @@ const MAX_BANK_NAME_LENGTH = 16;
 const BANK_LETTERS = 'ABCDEFGH';
 
 const PIN_COLLISION =
-  'Two of these are on the same GPIO. The target banks, the status LED and the three audio pins each need one of their own, or whichever is set up last takes the pad and the other silently stops working.';
+  'Two of these are on the same GPIO. The target banks, the status LED, the audio pins and the Ethernet pins each need one of their own, or whichever is set up last takes the pad and the other silently stops working.';
 
 function hardwareConfigRefusal(config: HardwareConfig): string | null {
   const banks = config.banks;
@@ -175,7 +176,18 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
     if (refusal !== null) return refusal;
   }
 
-  const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s];
+  // The W5500 (#262) is off while its CS is -1, and its pins are then not checked.
+  const eth: number[] = [];
+  if (config.ethCsGpio !== -1) {
+    eth.push(config.ethSclkGpio, config.ethMosiGpio, config.ethMisoGpio, config.ethCsGpio);
+    for (const gpio of [config.ethIntGpio, config.ethRstGpio]) if (gpio !== -1) eth.push(gpio);
+    for (const gpio of eth) {
+      const refusal = pinRefusal(gpio);
+      if (refusal !== null) return refusal;
+    }
+  }
+
+  const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s, ...eth];
   if (new Set(inUse).size !== inUse.length) return PIN_COLLISION;
 
   if (config.hostname.length === 0) return 'The hostname cannot be empty - it is how the device is reached.';
@@ -216,6 +228,12 @@ export const HARDWARE_DEFAULTS: HardwareConfig = {
   i2sMclkGpio: -1,
   httpPort: 80,
   wifiMaxRetries: 10,
+  ethSclkGpio: 41,
+  ethMosiGpio: 39,
+  ethMisoGpio: 40,
+  ethCsGpio: 42,
+  ethIntGpio: 38,
+  ethRstGpio: -1,
 };
 // --- Constants ---
 const API_PREFIX = '/api/v2';
@@ -291,6 +309,18 @@ const DEFAULT_WIFI: WifiStatus = {
   restartRequired: false,
 };
 
+// A build that can have Ethernet, on a board with no W5500 fitted - which is
+// every board shipped so far (#262).
+const DEFAULT_ETHERNET: EthernetStatus = {
+  supported: true,
+  present: false,
+  linkUp: false,
+  speedMbps: 0,
+  fullDuplex: false,
+  ipAddress: '',
+  macAddress: '',
+};
+
 // A small, plausible site: two networks a club might see, one of them the one
 // the device is on. Strongest first and one entry per SSID, which is what the
 // firmware's `strongest_per_ssid` guarantees and what the pick-list assumes.
@@ -352,6 +382,8 @@ export interface MockSeed {
    * render it as such rather than as a failure.
    */
   wifiNetworks?: WifiNetwork[];
+  /** What `GET /ethernet` reports (#262). Defaults to a board with no W5500 fitted. */
+  ethernet?: Partial<EthernetStatus>;
   /**
    * The `build` block `GET /diagnostics/info` reports (#228). Defaults to a
    * plausible clean build. Set it to `null` for a device on firmware from
@@ -696,6 +728,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   // save stores, and the station keeps the association it booted with until
   // restart() adopts what was stored (#341).
   let wifi: WifiStatus = { ...DEFAULT_WIFI, ...(seed.wifi ?? {}) };
+  const ethernet: EthernetStatus = { ...DEFAULT_ETHERNET, ...(seed.ethernet ?? {}) };
   let savedWifiSsid: string | null = null;
   /** Mirrors `wifi_store::saved_since_boot()`; why a flag is D-42. */
   let wifiSavedSinceBoot = false;
@@ -1562,6 +1595,13 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       }
       savedHardware = { ...HARDWARE_DEFAULTS };
       jsonResponse(res, 200, { message: 'Hardware configuration reset - restart the device to apply it' });
+      return;
+    }
+
+    // --- Ethernet (#262) ---
+
+    if (endpoint === '/ethernet' && req.method === 'GET') {
+      jsonResponse(res, 200, ethernet);
       return;
     }
 

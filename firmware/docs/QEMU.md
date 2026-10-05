@@ -25,7 +25,9 @@ Boot to serving takes about two seconds of guest time.
 QEMU emulates no WiFi radio, so the network comes up over the OpenCores
 Ethernet MAC the emulator maps onto the EMAC register window. That is the whole
 of `CONFIG_RT_NET_OPENETH`: `main/net/eth_mgr.cpp` is compiled instead of
-`main/net/wifi_mgr.cpp`, both implementing `main/net/net_mgr.h`. With the WiFi
+`main/net/wifi_mgr.cpp`, both implementing `main/net/net_mgr.h`. The wired
+side goes through `main/net/ethernet.cpp`, the same code a W5500 uses on the
+board, so `GET /api/v2/ethernet` reports the emulated link. With the WiFi
 translation unit out of the build, the setup portal and the NVS credential
 store are not linked in at all — there is nothing to provision, because SLIRP
 hands the guest 10.0.2.15 over DHCP.

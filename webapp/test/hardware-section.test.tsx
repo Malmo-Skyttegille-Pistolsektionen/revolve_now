@@ -44,7 +44,20 @@ async function open(): Promise<void> {
 /** The testid a field is rendered with, to the config key it edits. */
 const TESTID_TO_KEY: Record<
   string,
-  'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'i2sMclkGpio' | 'httpPort' | 'wifiMaxRetries'
+  | 'ledGpio'
+  | 'i2sPort'
+  | 'i2sBckGpio'
+  | 'i2sWsGpio'
+  | 'i2sDoutGpio'
+  | 'i2sMclkGpio'
+  | 'ethCsGpio'
+  | 'ethSclkGpio'
+  | 'ethMosiGpio'
+  | 'ethMisoGpio'
+  | 'ethIntGpio'
+  | 'ethRstGpio'
+  | 'httpPort'
+  | 'wifiMaxRetries'
 > = {
   'hardware-led-gpio': 'ledGpio',
   'hardware-i2s-port': 'i2sPort',
@@ -52,6 +65,12 @@ const TESTID_TO_KEY: Record<
   'hardware-i2s-ws': 'i2sWsGpio',
   'hardware-i2s-dout': 'i2sDoutGpio',
   'hardware-i2s-mclk': 'i2sMclkGpio',
+  'hardware-eth-cs': 'ethCsGpio',
+  'hardware-eth-sclk': 'ethSclkGpio',
+  'hardware-eth-mosi': 'ethMosiGpio',
+  'hardware-eth-miso': 'ethMisoGpio',
+  'hardware-eth-int': 'ethIntGpio',
+  'hardware-eth-rst': 'ethRstGpio',
   'hardware-http-port': 'httpPort',
   'hardware-wifi-retries': 'wifiMaxRetries',
 };
@@ -145,6 +164,31 @@ describe('the hardware section', () => {
     expect(state.saved.i2sMclkGpio).toBe(48);
   });
 
+  // The W5500's pins are pins like any other (#262): one on a bank's pad is
+  // refused, and -1 for CS switches Ethernet off so the rest go unchecked.
+  it('checks the Ethernet pins only while a W5500 is configured', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    await type('hardware-eth-int', String(HARDWARE_DEFAULTS.banks[0].gpio));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('same GPIO'));
+
+    await type('hardware-eth-cs', '-1');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).not.toContain('same GPIO'));
+
+    const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
+      saved: { ethCsGpio: number };
+    };
+    expect(state.saved.ethCsGpio).toBe(-1);
+  });
+
   // The device's RFC 9457 `detail` is the sentence written for the situation -
   // which pin, and why - so it is shown rather than replaced with "invalid".
   it("shows the device's own refusal, not a generic one", async () => {
@@ -231,6 +275,12 @@ describe('the hardware section', () => {
       'hardware-i2s-ws',
       'hardware-i2s-dout',
       'hardware-i2s-mclk',
+      'hardware-eth-cs',
+      'hardware-eth-sclk',
+      'hardware-eth-mosi',
+      'hardware-eth-miso',
+      'hardware-eth-int',
+      'hardware-eth-rst',
       'hardware-http-port',
       'hardware-wifi-retries',
     ]) {
@@ -241,6 +291,7 @@ describe('the hardware section', () => {
       'hardware-group-targets',
       'hardware-group-led',
       'hardware-group-audio',
+      'hardware-group-ethernet',
       'hardware-group-network',
     ]) {
       expect(screen.getByTestId(group)).toBeTruthy();

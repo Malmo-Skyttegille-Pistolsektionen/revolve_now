@@ -37,6 +37,7 @@
 #include "esp_random.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "ethernet.h"
 #include "issue_buffer.h"
 #include "json_util.h"
 #include "net_mgr.h"
@@ -263,8 +264,11 @@ bool origin_allowed(const std::string &origin) {
   const std::string host = hardware_store::current().hostname;
   if (origin == "http://" + host + ".local" || origin == "https://" + host + ".local") return true;
 
-  const std::string ip = net_mgr::ip_address();
-  if (!ip.empty() && (origin == "http://" + ip || origin == "https://" + ip)) return true;
+  // Either interface's address: a browser on the wired side and one on WiFi
+  // reach the same device by different numbers.
+  for (const std::string &ip : {net_mgr::wifi_ip_address(), ethernet::status().ip}) {
+    if (!ip.empty() && (origin == "http://" + ip || origin == "https://" + ip)) return true;
+  }
 
   const std::string dev = CONFIG_RT_DEV_ORIGIN;
   if (!dev.empty() && origin == dev) return true;
@@ -1232,6 +1236,18 @@ std::string hardware_config_json(const rt::HardwareConfig &config) {
   out += std::to_string(config.http_port);
   out += ",\"wifiMaxRetries\":";
   out += std::to_string(config.wifi_max_retries);
+  out += ",\"ethSclkGpio\":";
+  out += std::to_string(config.eth_sclk_gpio);
+  out += ",\"ethMosiGpio\":";
+  out += std::to_string(config.eth_mosi_gpio);
+  out += ",\"ethMisoGpio\":";
+  out += std::to_string(config.eth_miso_gpio);
+  out += ",\"ethCsGpio\":";
+  out += std::to_string(config.eth_cs_gpio);
+  out += ",\"ethIntGpio\":";
+  out += std::to_string(config.eth_int_gpio);
+  out += ",\"ethRstGpio\":";
+  out += std::to_string(config.eth_rst_gpio);
   out += "}";
   return out;
 }
@@ -1240,8 +1256,17 @@ bool same_config(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
   // targets_shown_at_boot included even though HTTP cannot change it: the
   // serial console can, and that needs a restart to take effect too. Leaving it
   // out would report restartRequired false right after `boot-targets hidden`.
+  // Every pin too: each is latched at boot, so a saved change to any of them is
+  // waiting on a restart.
   return rt::same_wiring(a.banks, b.banks) && a.hostname == b.hostname &&
-         a.display_name == b.display_name && a.targets_shown_at_boot == b.targets_shown_at_boot;
+         a.display_name == b.display_name && a.targets_shown_at_boot == b.targets_shown_at_boot &&
+         a.led_gpio == b.led_gpio && a.i2s_port == b.i2s_port && a.i2s_bck_gpio == b.i2s_bck_gpio &&
+         a.i2s_ws_gpio == b.i2s_ws_gpio && a.i2s_dout_gpio == b.i2s_dout_gpio &&
+         a.i2s_mclk_gpio == b.i2s_mclk_gpio && a.http_port == b.http_port &&
+         a.wifi_max_retries == b.wifi_max_retries && a.eth_sclk_gpio == b.eth_sclk_gpio &&
+         a.eth_mosi_gpio == b.eth_mosi_gpio && a.eth_miso_gpio == b.eth_miso_gpio &&
+         a.eth_cs_gpio == b.eth_cs_gpio && a.eth_int_gpio == b.eth_int_gpio &&
+         a.eth_rst_gpio == b.eth_rst_gpio;
 }
 
 void register_config_routes() {
@@ -1357,6 +1382,15 @@ void register_config_routes() {
     if (!doc["httpPort"].isNull()) config.http_port = doc["httpPort"] | config.http_port;
     if (!doc["wifiMaxRetries"].isNull())
       config.wifi_max_retries = doc["wifiMaxRetries"] | config.wifi_max_retries;
+    if (!doc["ethSclkGpio"].isNull())
+      config.eth_sclk_gpio = doc["ethSclkGpio"] | config.eth_sclk_gpio;
+    if (!doc["ethMosiGpio"].isNull())
+      config.eth_mosi_gpio = doc["ethMosiGpio"] | config.eth_mosi_gpio;
+    if (!doc["ethMisoGpio"].isNull())
+      config.eth_miso_gpio = doc["ethMisoGpio"] | config.eth_miso_gpio;
+    if (!doc["ethCsGpio"].isNull()) config.eth_cs_gpio = doc["ethCsGpio"] | config.eth_cs_gpio;
+    if (!doc["ethIntGpio"].isNull()) config.eth_int_gpio = doc["ethIntGpio"] | config.eth_int_gpio;
+    if (!doc["ethRstGpio"].isNull()) config.eth_rst_gpio = doc["ethRstGpio"] | config.eth_rst_gpio;
 
     rt::ValidationDetail detail;
     const rt::ConfigRefusal refusal = hardware_store::save(config, &detail);
@@ -1411,7 +1445,7 @@ std::string wifi_status_json(bool radio, const std::string &ssid, int rssi, int 
   out += ",\"bars\":";
   out += std::to_string(connected ? bars : 0);
   out += ",\"ipAddress\":";
-  out += rt::json_quote(net_mgr::ip_address());
+  out += rt::json_quote(net_mgr::wifi_ip_address());
   out += ",\"macAddress\":";
   out += rt::json_quote(net_mgr::mac_address());
   out += ",\"provisioned\":";
@@ -1421,6 +1455,30 @@ std::string wifi_status_json(bool radio, const std::string &ssid, int rssi, int 
   out += restart_required ? "true" : "false";
   out += "}";
   return out;
+}
+
+// The wired interface (#262). Answers on every build, so a client can tell "no
+// Ethernet" from "firmware older than this endpoint".
+void register_ethernet_routes() {
+  s_server.on("/api/v2/ethernet", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
+    const ethernet::Status eth = ethernet::status();
+    std::string out = "{\"supported\":";
+    out += ethernet::supported() ? "true" : "false";
+    out += ",\"present\":";
+    out += eth.present ? "true" : "false";
+    out += ",\"linkUp\":";
+    out += eth.link_up ? "true" : "false";
+    out += ",\"speedMbps\":";
+    out += std::to_string(eth.speed_mbps);
+    out += ",\"fullDuplex\":";
+    out += eth.full_duplex ? "true" : "false";
+    out += ",\"ipAddress\":";
+    out += rt::json_quote(eth.ip);
+    out += ",\"macAddress\":";
+    out += rt::json_quote(eth.mac);
+    out += "}";
+    return send_json(res, 200, out);
+  });
 }
 
 #if CONFIG_RT_NET_OPENETH
@@ -1634,6 +1692,7 @@ bool start() {
   register_audio_routes();
   register_config_routes();
   register_wifi_routes();
+  register_ethernet_routes();
   register_system_routes();
   // Lives in its own translation unit: the ESP-IDF OTA calls have a lifetime
   // discipline of their own (a handle that must be aborted, not ended, before

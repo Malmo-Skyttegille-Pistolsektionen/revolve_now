@@ -13,8 +13,9 @@
 
 namespace rt {
 
-// An optional I2S pin that is not driven at all.
-constexpr int32_t kI2sPinUnused = -1;
+// An optional pin that is not driven at all.
+constexpr int32_t kPinUnused = -1;
+constexpr int32_t kI2sPinUnused = kPinUnused;
 
 // The configuration a device can be given without rebuilding it (#144).
 //
@@ -64,6 +65,17 @@ struct HardwareConfig {
   // this kI2sPinUnused; the PCB rev 1 breakout stays silent without it (#506).
   int32_t i2s_mclk_gpio = kI2sPinUnused;
 
+  // A W5500 Ethernet controller on SPI (#262). `eth_cs_gpio` kPinUnused means
+  // none is wired; otherwise the device probes for one at boot and carries on
+  // over WiFi alone if nothing answers. INT and RST are optional: without INT
+  // the driver polls, and without RST it resets the chip over SPI.
+  int32_t eth_sclk_gpio = 0;
+  int32_t eth_mosi_gpio = 0;
+  int32_t eth_miso_gpio = 0;
+  int32_t eth_cs_gpio = kPinUnused;
+  int32_t eth_int_gpio = kPinUnused;
+  int32_t eth_rst_gpio = kPinUnused;
+
   // The port the web app and API are served on. Not a pin, but the same kind
   // of setting: wrong and the device is not where anybody looks for it. mDNS
   // advertises the host, not the port, so the serial console reports it.
@@ -81,6 +93,7 @@ struct HardwareConfig {
 struct Peripherals {
   bool audio = true;
   bool led = true;
+  bool ethernet = true;
 };
 
 // Why a configuration was refused. `kNone` means it was accepted.

@@ -94,6 +94,10 @@ Wrong values here are the ones whose way back is a USB cable:
   stops being reachable at `revolve-now.local`. Worse than a wrong pin,
   which at least leaves the app up to fix it from.
 
+The **Ethernet (W5500)** group says where an [Ethernet module](hardware.md#ethernet)
+is wired. Its chip select set to **-1** switches Ethernet off, and the other
+five pins are then not used.
+
 **Nothing here takes effect until the device restarts**, and the page says so
 when a saved value is not yet in use — then **Restart to apply** at the top of
 the page. A change that appears to have done nothing is how somebody ends up

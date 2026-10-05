@@ -20,6 +20,7 @@ export type HardwareConfig = components['schemas']['HardwareConfig'];
 export type HardwareConfigState = components['schemas']['HardwareConfigState'];
 export type HardwareConfigPatch = components['schemas']['HardwareConfigPatch'];
 export type WifiStatus = components['schemas']['WifiStatus'];
+export type EthernetStatus = components['schemas']['EthernetStatus'];
 export type WifiNetwork = components['schemas']['WifiNetwork'];
 export type WifiCredentials = components['schemas']['WifiCredentials'];
 

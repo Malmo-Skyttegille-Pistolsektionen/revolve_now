@@ -209,6 +209,40 @@ void test_the_i2s_master_clock_is_optional() {
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, no_audio));
 }
 
+// The W5500 (#262) is off while its CS is unused, so its other fields are not
+// checked. Wired, its four bus lines are pins like any other, and INT and RST
+// are optional on top of them.
+void test_the_ethernet_pins_are_checked_only_when_wired() {
+  HardwareConfig config = good();
+  TEST_ASSERT_EQUAL_INT32(rt::kPinUnused, config.eth_cs_gpio);
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_sclk_gpio = 41;
+  config.eth_mosi_gpio = 39;
+  config.eth_miso_gpio = 40;
+  config.eth_cs_gpio = 42;
+  config.eth_int_gpio = 38;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_int_gpio = config.i2s_bck_gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(config));
+  config.eth_int_gpio = rt::kPinUnused;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_rst_gpio = 45;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioStrapping, rt::validate(config));
+  config.eth_rst_gpio = rt::kPinUnused;
+
+  config.eth_mosi_gpio = 19;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioUsbSerial, rt::validate(config));
+  config.eth_mosi_gpio = config.banks[0].gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(config));
+
+  rt::Peripherals no_ethernet;
+  no_ethernet.ethernet = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, no_ethernet));
+}
+
 void test_the_i2s_port_and_the_numeric_settings_are_bounded() {
   HardwareConfig config = good();
   config.i2s_port = 2;
@@ -403,6 +437,7 @@ int main() {
   RUN_TEST(test_two_peripherals_on_one_pin_are_refused);
   RUN_TEST(test_pins_of_absent_peripherals_are_ignored);
   RUN_TEST(test_the_i2s_master_clock_is_optional);
+  RUN_TEST(test_the_ethernet_pins_are_checked_only_when_wired);
   RUN_TEST(test_the_i2s_port_and_the_numeric_settings_are_bounded);
   RUN_TEST(test_an_empty_hostname_is_refused);
   RUN_TEST(test_a_hostname_longer_than_the_ssid_suffix_allows_is_refused);

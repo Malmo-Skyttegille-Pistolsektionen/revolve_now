@@ -42,11 +42,23 @@ const SEED: MockSeed = {
 };
 
 /**
- * The mock models the board build. The QEMU profile compiles out the RGB LED
- * and audio, and `hardware_store.cpp` leaves their pins at 0 when it does.
+ * The mock models the board build. The QEMU profile compiles out the RGB LED,
+ * audio and the W5500, and `hardware_store.cpp` leaves their pins at the
+ * struct's defaults when it does.
  */
 const COMPILED_DEFAULTS = onDevice
-  ? { ...HARDWARE_DEFAULTS, ledGpio: 0, i2sBckGpio: 0, i2sWsGpio: 0, i2sDoutGpio: 0 }
+  ? {
+      ...HARDWARE_DEFAULTS,
+      ledGpio: 0,
+      i2sBckGpio: 0,
+      i2sWsGpio: 0,
+      i2sDoutGpio: 0,
+      ethSclkGpio: 0,
+      ethMosiGpio: 0,
+      ethMisoGpio: 0,
+      ethCsGpio: -1,
+      ethIntGpio: -1,
+    }
   : HARDWARE_DEFAULTS;
 
 /** Program 40 is the fixture on the mock and the shipped file on the device. */
@@ -867,6 +879,28 @@ describe('WiFi on a build with no radio (#263)', () => {
         detail: 'This firmware is built for wired Ethernet and has no WiFi radio',
       });
     }
+  });
+});
+
+/**
+ * The QEMU build reaches its network over emulated Ethernet, so `GET /ethernet`
+ * reports a live link there; the mock is seeded to match (#262).
+ */
+describe('Ethernet (#262)', () => {
+  setUpTarget({
+    ...SEED,
+    ethernet: { present: true, linkUp: true, speedMbps: 100, fullDuplex: true, ipAddress: '10.0.2.15' },
+  });
+
+  it('reports the wired link the device is answering over', async () => {
+    const status = (await (await api('/ethernet')).json()) as Record<string, unknown>;
+    expect(Object.keys(status).sort()).toEqual(
+      ['fullDuplex', 'ipAddress', 'linkUp', 'macAddress', 'present', 'speedMbps', 'supported'].sort(),
+    );
+    expect(status.supported).toBe(true);
+    expect(status.present).toBe(true);
+    expect(status.linkUp).toBe(true);
+    expect(status.ipAddress).not.toBe('');
   });
 });
 

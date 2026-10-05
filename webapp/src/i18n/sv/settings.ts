@@ -75,6 +75,15 @@ export const settings: Messages['settings'] = {
     expertMode: 'Expertläge',
     moveAfter: ' — ett beslut som tas en gång per plats, bakom knapptrycket på kortet.',
   },
+  ethernet: {
+    title: 'Ethernet',
+    link: 'Länk',
+    linkSpeed: (mbps, fullDuplex) => `${String(mbps)} Mbit/s, ${fullDuplex ? 'full' : 'halv'} duplex`,
+    noLink: 'Ingen kabel, eller inget i andra änden',
+    address: 'Adress',
+    noneYet: 'ingen ännu',
+    mac: 'MAC',
+  },
   firmware: {
     title: 'Firmware',
     explainBefore: 'Att ladda upp firmware ',

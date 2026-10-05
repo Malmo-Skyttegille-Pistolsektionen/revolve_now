@@ -4,8 +4,9 @@
 # lives in - the grouping is for humans navigating the tree, not a module
 # boundary the compiler enforces.
 
-# Exactly one implementation of net_mgr.h is compiled: WiFi on the board, or
-# OpenCores Ethernet under QEMU, which emulates no radio. With wifi_mgr out of
+# Exactly one implementation of net_mgr.h is compiled: WiFi (and a W5500, if
+# one is wired) on the board, or OpenCores Ethernet under QEMU, which emulates
+# no radio. net/ethernet.cpp is built either way and picks its driver itself. With wifi_mgr out of
 # the build the setup portal and the NVS credential store are not merely
 # unused, they are not linked in. See net/net_mgr.h and docs/QEMU.md.
 #
@@ -30,7 +31,7 @@ idf_component_register(
          "system/restart.cpp"
          "diagnostics/partitions.cpp" "diagnostics/build_info.cpp" "console/console.cpp"
          ${RT_NET_SRCS}
-         "net/net_common.cpp" "net/web_server.cpp" "net/sse_hub.cpp"
+         "net/net_common.cpp" "net/ethernet.cpp" "net/web_server.cpp" "net/sse_hub.cpp"
     INCLUDE_DIRS "." "config" "io" "storage" "repositories" "executor" "net" "diagnostics" "console" "ota"
                  "system"
     REQUIRES rt_logic arduinojson psychic_http
@@ -39,6 +40,7 @@ idf_component_register(
              esp_driver_gpio esp_driver_i2s
              joltwallet__littlefs espressif__led_strip espressif__mdns
              esp_wifi dns_server esp_eth esp_driver_usb_serial_jtag
+             esp_driver_spi espressif__w5500
 )
 
 # The tested half (host_test/) builds with -Wall -Wextra -Werror; without this

@@ -37,3 +37,5 @@ dependencies:
   espressif/led_strip: "3.0.3"
   # http://revolve-now.local, so the webapp does not need the DHCP lease.
   espressif/mdns: "1.14.0"
+  # The W5500 SPI Ethernet driver (#262). It left esp_eth core in IDF 6.
+  espressif/w5500: "2.0.0"

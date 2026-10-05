@@ -95,6 +95,10 @@ nätverket. Fel värden här är de vars väg tillbaka är en USB-kabel:
   att nå på `revolve-now.local`. Värre än ett fel stift, som åtminstone lämnar
   appen uppe att rätta det från.
 
+Gruppen **Ethernet (W5500)** säger var en [Ethernet-modul](hardware.md#ethernet)
+är kopplad. Dess chip select satt till **-1** stänger av Ethernet, och de andra
+fem stiften används då inte.
+
 **Ingenting här börjar gälla förrän enheten startar om**, och sidan säger det
 när ett sparat värde ännu inte används — då **Starta om för att verkställa**
 högst upp på sidan. En ändring som verkar inte ha gjort något är så någon

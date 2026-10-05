@@ -31,6 +31,7 @@ export const hardware: Messages['hardware'] = {
     targets: 'Tavlor',
     led: 'Statuslampan (LED)',
     audio: 'Ljud',
+    ethernet: 'Ethernet (W5500)',
     network: 'Nätverk',
   },
   fields: {
@@ -57,6 +58,30 @@ export const hardware: Messages['hardware'] = {
     i2sMclkGpio: {
       label: 'I2S masterklocka (MCLK)',
       hint: 'Till SCK på DAC-kortet, eller -1 för att lämna den odriven. De flesta PCM5102A-kort gör sin egen klocka och vill ha -1; är ditt tyst fast de andra stiften stämmer kan det behöva den här.',
+    },
+    ethCsGpio: {
+      label: 'W5500 chip select (CS)',
+      hint: 'Till SCS på W5500, eller -1 för inget Ethernet. Med ett stift här letar enheten efter kretsen vid varje start och fortsätter över WiFi om den inte finns.',
+    },
+    ethSclkGpio: {
+      label: 'W5500 SPI-klocka (SCLK)',
+      hint: 'Till SCLK på W5500.',
+    },
+    ethMosiGpio: {
+      label: 'W5500 MOSI',
+      hint: 'Till MOSI (ibland MI) på W5500 — data in i kretsen.',
+    },
+    ethMisoGpio: {
+      label: 'W5500 MISO',
+      hint: 'Till MISO (ibland MO) på W5500 — data ut från kretsen.',
+    },
+    ethIntGpio: {
+      label: 'W5500 avbrott (INT)',
+      hint: 'Till INT på W5500, eller -1 så frågar enheten kretsen med några millisekunders mellanrum i stället.',
+    },
+    ethRstGpio: {
+      label: 'W5500 återställning (RST)',
+      hint: 'Till RST på W5500, eller -1 för att lämna den okopplad — de flesta moduler drar upp den själva.',
     },
     httpPort: {
       label: 'HTTP-port',

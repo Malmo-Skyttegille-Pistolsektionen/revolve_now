@@ -18,6 +18,7 @@ which is which before changing anything:
 | Startup Issues | device | What the device could not read when it booted |
 | Storage | device | How much room the flash partitions have |
 | WiFi | device | Which network it is on, and how good the link is |
+| Ethernet | device | The cable link and its address — only on a board with an [Ethernet module](hardware.md#ethernet) |
 | About | device | What firmware and web app this is, and exactly which build |
 
 ![The Settings page](img/settings.png)
@@ -119,6 +120,14 @@ by luck of being in the right building.
 To *change* the network, see [Expert mode](expert-mode.md#wifi). It is a
 once-per-site decision behind the button press on the board, which is why it is
 not on this page.
+
+## Ethernet
+
+Shown only on a board with an [Ethernet module](hardware.md#ethernet) that the
+device found when it started. **Link** says whether a cable is in and something
+answers at the other end, and at what speed; **Address** is the one the router
+gave it over the cable. A device on both WiFi and a cable has two addresses,
+and either reaches it.
 
 ## About
 

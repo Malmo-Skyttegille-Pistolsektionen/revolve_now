@@ -73,6 +73,15 @@ export const settings = {
     expertMode: 'Expert mode',
     moveAfter: ' — a once-per-site decision behind the button press on the board.',
   },
+  ethernet: {
+    title: 'Ethernet',
+    link: 'Link',
+    linkSpeed: (mbps: number, fullDuplex: boolean) => `${String(mbps)} Mbit/s, ${fullDuplex ? 'full' : 'half'} duplex`,
+    noLink: 'No cable, or nothing at the other end',
+    address: 'Address',
+    noneYet: 'none yet',
+    mac: 'MAC',
+  },
   firmware: {
     title: 'Firmware',
     explainBefore: 'Uploading firmware ',
