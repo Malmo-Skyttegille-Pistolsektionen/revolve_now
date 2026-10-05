@@ -35,13 +35,20 @@ WALL = 2.0          # side walls
 FLOOR = 2.0         # base floor
 LID_T = 2.0         # lid top
 GAP = 0.5           # PCB edge to inner wall
-ANT_GAP = 1.0       # module tip to inner wall on the antenna side
+ANTENNA_CUTOUT = True  # module pokes out through a slot in the back wall, as on the bare board
+ANT_GAP = 1.0       # with ANTENNA_CUTOUT off: module tip to the inner wall of a deeper back bay
 R_OUT = 3.0         # outer vertical corner radius
 STANDOFF_H = 5.0    # floor to PCB underside (THT leads stick out ~2-3 mm)
 HEADROOM = 16.0     # PCB top to lid underside; tallest part is an RJ45 (~13.5)
 BOSS_D = 8.0        # standoff / lid-post diameter (stays clear of parts around holes)
 INSERT_D, INSERT_DEPTH = 4.0, 6.0   # M3 heat-set insert in the standoff
 SCREW_D = 3.4       # M3 clearance through the lid posts; M3x25 pan head from the top
+
+# The logo is engraved into the lid top, read from the web app's copy so the box
+# follows any change to it. It reads upright with the connector edge facing you.
+LOGO_SVG = os.path.join(SRC, "..", "..", "..", "webapp", "public", "revolve-now-logo.svg")
+LOGO_WIDTH = 90.0   # thinnest stroke is then ~0.75 mm, fine for a 0.4 mm nozzle
+LOGO_DEPTH = 0.6    # into the 2 mm lid top; prints face-down on the bed
 
 # Openings. side: front (Y=0), right (X=100), left (X=0). centre is along the
 # side in board coords; z is relative to PCB top. Widths/heights include clearance.
@@ -69,12 +76,19 @@ FIT = [
 
 # --- Derived ------------------------------------------------------------------
 IN_X0, IN_X1 = -GAP, PCB_W + GAP
-IN_Y0, IN_Y1 = -GAP, max(PCB_D + GAP, MODULE["y1"] + ANT_GAP)
+IN_Y0 = -GAP
+IN_Y1 = PCB_D + GAP if ANTENNA_CUTOUT else max(PCB_D + GAP, MODULE["y1"] + ANT_GAP)
 OUT_X0, OUT_X1 = IN_X0 - WALL, IN_X1 + WALL
 OUT_Y0, OUT_Y1 = IN_Y0 - WALL, IN_Y1 + WALL
 Z_PCB_BOT = FLOOR + STANDOFF_H
 Z_PCB_TOP = Z_PCB_BOT + PCB_T          # base/lid split plane
 Z_TOP = Z_PCB_TOP + HEADROOM + LID_T
+
+
+if ANTENNA_CUTOUT:
+    # starts 0.5 mm below the split so the overhang never rests on the base wall
+    OPENINGS.append(dict(ref="U1 ESP32 antenna", side="back", c=(MODULE["x0"] + MODULE["x1"]) / 2,
+                         kind="rect", w=MODULE["x1"] - MODULE["x0"] + 1.0, h=MODULE["h"] + 1.0, z0=-0.5))  # 0.5 mm all round
 
 
 def rounded_box(x0, y0, x1, y1, z0, z1, r):
@@ -99,10 +113,13 @@ def opening_cutter(o):
     """A solid that removes one connector opening from whichever part it crosses."""
     t = WALL + GAP + 4.0  # cut through the wall and the gap behind it
     if o["kind"] == "rect":
-        z0, z1 = Z_PCB_TOP - 0.01, Z_PCB_TOP + o["h"]
+        z0 = Z_PCB_TOP + o.get("z0", -0.01)  # z0: bottom relative to the PCB top
+        z1 = z0 + o["h"]
         a0, a1 = o["c"] - o["w"] / 2, o["c"] + o["w"] / 2
         if o["side"] == "front":
             return Part.makeBox(a1 - a0, t, z1 - z0, V(a0, OUT_Y0 - 1, z0))
+        if o["side"] == "back":
+            return Part.makeBox(a1 - a0, t, z1 - z0, V(a0, IN_Y1 - 3, z0))
         if o["side"] == "left":
             return Part.makeBox(t, a1 - a0, z1 - z0, V(OUT_X0 - 1, a0, z0))
         return Part.makeBox(t, a1 - a0, z1 - z0, V(IN_X1 - 3, a0, z0))
@@ -136,6 +153,24 @@ def build_base():
     return base
 
 
+def logo_cutter():
+    import importSVG  # Draft's importer; headless it assumes 96 dpi, and we rescale anyway
+
+    tmp = App.newDocument("logo_import")
+    importSVG.insert(os.path.normpath(LOGO_SVG), tmp.Name)
+    faces = [f.copy() for o in tmp.Objects if hasattr(o, "Shape") for f in o.Shape.Faces]
+    App.closeDocument(tmp.Name)
+    logo = faces[0].fuse(faces[1:]).removeSplitter()  # even-odd islands arrive as separate faces
+    m = App.Matrix()
+    k = LOGO_WIDTH / logo.BoundBox.XLength
+    m.scale(k, k, k)  # uniform: non-uniform scaling of a shape corrupts later booleans
+    logo = logo.transformGeometry(m)
+    bb = logo.BoundBox
+    logo.translate(V((OUT_X0 + OUT_X1) / 2 - bb.Center.x, (OUT_Y0 + OUT_Y1) / 2 - bb.Center.y,
+                     Z_TOP - LOGO_DEPTH - bb.ZMin))
+    return logo.extrude(V(0, 0, LOGO_DEPTH + 1))
+
+
 def build_lid():
     shell = rounded_box(OUT_X0, OUT_Y0, OUT_X1, OUT_Y1, Z_PCB_TOP, Z_TOP, R_OUT)
     v = shell.Volume
@@ -148,7 +183,7 @@ def build_lid():
         lid = checked(lid.cut(bore), lid.Volume, f"screw bore {x},{y}")
     for o in OPENINGS:
         lid = checked(lid.cut(opening_cutter(o)), lid.Volume, o["ref"])
-    return lid
+    return checked(lid.cut(logo_cutter()), lid.Volume, "logo")
 
 
 def fit_check():

@@ -1,12 +1,12 @@
 # Enclosure
 
-A 3D-printable box for the rev 1 board: a base tray the board screws into and a lid that drops over the connectors. It is 105 × 110.8 × 26.6 mm.
+A 3D-printable box for the rev 1 board: a base tray the board screws into and a lid that drops over the connectors. It is 105 × 105 × 26.6 mm, with the Revolve Now logo engraved in the lid.
 
 | Path | What it is |
 |---|---|
 | `src/enclosure.py` | The parametric model and the only source. Every dimension is a named constant at the top |
 | `src/enclosure.FCStd` | The same model in FreeCAD, with stand-ins for the board and its tall parts in a `FitCheck` group |
-| `generated/enclosure.3mf` | Both parts on one plate, laid out as printed: the base as modelled, the lid upside down beside it. Plate footprint 220 × 111 mm |
+| `generated/enclosure.3mf` | Both parts on one plate, laid out as printed: the base as modelled, the lid upside down beside it. Plate footprint 220 × 105 mm |
 | `generated/enclosure-{base,lid}.step` | Each part on its own, in the more exact format. Bambu Studio and PrusaSlicer import STEP directly |
 | `generated/enclosure-{base,lid}.stl` | Each part as a mesh, for slicers or printing services that only take STL |
 
@@ -18,8 +18,9 @@ The positions come from `hardware/revolvenow_hardware.kicad_pcb`:
 
 - **Connector edge:** J1 and J2 (Power/Turn RJ45s), the J7 audio jack and the U11 Ethernet MagJack.
 - **USB-C edge:** J4.
-- **Antenna side:** the ESP32 module overhangs the board edge by 5.25 mm, so the box is deeper on that side. Nothing but plastic surrounds the antenna.
+- **Antenna side:** the ESP32 module overhangs the board edge by 5.25 mm and pokes out through a slot in the back wall, as it does on the bare board. Set `ANTENNA_CUTOUT = False` to keep it inside a deeper back bay instead; the box is then 110.8 mm deep.
 - **Mounting:** the four 4.7 mm corner holes.
+- **Logo:** engraved 0.6 mm into the lid top, upright when the connector edge faces you. It is read from `webapp/public/revolve-now-logo.svg` at generation time, so the box follows the web app's logo.
 
 J3, the trigger RJ45, is not fitted on rev 1, so its wall is closed. Set `TRIGGER_OPENING = True` to cut it.
 
