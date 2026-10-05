@@ -24,6 +24,7 @@ import {
 import styles from './programs.module.css';
 import { stateAtom } from '../lib/sse-store';
 import { useSelector } from '@tanstack/react-store';
+import { IssueList } from '../components/IssueList';
 
 export const Route = createFileRoute('/programs')({
   component: ProgramsView,
@@ -475,13 +476,7 @@ export function ProgramsView(): React.ReactNode {
                   ? p.uploadDialog.replaceIntro(pendingUpload.target.id, pendingUpload.fileName)
                   : p.uploadDialog.createIntro(pendingUpload.fileName)}
               </p>
-              <ul data-testid='upload-warnings'>
-                {pendingUpload.warnings.map((warning) => (
-                  <li key={`${warning.path}:${warning.message}`}>
-                    <code>{warning.path || '/'}</code> — {warning.message}
-                  </li>
-                ))}
-              </ul>
+              <IssueList issues={pendingUpload.warnings} testId='upload-warnings' />
             </>
           }
           confirmLabel={
