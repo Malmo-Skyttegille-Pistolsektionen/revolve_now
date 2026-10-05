@@ -109,7 +109,7 @@ styrledning var, med bokstav efter position:
 |---|---|
 | **Tavelgrupp** | Bokstaven, A först. Den är radens position, inte ett lagrat värde, så att ta bort en grupp ger de efterföljande nya bokstäver |
 | **Namn** | Vad operatörerna ser på Kör-sidan — `Vänster`, `Bana 3`. Bara för visning, högst 16 tecken, och får lämnas tomt |
-| **GPIO** | Stiftet den här gruppens transistor är kopplad till. Varje grupp behöver ett eget, skilt från lampans och de tre ljudstiften |
+| **GPIO** | Stiftet den här gruppens transistor är kopplad till. Varje grupp behöver ett eget, skilt från lampans och ljudstiften |
 | **Visad vid låg nivå** | Om låg nivå visar *den här* gruppen. Per grupp, eftersom viloläget som måste vara säkert är en egenskap hos den gruppens inkoppling |
 | **Stiftet nu** | Nivån som faktiskt ligger på stiftet, avläst i stället för ihågkommen. Den svarar på "driver firmwaren det här" utan multimeter |
 

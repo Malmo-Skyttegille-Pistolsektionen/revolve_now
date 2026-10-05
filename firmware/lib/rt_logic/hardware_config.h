@@ -13,6 +13,9 @@
 
 namespace rt {
 
+// An optional I2S pin that is not driven at all.
+constexpr int32_t kI2sPinUnused = -1;
+
 // The configuration a device can be given without rebuilding it (#144).
 //
 // Deliberately *not* everything in `main/config.h`. Two kinds of setting stay
@@ -57,6 +60,9 @@ struct HardwareConfig {
   int32_t i2s_bck_gpio = 0;
   int32_t i2s_ws_gpio = 0;
   int32_t i2s_dout_gpio = 0;
+  // The DAC's system clock. Most PCM5102A boards derive it from BCK and leave
+  // this kI2sPinUnused; the PCB rev 1 breakout stays silent without it (#506).
+  int32_t i2s_mclk_gpio = kI2sPinUnused;
 
   // The port the web app and API are served on. Not a pin, but the same kind
   // of setting: wrong and the device is not where anybody looks for it. mDNS

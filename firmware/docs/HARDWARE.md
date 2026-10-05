@@ -37,6 +37,7 @@ loudly.
 | `RT_I2S_BCK_GPIO` | 10 | Bit clock |
 | `RT_I2S_WS_GPIO` | 12 | Word select (LRCK) |
 | `RT_I2S_DOUT_GPIO` | 11 | Data out → the DAC's DIN |
+| `RT_I2S_MCLK_GPIO` | -1 | Master clock → the DAC's SCK; -1 leaves it undriven |
 
 Defaults are the wiring the MicroPython backend used on this hardware
 (`src/backend/config.py` in that repository). Note its "ESP32-C6" comments are
@@ -65,9 +66,13 @@ idf.py -B build-pcb -D SDKCONFIG=build-pcb/sdkconfig \
 | Banks B–D | — | GPIO18, 12, 10 (Turn1–3), added in Expert mode |
 | Active low | yes | yes |
 | I2S BCK / WS / DIN | 10 / 12 / 11 | 47 / 14 / 21 |
-| I2S MCLK | not used | GPIO48, required by the hand-fitted breakout; not driven yet (#506) |
+| I2S MCLK | not used | GPIO48, required by the hand-fitted breakout from a cold power-up |
 | Status LED | WS2812 on GPIO48 | off: six APA102s on GPIO0/46, which the driver cannot drive |
 | Serial console | USB Serial/JTAG | off: the native USB pins are not wired. Logs reach UART0 |
+
+**Test MCLK from a cold power-up.** The DAC stays powered through an ESP
+restart and keeps the clock a previous boot gave it, so after a soft restart
+the breakout plays even with MCLK undriven.
 
 **Polarity is the same on both boards.** On the PCB, a high pin lights the
 LTV-847's LED and its transistor conducts, which is the same job the BC547B
@@ -76,8 +81,6 @@ leaves the targets shown at boot.
 
 **Gaps on the PCB rev 1:**
 
-- **No audio until MCLK is driven** (#506). The hand-fitted breakout stays
-  silent with GPIO48 undriven, and plays once it carries MCLK.
 - **Power0–3** (GPIO9, 8, 13, 11) have no firmware support and stay low.
 - **Trigger inputs** (GPIO7, 15, 16, 17) and the **W5500 Ethernet** have no
   firmware support.

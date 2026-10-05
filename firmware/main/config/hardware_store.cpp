@@ -104,6 +104,7 @@ rt::HardwareConfig defaults() {
   config.i2s_bck_gpio = CONFIG_RT_I2S_BCK_GPIO;
   config.i2s_ws_gpio = CONFIG_RT_I2S_WS_GPIO;
   config.i2s_dout_gpio = CONFIG_RT_I2S_DOUT_GPIO;
+  config.i2s_mclk_gpio = CONFIG_RT_I2S_MCLK_GPIO;
 #endif
   config.http_port = CONFIG_RT_HTTP_PORT;
   // The QEMU profile builds without WiFi, so the symbol does not exist there.
@@ -143,7 +144,8 @@ bool same_as(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
   return a.banks == b.banks && a.hostname == b.hostname && a.display_name == b.display_name &&
          a.targets_shown_at_boot == b.targets_shown_at_boot && a.led_gpio == b.led_gpio &&
          a.i2s_port == b.i2s_port && a.i2s_bck_gpio == b.i2s_bck_gpio &&
-         a.i2s_ws_gpio == b.i2s_ws_gpio && a.i2s_dout_gpio == b.i2s_dout_gpio;
+         a.i2s_ws_gpio == b.i2s_ws_gpio && a.i2s_dout_gpio == b.i2s_dout_gpio &&
+         a.i2s_mclk_gpio == b.i2s_mclk_gpio;
 }
 
 }  // namespace
@@ -243,6 +245,7 @@ rt::ConfigRefusal save(const rt::HardwareConfig &config, rt::ValidationDetail *d
   nvs_set_i32(handle, hw_key::kI2sBck, config.i2s_bck_gpio);
   nvs_set_i32(handle, hw_key::kI2sWs, config.i2s_ws_gpio);
   nvs_set_i32(handle, hw_key::kI2sDout, config.i2s_dout_gpio);
+  nvs_set_i32(handle, hw_key::kI2sMclk, config.i2s_mclk_gpio);
   nvs_set_i32(handle, hw_key::kHttpPort, config.http_port);
   nvs_set_i32(handle, hw_key::kWifiRetry, config.wifi_max_retries);
   nvs_commit(handle);
@@ -283,7 +286,7 @@ bool reset() {
   for (const char *key :
        {hw_key::kBankCount, hw_key::kHostname, hw_key::kDisplayName, hw_key::kBootShown,
         hw_key::kLedGpio, hw_key::kI2sPort, hw_key::kI2sBck, hw_key::kI2sWs, hw_key::kI2sDout,
-        hw_key::kHttpPort, hw_key::kWifiRetry}) {
+        hw_key::kI2sMclk, hw_key::kHttpPort, hw_key::kWifiRetry}) {
     if (!erase_if_present(handle, key)) {
       nvs_close(handle);
       return false;

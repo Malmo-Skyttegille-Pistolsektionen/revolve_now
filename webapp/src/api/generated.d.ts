@@ -1069,6 +1069,11 @@ export interface components {
             i2sDoutGpio: number;
             /**
              * Format: int32
+             * @description The I2S master clock pin, into the DAC's SCK, or -1 to leave it undriven. Most PCM5102A boards derive their clock from BCK and want -1; some breakouts stay silent without it.
+             */
+            i2sMclkGpio: number;
+            /**
+             * Format: int32
              * @description The port the web app and API are served on. mDNS advertises the host and not the port, so a device moved off 80 reports the port on the serial console — there is nothing else to ask.
              */
             httpPort: number;
@@ -1153,6 +1158,7 @@ export interface components {
             i2sBckGpio?: components["schemas"]["HardwareConfig"]["i2sBckGpio"];
             i2sWsGpio?: components["schemas"]["HardwareConfig"]["i2sWsGpio"];
             i2sDoutGpio?: components["schemas"]["HardwareConfig"]["i2sDoutGpio"];
+            i2sMclkGpio?: components["schemas"]["HardwareConfig"]["i2sMclkGpio"];
             httpPort?: components["schemas"]["HardwareConfig"]["httpPort"];
             wifiMaxRetries?: components["schemas"]["HardwareConfig"]["wifiMaxRetries"];
         };

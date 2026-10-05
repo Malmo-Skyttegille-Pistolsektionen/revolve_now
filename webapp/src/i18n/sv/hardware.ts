@@ -54,6 +54,10 @@ export const hardware: Messages['hardware'] = {
       label: 'I2S data ut (DOUT)',
       hint: 'Till DIN på förstärkarkortet — namnen korsar varandra, vilket är det vanliga sättet att koppla fel.',
     },
+    i2sMclkGpio: {
+      label: 'I2S masterklocka (MCLK)',
+      hint: 'Till SCK på DAC-kortet, eller -1 för att lämna den odriven. De flesta PCM5102A-kort gör sin egen klocka och vill ha -1; är ditt tyst fast de andra stiften stämmer kan det behöva den här.',
+    },
     httpPort: {
       label: 'HTTP-port',
       hint: 'Där webbappen serveras. Låt stå på 80 om inte något annat på enheten behöver den — mDNS annonserar porten, men en adress som skrivs in för hand gör det inte, så en flyttad port måste man komma ihåg.',

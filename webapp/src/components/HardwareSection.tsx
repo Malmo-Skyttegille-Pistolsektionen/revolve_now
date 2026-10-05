@@ -41,7 +41,9 @@ import styles from './HardwareSection.module.css';
  */
 type NumericField = {
   key: keyof HardwareConfigPatch &
-    ('ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'httpPort' | 'wifiMaxRetries');
+    (
+      'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'i2sMclkGpio' | 'httpPort' | 'wifiMaxRetries'
+    );
   testId: string;
 };
 
@@ -66,6 +68,7 @@ const AUDIO_FIELDS: NumericField[] = [
   { key: 'i2sBckGpio', testId: 'hardware-i2s-bck' },
   { key: 'i2sWsGpio', testId: 'hardware-i2s-ws' },
   { key: 'i2sDoutGpio', testId: 'hardware-i2s-dout' },
+  { key: 'i2sMclkGpio', testId: 'hardware-i2s-mclk' },
 ];
 
 const NETWORK_FIELDS: NumericField[] = [

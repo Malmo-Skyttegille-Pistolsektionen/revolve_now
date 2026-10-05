@@ -86,6 +86,19 @@ void test_a_device_that_has_never_been_configured_keeps_its_defaults() {
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 }
 
+// A device saved before #506 has no MCLK key and keeps it undriven; one saved
+// after reads it back like any other pin.
+void test_the_i2s_master_clock_is_read_when_stored() {
+  FakeStore store;
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_FALSE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL_INT32(rt::kI2sPinUnused, config.i2s_mclk_gpio);
+
+  store.ints[rt::hw_key::kI2sMclk] = 47;
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL_INT32(47, config.i2s_mclk_gpio);
+}
+
 // The count decides how many banks are read.
 void test_a_banked_device_reads_every_bank() {
   FakeStore store;
@@ -218,6 +231,7 @@ void test_every_key_fits_what_nvs_accepts() {
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_a_device_that_has_never_been_configured_keeps_its_defaults);
+  RUN_TEST(test_the_i2s_master_clock_is_read_when_stored);
   RUN_TEST(test_a_banked_device_reads_every_bank);
   RUN_TEST(test_a_missing_bank_a_pin_falls_back_to_the_compiled_default);
   RUN_TEST(test_a_half_written_bank_set_is_refused_rather_than_partly_applied);
