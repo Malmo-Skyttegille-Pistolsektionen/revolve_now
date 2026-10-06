@@ -191,3 +191,4 @@ other repository. The two helpers it needs are local composite actions —
 `.github/actions/check-version` (bare-semver shape check, with a named error for
 the `v` and component-prefix mistakes). `.github/cliff.toml` is the
 single git-cliff config: one product, one tag line, one config.
+
