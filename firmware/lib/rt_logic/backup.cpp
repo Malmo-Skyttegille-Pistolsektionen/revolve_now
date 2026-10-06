@@ -32,6 +32,24 @@ const char *item_result_name(ItemResult result) {
   return "refused";
 }
 
+const char *hardware_result_name(RestoreSession::HardwareResult result) {
+  switch (result) {
+    case RestoreSession::HardwareResult::kNotIncluded:
+      return "notIncluded";
+    case RestoreSession::HardwareResult::kNotRequested:
+      return "notRequested";
+    case RestoreSession::HardwareResult::kSaved:
+      return "saved";
+    case RestoreSession::HardwareResult::kUnchanged:
+      return "unchanged";
+    case RestoreSession::HardwareResult::kSkipped:
+      return "skipped";
+    case RestoreSession::HardwareResult::kRefused:
+      return "refused";
+  }
+  return "notIncluded";
+}
+
 constexpr const char *kDamaged =
     "The entry does not match its checksum - the file is damaged. Download a new backup.";
 
@@ -433,28 +451,6 @@ std::string RestoreSession::report_json() const {
     return out;
   };
 
-  const char *hardware = "notIncluded";
-  switch (hardware_) {
-    case HardwareResult::kNotIncluded:
-      hardware = "notIncluded";
-      break;
-    case HardwareResult::kNotRequested:
-      hardware = "notRequested";
-      break;
-    case HardwareResult::kSaved:
-      hardware = "saved";
-      break;
-    case HardwareResult::kUnchanged:
-      hardware = "unchanged";
-      break;
-    case HardwareResult::kSkipped:
-      hardware = "skipped";
-      break;
-    case HardwareResult::kRefused:
-      hardware = "refused";
-      break;
-  }
-
   std::string out = "{\"source\":{\"formatVersion\":";
   out += std::to_string(manifest_.format_version);
   out += ",\"firmwareVersion\":";
@@ -464,7 +460,7 @@ std::string RestoreSession::report_json() const {
   out += ",\"displayName\":";
   out += json_quote(manifest_.display_name);
   out += "},\"hardware\":{\"result\":";
-  out += json_quote(hardware);
+  out += json_quote(hardware_result_name(hardware_));
   if (hardware_problem_ != nullptr) {
     out += ",\"problem\":";
     out += problem_json(*hardware_problem_, hardware_detail_);

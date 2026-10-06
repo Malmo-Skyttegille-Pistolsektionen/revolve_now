@@ -69,10 +69,11 @@ bool sum_file(const std::string &path, std::vector<uint8_t> &buffer, uint32_t &s
   if (f == nullptr) return false;
   size = 0;
   crc = 0;
-  size_t got = 0;
-  while ((got = fread(buffer.data(), 1, buffer.size(), f)) > 0) {
+  for (;;) {
+    const size_t got = fread(buffer.data(), 1, buffer.size(), f);
     crc = rt::crc32(crc, buffer.data(), got);
     size += static_cast<uint32_t>(got);
+    if (feof(f) != 0 || ferror(f) != 0) break;
   }
   const bool ok = ferror(f) == 0;
   fclose(f);
@@ -92,11 +93,12 @@ void add_file(rt::ZipWriter &zip, const std::string &name, const std::string &pa
   if (f == nullptr) return;
   zip.begin(name, size, crc);
   uint32_t sent = 0;
-  size_t got = 0;
-  while (zip.ok() && sent < size && (got = fread(buffer.data(), 1, buffer.size(), f)) > 0) {
-    got = std::min<size_t>(got, size - sent);
+  while (zip.ok() && sent < size) {
+    const size_t want = std::min<size_t>(buffer.size(), size - sent);
+    const size_t got = fread(buffer.data(), 1, want, f);
     zip.write(buffer.data(), got);
     sent += static_cast<uint32_t>(got);
+    if (got < want || feof(f) != 0 || ferror(f) != 0) break;
   }
   fclose(f);
   // A file that shrank between the two reads leaves the entry short, which
@@ -163,10 +165,10 @@ esp_err_t serve_backup(PsychicRequest *, PsychicResponse *res) {
 // through, one item at a time.
 class FlashStore : public rt::backup::RestoreStore {
  public:
-  ~FlashStore() override { audio_discard(); }
+  ~FlashStore() override { discard_staging(); }
 
   bool audio_open() override {
-    audio_discard();
+    discard_staging();
     storage::make_dirs(kUploadAudioDir);
     file_ = fopen(kRestoreStagingPath, "wb");
     return file_ != nullptr;
@@ -206,11 +208,7 @@ class FlashStore : public rt::backup::RestoreStore {
     return rt::backup::ItemOutcome::added(id);
   }
 
-  void audio_discard() override {
-    if (file_ != nullptr) fclose(file_);
-    file_ = nullptr;
-    (void)::remove(kRestoreStagingPath);
-  }
+  void audio_discard() override { discard_staging(); }
 
   rt::backup::ItemOutcome program_add(const rt::Program &program) override {
     for (const auto &[id, existing] : programs::all()) {
@@ -254,15 +252,19 @@ class FlashStore : public rt::backup::RestoreStore {
     while (same) {
       const size_t got_a = fread(a_buf.data(), 1, a_buf.size(), a);
       const size_t got_b = fread(b_buf.data(), 1, b_buf.size(), b);
-      if (got_a != got_b || memcmp(a_buf.data(), b_buf.data(), got_a) != 0) {
-        same = false;
-      } else if (got_a == 0) {
-        break;
-      }
+      same = got_a == got_b && memcmp(a_buf.data(), b_buf.data(), got_a) == 0;
+      if (feof(a) != 0 || ferror(a) != 0 || feof(b) != 0 || ferror(b) != 0) break;
     }
     if (a != nullptr) fclose(a);
     if (b != nullptr) fclose(b);
     return same;
+  }
+
+  // Not virtual, so the destructor can call it.
+  void discard_staging() {
+    if (file_ != nullptr) fclose(file_);
+    file_ = nullptr;
+    (void)::remove(kRestoreStagingPath);
   }
 
   FILE *file_ = nullptr;

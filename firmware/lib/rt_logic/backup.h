@@ -155,9 +155,10 @@ class RestoreSession : public ZipReader::Visitor {
   bool on_data(const uint8_t *data, size_t len) override;
   bool on_entry_end(bool crc_ok) override;
 
+  enum class HardwareResult { kNotIncluded, kNotRequested, kSaved, kUnchanged, kSkipped, kRefused };
+
  private:
   enum class Kind { kManifest, kHardware, kAudioIndex, kAudio, kProgram, kIgnored };
-  enum class HardwareResult { kNotIncluded, kNotRequested, kSaved, kUnchanged, kSkipped, kRefused };
 
   struct Item {
     int32_t source_id = 0;
