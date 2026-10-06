@@ -246,6 +246,17 @@ void test_entry_names_parse_only_in_their_own_directory() {
   TEST_ASSERT_FALSE(rt::backup::parse_program_entry("programs/../1.json", id));
 }
 
+void test_the_download_name_starts_with_the_product() {
+  TEST_ASSERT_EQUAL_STRING(
+      "revolve-now-backup-0.1.0.zip",
+      rt::backup::download_name("revolve-now", "revolve-now", "0.1.0").c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "revolve-now-backup-bana-3-0.1.0-2-gabc.zip",
+      rt::backup::download_name("bana-3", "revolve-now", "0.1.0-2-gabc").c_str());
+  TEST_ASSERT_EQUAL_STRING("revolve-now-backup-a-b-1.0.zip",
+                           rt::backup::download_name("a b", "revolve-now", "1.0").c_str());
+}
+
 void test_remap_rewrites_uploaded_ids_keeps_shipped_and_drops_unknown() {
   rt::Program program;
   rt::Event event{1000, "show", {3, 1000, 1001, 1001}};
@@ -594,6 +605,7 @@ int main() {
   RUN_TEST(test_backup_json_from_a_newer_format_is_refused);
   RUN_TEST(test_a_document_of_another_kind_is_not_a_backup);
   RUN_TEST(test_entry_names_parse_only_in_their_own_directory);
+  RUN_TEST(test_the_download_name_starts_with_the_product);
   RUN_TEST(test_remap_rewrites_uploaded_ids_keeps_shipped_and_drops_unknown);
   RUN_TEST(test_programs_differing_only_in_id_are_the_same_content);
   RUN_TEST(test_overrides_carry_only_what_differs_and_never_boot_targets);

@@ -1832,7 +1832,9 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         problemResponse(res, '/problems/program_running', 'A program is running - stop it before taking a backup');
         return;
       }
-      const filename = `${activeHardware.hostname}-${seed.firmwareVersion ?? '2.0.0-mock'}-backup.zip`;
+      // rt::backup::download_name.
+      const host = activeHardware.hostname === HARDWARE_DEFAULTS.hostname ? '' : `${activeHardware.hostname}-`;
+      const filename = `revolve-now-backup-${host}${seed.firmwareVersion ?? '2.0.0-mock'}.zip`;
       res.writeHead(200, {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,

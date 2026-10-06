@@ -96,7 +96,7 @@ describe('the backup section', () => {
     await waitFor(() => {
       expect(saved).toHaveLength(1);
     });
-    expect(saved[0].filename).toMatch(/^revolve-now-2\.0\.0-mock-backup-\d{4}-\d{2}-\d{2}\.zip$/);
+    expect(saved[0].filename).toMatch(/^revolve-now-backup-2\.0\.0-mock-\d{4}-\d{2}-\d{2}\.zip$/);
     expect(screen.getByTestId('backup-notice').textContent).toBe('Downloaded.');
   });
 

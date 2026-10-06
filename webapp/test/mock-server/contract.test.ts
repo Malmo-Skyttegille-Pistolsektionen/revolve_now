@@ -1129,7 +1129,7 @@ describe('backup and restore', () => {
     const res = await api('/backup');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/zip');
-    expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename=".+-backup\.zip"$/);
+    expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename="revolve-now-backup-.+\.zip"$/);
     return Buffer.from(await res.arrayBuffer());
   };
 

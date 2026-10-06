@@ -126,8 +126,8 @@ esp_err_t serve_backup(PsychicRequest *, PsychicResponse *res) {
     clips.emplace_back(id, clip.path);
   }
 
-  const std::string name = rt::filename_safe(active.hostname) + "-" +
-                           rt::filename_safe(manifest.firmware_version) + "-backup.zip";
+  const std::string name = rt::backup::download_name(
+      active.hostname, hardware_store::defaults().hostname, manifest.firmware_version);
   const std::string disposition = "attachment; filename=\"" + name + "\"";
   res->setCode(200);
   res->setContentType("application/zip");

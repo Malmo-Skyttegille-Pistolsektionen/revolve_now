@@ -1684,8 +1684,11 @@ paths:
         credential.
 
         The filename in `Content-Disposition` is
-        `<hostname>-<version>-backup.zip`. No date, for the reason the
-        troubleshooting bundle has none: this device has no clock.
+        `revolve-now-backup-<hostname>-<version>.zip`, product first so the
+        file says what it is whatever the board is called. The hostname is
+        left out while it is the default, which would only repeat the
+        product name. No date, for the reason the troubleshooting bundle has
+        none: this device has no clock.
 
         Served chunked, with no `Content-Length`, and streamed from flash.
       responses:

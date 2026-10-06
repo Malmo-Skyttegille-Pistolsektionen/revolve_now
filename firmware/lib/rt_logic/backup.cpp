@@ -119,6 +119,13 @@ bool parse_backup(const std::string &json, Manifest &out, std::string &error) {
   return true;
 }
 
+std::string download_name(const std::string &hostname, const std::string &default_hostname,
+                          const std::string &version) {
+  std::string out = "revolve-now-backup-";
+  if (hostname != default_hostname) out += filename_safe(hostname) + "-";
+  return out + filename_safe(version) + ".zip";
+}
+
 bool parse_audio_entry(const std::string &name, int32_t &id) {
   return parse_entry(name, kAudioDir, ".wav", id);
 }

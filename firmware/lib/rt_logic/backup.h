@@ -52,6 +52,12 @@ std::string backup_json(const Manifest &manifest);
 // kept as text, for the restore to refuse on its own.
 bool parse_backup(const std::string &json, Manifest &out, std::string &error);
 
+// `revolve-now-backup-[<hostname>-]<version>.zip`: the product first, so the
+// file says what it is whatever the board is called. The hostname is left out
+// when it is the default, which would only repeat the product name.
+std::string download_name(const std::string &hostname, const std::string &default_hostname,
+                          const std::string &version);
+
 // `audio/<id>.wav`, `programs/<id>.json`. False for anything else.
 bool parse_audio_entry(const std::string &name, int32_t &id);
 bool parse_program_entry(const std::string &name, int32_t &id);
