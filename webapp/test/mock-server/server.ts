@@ -1283,7 +1283,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     const uploadedAudio = audios.filter((audio) => !audio.readonly);
     const entries: ZipEntry[] = [
       {
-        name: 'manifest.json',
+        name: 'backup.json',
         data: Buffer.from(
           JSON.stringify({
             format: 'revolve-now-backup',
@@ -1292,14 +1292,9 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
             hostname: activeHardware.hostname,
             displayName: activeHardware.displayName,
             includesWifiCredentials: false,
+            hardware: hardwareOverrides(savedHardware, HARDWARE_DEFAULTS),
+            audios: uploadedAudio.map((audio) => ({ id: audio.id, title: audio.title })).sort((a, b) => a.id - b.id),
           }),
-        ),
-      },
-      { name: 'hardware.json', data: Buffer.from(JSON.stringify(hardwareOverrides(savedHardware, HARDWARE_DEFAULTS))) },
-      {
-        name: 'audio/index.json',
-        data: Buffer.from(
-          JSON.stringify(Object.fromEntries(uploadedAudio.map((audio) => [String(audio.id), { title: audio.title }]))),
         ),
       },
       ...uploadedAudio.map((audio) => ({
@@ -1346,9 +1341,17 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           : 'Not a backup: the file is empty or not a ZIP archive.';
       return { problem: { type: '/problems/backup_invalid', detail } };
     }
-    if (first.name !== 'manifest.json') {
+    if (first.name === 'manifest.json') {
       return {
-        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: it does not start with manifest.json.' },
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: 'This backup was taken by a development build in a format no release reads. Take a new backup.',
+        },
+      };
+    }
+    if (first.name !== 'backup.json') {
+      return {
+        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: it does not start with backup.json.' },
       };
     }
     if (!first.crcOk) return { problem: { type: '/problems/backup_invalid', detail: DAMAGED } };
@@ -1357,13 +1360,13 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       return {
         problem: {
           type: '/problems/backup_invalid',
-          detail: 'Not a backup: manifest.json does not describe a Revolve Now backup.',
+          detail: 'Not a backup: backup.json does not describe a Revolve Now backup.',
         },
       };
     }
     if (typeof manifest.formatVersion !== 'number' || !Number.isInteger(manifest.formatVersion)) {
       return {
-        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: manifest.json has no format version.' },
+        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: backup.json has no format version.' },
       };
     }
     if (manifest.formatVersion < 1 || manifest.formatVersion > 1) {
@@ -1387,58 +1390,59 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       audios: [],
       programs: [],
     };
+    // A clip it does not name still restores, under a placeholder.
     const titles = new Map<number, string>();
+    for (const clip of Array.isArray(manifest.audios) ? (manifest.audios as unknown[]) : []) {
+      if (isRecord(clip) && Number.isInteger(clip.id) && typeof clip.title === 'string' && clip.title !== '') {
+        titles.set(clip.id as number, clip.title);
+      }
+    }
     const audioIds = new Map<number, number>();
     let audiosChanged = false;
     let programsChanged = false;
+
+    // Applied as backup.json ends, before any clip, as on the device.
+    if (manifest.hardware !== undefined && manifest.hardware !== null) {
+      if (!options.hardware) {
+        report.hardware = { result: 'notRequested' };
+      } else {
+        const shape = parseHardwarePatch(isRecord(manifest.hardware) ? manifest.hardware : null);
+        if ('type' in shape) {
+          report.hardware = { result: 'refused', problem: problemBody(shape.type, shape.detail) };
+        } else {
+          const candidate: HardwareConfig = {
+            ...HARDWARE_DEFAULTS,
+            ...shape.patch,
+            targetsShownAtBoot: savedHardware.targetsShownAtBoot,
+            ...(options.name ? {} : { hostname: savedHardware.hostname, displayName: savedHardware.displayName }),
+          };
+          const refusal = hardwareConfigRefusal(candidate);
+          // Compared before the window, so a board already set up that way needs no press.
+          if (JSON.stringify(candidate) === JSON.stringify(savedHardware)) {
+            report.hardware = { result: 'unchanged' };
+          } else if (!configWindowOpen) {
+            report.hardware = {
+              result: 'skipped',
+              problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
+            };
+          } else if (refusal !== null) {
+            report.hardware = {
+              result: 'refused',
+              problem: problemBody('/problems/hardware_config_invalid', refusal),
+            };
+          } else {
+            savedHardware = candidate;
+            report.hardware = { result: 'saved' };
+          }
+        }
+      }
+    }
 
     for (const entry of entries.slice(1)) {
       const audioMatch = /^audio\/(\d+)\.wav$/.exec(entry.name);
       const programMatch = /^programs\/(\d+)\.json$/.exec(entry.name);
 
-      if (entry.name === 'hardware.json') {
-        if (!entry.crcOk) {
-          report.hardware = { result: 'refused', problem: problemBody('/problems/backup_invalid', DAMAGED) };
-        } else if (!options.hardware) {
-          report.hardware = { result: 'notRequested' };
-        } else if (!configWindowOpen) {
-          report.hardware = {
-            result: 'skipped',
-            problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
-          };
-        } else {
-          const shape = parseHardwarePatch(parseJsonObject(entry.data.toString('utf8')));
-          if ('type' in shape) {
-            report.hardware = { result: 'refused', problem: problemBody(shape.type, shape.detail) };
-          } else {
-            const candidate: HardwareConfig = {
-              ...HARDWARE_DEFAULTS,
-              ...shape.patch,
-              targetsShownAtBoot: savedHardware.targetsShownAtBoot,
-              ...(options.name ? {} : { hostname: savedHardware.hostname, displayName: savedHardware.displayName }),
-            };
-            const refusal = hardwareConfigRefusal(candidate);
-            if (JSON.stringify(candidate) === JSON.stringify(savedHardware)) {
-              report.hardware = { result: 'unchanged' };
-            } else if (refusal !== null) {
-              report.hardware = {
-                result: 'refused',
-                problem: problemBody('/problems/hardware_config_invalid', refusal),
-              };
-            } else {
-              savedHardware = candidate;
-              report.hardware = { result: 'saved' };
-            }
-          }
-        }
-      } else if (entry.name === 'audio/index.json') {
-        const index = entry.crcOk ? parseJsonObject(entry.data.toString('utf8')) : null;
-        for (const [key, value] of Object.entries(index ?? {})) {
-          if (/^\d+$/.test(key) && isRecord(value) && typeof value.title === 'string' && value.title !== '') {
-            titles.set(Number(key), value.title);
-          }
-        }
-      } else if (audioMatch) {
+      if (audioMatch) {
         const sourceId = Number(audioMatch[1]);
         const title = titles.get(sourceId) ?? `Restored clip ${sourceId}`;
         let item: RestoreItem;
@@ -1828,7 +1832,9 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         problemResponse(res, '/problems/program_running', 'A program is running - stop it before taking a backup');
         return;
       }
-      const filename = `${activeHardware.hostname}-${seed.firmwareVersion ?? '2.0.0-mock'}-backup.zip`;
+      // rt::backup::download_name.
+      const host = activeHardware.hostname === HARDWARE_DEFAULTS.hostname ? '' : `${activeHardware.hostname}-`;
+      const filename = `revolve-now-backup-${host}${seed.firmwareVersion ?? '2.0.0-mock'}.zip`;
       res.writeHead(200, {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,

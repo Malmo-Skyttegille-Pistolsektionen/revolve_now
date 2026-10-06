@@ -115,31 +115,29 @@ esp_err_t serve_backup(PsychicRequest *, PsychicResponse *res) {
   manifest.firmware_version = esp_app_get_description()->version;
   manifest.hostname = active.hostname;
   manifest.display_name = active.display_name;
+  manifest.hardware =
+      rt::hardware_overrides_json(hardware_store::saved(), hardware_store::defaults());
 
   // Uploads only: shipped ones come with the image.
-  std::map<int32_t, std::string> titles;
   std::vector<std::pair<int32_t, std::string>> clips;
   for (const auto &[id, clip] : audios::all()) {
     if (clip.readonly) continue;
-    titles[id] = clip.title;
+    manifest.audio_titles[id] = clip.title;
     clips.emplace_back(id, clip.path);
   }
 
-  const std::string name = rt::filename_safe(active.hostname) + "-" +
-                           rt::filename_safe(manifest.firmware_version) + "-backup.zip";
+  const std::string name = rt::backup::download_name(
+      active.hostname, hardware_store::defaults().hostname, manifest.firmware_version);
   const std::string disposition = "attachment; filename=\"" + name + "\"";
   res->setCode(200);
   res->setContentType("application/zip");
   res->addHeader("Content-Disposition", disposition.c_str());
   res->sendHeaders();
 
-  // The order a restore needs: titles before clips, clips before the programs
-  // that play them.
+  // The order a restore needs: backup.json (with the titles) before clips,
+  // clips before the programs that play them.
   rt::ZipWriter zip(send_chunk, res);
-  add_text(zip, rt::backup::kManifestEntry, rt::backup::manifest_json(manifest));
-  add_text(zip, rt::backup::kHardwareEntry,
-           rt::hardware_overrides_json(hardware_store::saved(), hardware_store::defaults()));
-  add_text(zip, rt::backup::kAudioIndexEntry, rt::backup::audio_index_json(titles));
+  add_text(zip, rt::backup::kBackupEntry, rt::backup::backup_json(manifest));
 
   std::vector<uint8_t> buffer(kChunkBytes);
   for (const auto &[id, path] : clips) {

@@ -49,13 +49,17 @@ std::vector<uint8_t> archive(const Entries &entries) {
   return g_archive;
 }
 
-std::string manifest(int32_t version = 1) {
+// backup.json. `hardware` is the overrides document, empty for none.
+std::string backup_doc(const std::string &hardware = "",
+                       const std::map<int32_t, std::string> &titles = {}, int32_t version = 1) {
   rt::backup::Manifest m;
   m.format_version = version;
   m.firmware_version = "0.1.0";
   m.hostname = "range-a";
   m.display_name = "Bana A";
-  return rt::backup::manifest_json(m);
+  m.hardware = hardware;
+  m.audio_titles = titles;
+  return rt::backup::backup_json(m);
 }
 
 std::string program_doc(const std::string &title, const std::string &audio_ids) {
@@ -182,28 +186,52 @@ void tearDown() {}
 
 // --- documents -------------------------------------------------------------
 
-void test_a_manifest_round_trips() {
+void test_backup_json_round_trips() {
   rt::backup::Manifest out;
   std::string error;
-  TEST_ASSERT_TRUE(rt::backup::parse_manifest(manifest(), out, error));
+  const std::string doc = backup_doc("{\"i2sMclkGpio\":3}", {{1000, "Ladda"}, {1002, "Eld"}});
+  TEST_ASSERT_TRUE(rt::backup::parse_backup(doc, out, error));
   TEST_ASSERT_EQUAL_STRING("0.1.0", out.firmware_version.c_str());
   TEST_ASSERT_EQUAL_STRING("range-a", out.hostname.c_str());
-  TEST_ASSERT_NOT_NULL(strstr(manifest().c_str(), "\"includesWifiCredentials\":false"));
+  TEST_ASSERT_EQUAL_STRING("{\"i2sMclkGpio\":3}", out.hardware.c_str());
+  TEST_ASSERT_EQUAL_size_t(2, out.audio_titles.size());
+  TEST_ASSERT_EQUAL_STRING("Eld", out.audio_titles.at(1002).c_str());
+  TEST_ASSERT_NOT_NULL(strstr(doc.c_str(), "\"includesWifiCredentials\":false"));
 }
 
-void test_a_manifest_from_a_newer_format_is_refused() {
+void test_backup_json_has_the_documented_shape() {
+  JsonDocument doc;
+  deserializeJson(doc, backup_doc("{}", {{1000, "Ladda"}}));
+  TEST_ASSERT_EQUAL_STRING("revolve-now-backup", doc["format"]);
+  TEST_ASSERT_EQUAL_INT32(1, doc["formatVersion"]);
+  TEST_ASSERT_TRUE(doc["hardware"].is<JsonObject>());
+  TEST_ASSERT_EQUAL_INT32(1000, doc["audios"][0]["id"]);
+  TEST_ASSERT_EQUAL_STRING("Ladda", doc["audios"][0]["title"]);
+}
+
+void test_a_malformed_audio_list_costs_only_the_titles() {
   rt::backup::Manifest out;
   std::string error;
-  TEST_ASSERT_FALSE(rt::backup::parse_manifest(manifest(2), out, error));
+  TEST_ASSERT_TRUE(rt::backup::parse_backup(
+      "{\"format\":\"revolve-now-backup\",\"formatVersion\":1,\"audios\":{\"1000\":1}}", out,
+      error));
+  TEST_ASSERT_TRUE(out.audio_titles.empty());
+  TEST_ASSERT_TRUE(out.hardware.empty());
+}
+
+void test_backup_json_from_a_newer_format_is_refused() {
+  rt::backup::Manifest out;
+  std::string error;
+  TEST_ASSERT_FALSE(rt::backup::parse_backup(backup_doc("", {}, 2), out, error));
   TEST_ASSERT_NOT_NULL(strstr(error.c_str(), "format 2"));
 }
 
-void test_a_document_of_another_kind_is_not_a_manifest() {
+void test_a_document_of_another_kind_is_not_a_backup() {
   rt::backup::Manifest out;
   std::string error;
   TEST_ASSERT_FALSE(
-      rt::backup::parse_manifest("{\"format\":\"other\",\"formatVersion\":1}", out, error));
-  TEST_ASSERT_FALSE(rt::backup::parse_manifest("[]", out, error));
+      rt::backup::parse_backup("{\"format\":\"other\",\"formatVersion\":1}", out, error));
+  TEST_ASSERT_FALSE(rt::backup::parse_backup("[]", out, error));
 }
 
 void test_entry_names_parse_only_in_their_own_directory() {
@@ -212,10 +240,21 @@ void test_entry_names_parse_only_in_their_own_directory() {
   TEST_ASSERT_EQUAL_INT32(1003, id);
   TEST_ASSERT_TRUE(rt::backup::parse_program_entry("programs/1001.json", id));
   TEST_ASSERT_EQUAL_INT32(1001, id);
-  TEST_ASSERT_FALSE(rt::backup::parse_audio_entry("audio/index.json", id));
+  TEST_ASSERT_FALSE(rt::backup::parse_audio_entry("audio/1000.json", id));
   TEST_ASSERT_FALSE(rt::backup::parse_audio_entry("programs/1.wav", id));
   TEST_ASSERT_FALSE(rt::backup::parse_program_entry("programs/.json", id));
   TEST_ASSERT_FALSE(rt::backup::parse_program_entry("programs/../1.json", id));
+}
+
+void test_the_download_name_starts_with_the_product() {
+  TEST_ASSERT_EQUAL_STRING(
+      "revolve-now-backup-0.1.0.zip",
+      rt::backup::download_name("revolve-now", "revolve-now", "0.1.0").c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "revolve-now-backup-bana-3-0.1.0-2-gabc.zip",
+      rt::backup::download_name("bana-3", "revolve-now", "0.1.0-2-gabc").c_str());
+  TEST_ASSERT_EQUAL_STRING("revolve-now-backup-a-b-1.0.zip",
+                           rt::backup::download_name("a b", "revolve-now", "1.0").c_str());
 }
 
 void test_remap_rewrites_uploaded_ids_keeps_shipped_and_drops_unknown() {
@@ -291,11 +330,10 @@ void test_a_full_restore_adds_everything_and_renumbers_clips_under_programs() {
   // An upload already on this device, so restored clips cannot keep their ids.
   store.clips[1000] = {"Existing", kOtherWav};
 
-  JsonDocument report = run(store, {{"manifest.json", manifest()},
-                                    {"hardware.json", "{\"i2sMclkGpio\":3}"},
-                                    {"audio/index.json", "{\"1000\":{\"title\":\"Ladda\"}}"},
-                                    {"audio/1000.wav", kWav},
-                                    {"programs/1000.json", program_doc("P", "[2,1000]")}});
+  JsonDocument report =
+      run(store, {{"backup.json", backup_doc("{\"i2sMclkGpio\":3}", {{1000, "Ladda"}})},
+                  {"audio/1000.wav", kWav},
+                  {"programs/1000.json", program_doc("P", "[2,1000]")}});
 
   TEST_ASSERT_EQUAL_STRING("0.1.0", report["source"]["firmwareVersion"]);
   TEST_ASSERT_EQUAL_STRING("saved", report["hardware"]["result"]);
@@ -315,8 +353,7 @@ void test_a_full_restore_adds_everything_and_renumbers_clips_under_programs() {
 
 void test_restoring_twice_skips_what_is_already_here() {
   FakeStore store;
-  const Entries entries = {{"manifest.json", manifest()},
-                           {"audio/index.json", "{\"1000\":{\"title\":\"Ladda\"}}"},
+  const Entries entries = {{"backup.json", backup_doc("", {{1000, "Ladda"}})},
                            {"audio/1000.wav", kWav},
                            {"programs/1000.json", program_doc("P", "[1000]")}};
   run(store, entries);
@@ -331,15 +368,14 @@ void test_restoring_twice_skips_what_is_already_here() {
 void test_a_clip_with_the_same_title_but_other_bytes_is_added() {
   FakeStore store;
   store.clips[1000] = {"Ladda", kOtherWav};
-  JsonDocument report = run(store, {{"manifest.json", manifest()},
-                                    {"audio/index.json", "{\"1000\":{\"title\":\"Ladda\"}}"},
-                                    {"audio/1000.wav", kWav}});
+  JsonDocument report =
+      run(store, {{"backup.json", backup_doc("", {{1000, "Ladda"}})}, {"audio/1000.wav", kWav}});
   TEST_ASSERT_EQUAL_STRING("added", report["audios"][0]["result"]);
 }
 
 void test_a_refused_clip_is_reported_and_its_references_dropped() {
   FakeStore store;
-  JsonDocument report = run(store, {{"manifest.json", manifest()},
+  JsonDocument report = run(store, {{"backup.json", backup_doc()},
                                     {"audio/1000.wav", "not a wav"},
                                     {"programs/1000.json", program_doc("P", "[1000]")}});
 
@@ -353,7 +389,7 @@ void test_a_refused_clip_is_reported_and_its_references_dropped() {
 
 void test_an_unreadable_program_is_refused_and_the_rest_carry_on() {
   FakeStore store;
-  JsonDocument report = run(store, {{"manifest.json", manifest()},
+  JsonDocument report = run(store, {{"backup.json", backup_doc()},
                                     {"programs/1000.json", "{not json"},
                                     {"programs/1001.json", program_doc("Q", "[]")}});
   TEST_ASSERT_EQUAL_STRING("refused", report["programs"][0]["result"]);
@@ -364,20 +400,38 @@ void test_an_unreadable_program_is_refused_and_the_rest_carry_on() {
 void test_hardware_waits_for_the_configuration_window() {
   FakeStore store;
   store.window = false;
-  JsonDocument report =
-      run(store, {{"manifest.json", manifest()}, {"hardware.json", "{\"i2sMclkGpio\":3}"}});
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{\"i2sMclkGpio\":3}")}});
   TEST_ASSERT_EQUAL_STRING("skipped", report["hardware"]["result"]);
   TEST_ASSERT_EQUAL_STRING("/problems/hardware_config_window_closed",
                            report["hardware"]["problem"]["type"]);
   TEST_ASSERT_EQUAL(0, store.saves);
 }
 
+void test_hardware_already_in_place_needs_no_window() {
+  FakeStore store;
+  store.window = false;
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{}")}});
+  TEST_ASSERT_EQUAL_STRING("unchanged", report["hardware"]["result"]);
+  TEST_ASSERT_TRUE(report["hardware"]["problem"].isNull());
+  TEST_ASSERT_EQUAL(0, store.saves);
+}
+
+void test_a_long_clip_list_is_not_refused() {
+  FakeStore store;
+  std::map<int32_t, std::string> titles;
+  for (int32_t id = 1000; id < 3000; ++id) titles[id] = std::string(60, 'x');
+  const std::string doc = backup_doc("", titles);
+  TEST_ASSERT_GREATER_THAN(64 * 1024, doc.size());
+  JsonDocument report = run(store, {{"backup.json", doc}, {"audio/2999.wav", kWav}});
+  TEST_ASSERT_EQUAL_STRING("added", report["audios"][0]["result"]);
+  TEST_ASSERT_EQUAL_STRING(std::string(60, 'x').c_str(), report["audios"][0]["title"]);
+}
+
 void test_hardware_can_be_left_out() {
   FakeStore store;
   RestoreOptions options;
   options.hardware = false;
-  JsonDocument report = run(
-      store, {{"manifest.json", manifest()}, {"hardware.json", "{\"i2sMclkGpio\":3}"}}, options);
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{\"i2sMclkGpio\":3}")}}, options);
   TEST_ASSERT_EQUAL_STRING("notRequested", report["hardware"]["result"]);
   TEST_ASSERT_EQUAL(0, store.saves);
 }
@@ -385,8 +439,8 @@ void test_hardware_can_be_left_out() {
 void test_the_name_is_kept_unless_asked_for() {
   FakeStore store;
   store.saved.hostname = "this-board";
-  const Entries entries = {{"manifest.json", manifest()},
-                           {"hardware.json", "{\"hostname\":\"range-a\",\"ledGpio\":47}"}};
+  const Entries entries = {
+      {"backup.json", backup_doc("{\"hostname\":\"range-a\",\"ledGpio\":47}")}};
 
   run(store, entries);
   TEST_ASSERT_EQUAL_STRING("this-board", store.saved.hostname.c_str());
@@ -401,7 +455,7 @@ void test_the_name_is_kept_unless_asked_for() {
 void test_hardware_restores_onto_defaults_not_onto_what_is_saved() {
   FakeStore store;
   store.saved.http_port = 8080;
-  JsonDocument report = run(store, {{"manifest.json", manifest()}, {"hardware.json", "{}"}});
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{}")}});
   TEST_ASSERT_EQUAL_STRING("saved", report["hardware"]["result"]);
   TEST_ASSERT_EQUAL_INT32(80, store.saved.http_port);
 }
@@ -409,35 +463,43 @@ void test_hardware_restores_onto_defaults_not_onto_what_is_saved() {
 void test_boot_targets_survive_a_restore() {
   FakeStore store;
   store.saved.targets_shown_at_boot = false;
-  run(store, {{"manifest.json", manifest()}, {"hardware.json", "{\"ledGpio\":47}"}});
+  run(store, {{"backup.json", backup_doc("{\"ledGpio\":47}")}});
   TEST_ASSERT_FALSE(store.saved.targets_shown_at_boot);
 }
 
 void test_hardware_identical_to_what_is_saved_is_unchanged() {
   FakeStore store;
-  JsonDocument report = run(store, {{"manifest.json", manifest()}, {"hardware.json", "{}"}});
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{}")}});
   TEST_ASSERT_EQUAL_STRING("unchanged", report["hardware"]["result"]);
   TEST_ASSERT_EQUAL(0, store.saves);
 }
 
 void test_hardware_the_device_refuses_is_reported_with_its_reason() {
   FakeStore store;
-  JsonDocument report =
-      run(store, {{"manifest.json", manifest()}, {"hardware.json", "{\"ledGpio\":27}"}});
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{\"ledGpio\":27}")}});
   TEST_ASSERT_EQUAL_STRING("refused", report["hardware"]["result"]);
   TEST_ASSERT_EQUAL_STRING("/problems/hardware_config_invalid",
                            report["hardware"]["problem"]["type"]);
 }
 
+void test_hardware_that_is_not_an_object_is_refused_and_the_rest_carry_on() {
+  FakeStore store;
+  JsonDocument report = run(
+      store, {{"backup.json", backup_doc("[1]")}, {"programs/1000.json", program_doc("P", "[]")}});
+  TEST_ASSERT_EQUAL_STRING("refused", report["hardware"]["result"]);
+  TEST_ASSERT_EQUAL_STRING("added", report["programs"][0]["result"]);
+  TEST_ASSERT_EQUAL(0, store.saves);
+}
+
 void test_an_archive_without_hardware_says_so() {
   FakeStore store;
-  JsonDocument report = run(store, {{"manifest.json", manifest()}});
+  JsonDocument report = run(store, {{"backup.json", backup_doc()}});
   TEST_ASSERT_EQUAL_STRING("notIncluded", report["hardware"]["result"]);
 }
 
 void test_unknown_entries_are_passed_over() {
   FakeStore store;
-  JsonDocument report = run(store, {{"manifest.json", manifest()},
+  JsonDocument report = run(store, {{"backup.json", backup_doc()},
                                     {"future/thing.bin", "xyz"},
                                     {"programs/1000.json", program_doc("P", "[]")}});
   TEST_ASSERT_EQUAL_STRING("added", report["programs"][0]["result"]);
@@ -464,18 +526,29 @@ void test_an_empty_body_is_refused_whole() {
   TEST_ASSERT_EQUAL_PTR(&rt::problem::kBackupInvalid, fatal_of({}, store));
 }
 
-void test_a_zip_not_starting_with_the_manifest_is_refused_before_anything_applies() {
+void test_a_zip_not_starting_with_backup_json_is_refused_before_anything_applies() {
   FakeStore store;
   const std::vector<uint8_t> bytes =
-      archive({{"programs/1000.json", program_doc("P", "[]")}, {"manifest.json", manifest()}});
+      archive({{"programs/1000.json", program_doc("P", "[]")}, {"backup.json", backup_doc()}});
   TEST_ASSERT_EQUAL_PTR(&rt::problem::kBackupInvalid, fatal_of(bytes, store));
   TEST_ASSERT_EQUAL_size_t(0, store.programs.size());
+}
+
+void test_a_backup_from_before_backup_json_says_so() {
+  FakeStore store;
+  RestoreSession session(store, {});
+  const std::vector<uint8_t> bytes =
+      archive({{"manifest.json", "{\"format\":\"revolve-now-backup\",\"formatVersion\":1}"}});
+  session.feed(bytes.data(), bytes.size());
+  session.finish();
+  TEST_ASSERT_EQUAL_PTR(&rt::problem::kBackupInvalid, session.fatal());
+  TEST_ASSERT_NOT_NULL(strstr(session.fatal_detail().c_str(), "development build"));
 }
 
 void test_a_newer_format_is_refused_whole() {
   FakeStore store;
   RestoreSession session(store, {});
-  const std::vector<uint8_t> bytes = archive({{"manifest.json", manifest(9)}});
+  const std::vector<uint8_t> bytes = archive({{"backup.json", backup_doc("", {}, 9)}});
   session.feed(bytes.data(), bytes.size());
   session.finish();
   TEST_ASSERT_EQUAL_PTR(&rt::problem::kBackupInvalid, session.fatal());
@@ -486,7 +559,7 @@ void test_a_newer_format_is_refused_whole() {
 
 void test_a_truncated_backup_reports_what_it_restored() {
   FakeStore store;
-  std::vector<uint8_t> bytes = archive({{"manifest.json", manifest()},
+  std::vector<uint8_t> bytes = archive({{"backup.json", backup_doc()},
                                         {"programs/1000.json", program_doc("P", "[]")},
                                         {"audio/1000.wav", kWav}});
   // Cut inside the clip: the program before it is restored, the clip is not.
@@ -507,10 +580,10 @@ void test_a_truncated_backup_reports_what_it_restored() {
 
 void test_a_damaged_clip_is_refused_and_discarded() {
   FakeStore store;
-  std::vector<uint8_t> bytes = archive({{"manifest.json", manifest()}, {"audio/1000.wav", kWav}});
-  // The clip's payload starts after the manifest entry and its own header.
+  std::vector<uint8_t> bytes = archive({{"backup.json", backup_doc()}, {"audio/1000.wav", kWav}});
+  // The clip's payload starts after the backup.json entry and its own header.
   const size_t clip =
-      30 + strlen("manifest.json") + manifest().size() + 30 + strlen("audio/1000.wav");
+      30 + strlen("backup.json") + backup_doc().size() + 30 + strlen("audio/1000.wav");
   bytes[clip + 10] ^= 0xFF;
 
   RestoreSession session(store, {});
@@ -526,10 +599,13 @@ void test_a_damaged_clip_is_refused_and_discarded() {
 
 int main() {
   UNITY_BEGIN();
-  RUN_TEST(test_a_manifest_round_trips);
-  RUN_TEST(test_a_manifest_from_a_newer_format_is_refused);
-  RUN_TEST(test_a_document_of_another_kind_is_not_a_manifest);
+  RUN_TEST(test_backup_json_round_trips);
+  RUN_TEST(test_backup_json_has_the_documented_shape);
+  RUN_TEST(test_a_malformed_audio_list_costs_only_the_titles);
+  RUN_TEST(test_backup_json_from_a_newer_format_is_refused);
+  RUN_TEST(test_a_document_of_another_kind_is_not_a_backup);
   RUN_TEST(test_entry_names_parse_only_in_their_own_directory);
+  RUN_TEST(test_the_download_name_starts_with_the_product);
   RUN_TEST(test_remap_rewrites_uploaded_ids_keeps_shipped_and_drops_unknown);
   RUN_TEST(test_programs_differing_only_in_id_are_the_same_content);
   RUN_TEST(test_overrides_carry_only_what_differs_and_never_boot_targets);
@@ -541,17 +617,21 @@ int main() {
   RUN_TEST(test_a_refused_clip_is_reported_and_its_references_dropped);
   RUN_TEST(test_an_unreadable_program_is_refused_and_the_rest_carry_on);
   RUN_TEST(test_hardware_waits_for_the_configuration_window);
+  RUN_TEST(test_hardware_already_in_place_needs_no_window);
+  RUN_TEST(test_a_long_clip_list_is_not_refused);
   RUN_TEST(test_hardware_can_be_left_out);
   RUN_TEST(test_the_name_is_kept_unless_asked_for);
   RUN_TEST(test_hardware_restores_onto_defaults_not_onto_what_is_saved);
   RUN_TEST(test_boot_targets_survive_a_restore);
   RUN_TEST(test_hardware_identical_to_what_is_saved_is_unchanged);
   RUN_TEST(test_hardware_the_device_refuses_is_reported_with_its_reason);
+  RUN_TEST(test_hardware_that_is_not_an_object_is_refused_and_the_rest_carry_on);
   RUN_TEST(test_an_archive_without_hardware_says_so);
   RUN_TEST(test_unknown_entries_are_passed_over);
   RUN_TEST(test_a_file_that_is_not_a_zip_is_refused_whole);
   RUN_TEST(test_an_empty_body_is_refused_whole);
-  RUN_TEST(test_a_zip_not_starting_with_the_manifest_is_refused_before_anything_applies);
+  RUN_TEST(test_a_zip_not_starting_with_backup_json_is_refused_before_anything_applies);
+  RUN_TEST(test_a_backup_from_before_backup_json_says_so);
   RUN_TEST(test_a_newer_format_is_refused_whole);
   RUN_TEST(test_a_truncated_backup_reports_what_it_restored);
   RUN_TEST(test_a_damaged_clip_is_refused_and_discarded);
