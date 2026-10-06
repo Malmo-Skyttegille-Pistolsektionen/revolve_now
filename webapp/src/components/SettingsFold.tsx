@@ -9,15 +9,19 @@ import styles from './SettingsFold.module.css';
 export function SettingsGroup({
   title,
   expert = false,
+  note,
   children,
 }: {
   title: string;
   expert?: boolean;
+  /** A line under the heading that holds for every row in the group. */
+  note?: React.ReactNode;
   children: React.ReactNode;
 }): React.ReactNode {
   return (
     <div className={styles.group}>
       <h2 className={styles.groupTitle}>{title}</h2>
+      {note && <p className={styles.note}>{note}</p>}
       <div className={clsx(styles.list, expert && styles.expert)}>{children}</div>
     </div>
   );

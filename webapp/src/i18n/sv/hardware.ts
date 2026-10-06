@@ -29,8 +29,6 @@ export const hardware: Messages['hardware'] = {
   restartRequiredAfter: ' högst upp på sidan.',
   overview: {
     statusLabel: 'Expertlägets status',
-    window: 'Fönster',
-    windowLeft: (time: string) => `${time} kvar`,
     restart: 'Omstart krävs',
     restartPending: 'Ja - sparade värden används inte än',
     restartNone: 'Nej',
@@ -43,7 +41,7 @@ export const hardware: Messages['hardware'] = {
           : `${String(count)} inställningar skiljer sig från standard`,
     wifi: 'WiFi',
     groups: {
-      network: 'Nätverk',
+      connection: 'Anslutning',
       hardware: 'Hårdvara',
       fault: 'Felrapport',
     },
@@ -62,7 +60,7 @@ export const hardware: Messages['hardware'] = {
     led: 'Statuslampan (LED)',
     audio: 'Ljud',
     ethernet: 'Ethernet (W5500)',
-    network: 'Nätverk',
+    network: 'Namn och nätverk',
   },
   fields: {
     ledGpio: {

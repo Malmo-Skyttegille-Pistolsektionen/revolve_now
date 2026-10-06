@@ -30,10 +30,9 @@ Om fliken inte finns där har ingen tryckt på knappen nyligen. Om den försvinn
 medan du skriver tog de fem minuterna slut — tryck tre gånger igen och
 fortsätt.
 
-Sidan börjar med en kort status — hur länge fönstret är öppet, om en omstart
-väntar, hur många inställningar som skiljer sig från standard, och vilket
-WiFi-nätverk enheten går med i — och sedan en rad per ämne, som på
-Inställningar. Tryck på en rad för att öppna den. En rad vars värden skiljer
+Sidan börjar med en kort status — om en omstart väntar, hur många
+inställningar som skiljer sig från standard, och vilket WiFi-nätverk enheten
+går med i — och sedan en rad per ämne, som på Inställningar. Tryck på en rad för att öppna den. En rad vars värden skiljer
 sig från standard visar **Ändrat**, och en med ändringar som inte sparats visar
 **Inte sparat**; ändringarna finns kvar när en rad stängs, och **Spara** under
 hårdvaruraderna sparar dem alla.
@@ -105,7 +104,7 @@ nätverket. Fel värden här är de vars väg tillbaka är en USB-kabel:
 
 Gruppen **Ethernet (W5500)** säger var en [Ethernet-modul](hardware.md#ethernet)
 är kopplad, och **Använd Ethernet** stänger av den för att frigöra stiften.
-**Använd WiFi**, under Nätverk, gör samma sak för WiFi. De kan inte båda vara
+**Använd WiFi**, under Namn och nätverk, gör samma sak för WiFi. De kan inte båda vara
 av, och WiFi av gäller bara så länge kabeln ger enheten en adress — utan en
 används WiFi ändå, så den går alltid att nå.
 

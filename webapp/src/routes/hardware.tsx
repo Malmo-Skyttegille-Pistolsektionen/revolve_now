@@ -121,8 +121,6 @@ export function HardwarePage(): React.ReactNode {
               {o.statusLabel}
             </h2>
             <dl className={styles.overviewList}>
-              <dt>{o.window}</dt>
-              <dd>{o.windowLeft(formatRemaining(remainingSeconds))}</dd>
               <dt>{o.restart}</dt>
               <dd>{hardware?.restartRequired === true ? o.restartPending : o.restartNone}</dd>
               <dt>{o.changed}</dt>
@@ -134,7 +132,7 @@ export function HardwarePage(): React.ReactNode {
 
           {/* First: it is the one somebody arrives here for while the device is
               otherwise working, and the pins are a once-per-board job. */}
-          <SettingsGroup title={o.groups.network} expert>
+          <SettingsGroup title={o.groups.connection} expert>
             <SettingsFold
               id='wifi'
               title={all.hardware.wifi.title}

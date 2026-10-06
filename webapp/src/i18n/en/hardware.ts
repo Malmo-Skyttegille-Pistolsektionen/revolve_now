@@ -32,8 +32,6 @@ export const hardware = {
   restartRequiredAfter: ' at the top of this page.',
   overview: {
     statusLabel: 'Expert mode status',
-    window: 'Window',
-    windowLeft: (time: string) => `${time} left`,
     restart: 'Restart needed',
     restartPending: 'Yes - saved values are not in use yet',
     restartNone: 'No',
@@ -46,7 +44,7 @@ export const hardware = {
           : `${String(count)} settings differ from the default`,
     wifi: 'WiFi',
     groups: {
-      network: 'Network',
+      connection: 'Connection',
       hardware: 'Hardware',
       fault: 'Fault report',
     },
@@ -65,7 +63,7 @@ export const hardware = {
     led: 'Status LED',
     audio: 'Audio',
     ethernet: 'Ethernet (W5500)',
-    network: 'Network',
+    network: 'Name and network',
   },
   fields: {
     ledGpio: {

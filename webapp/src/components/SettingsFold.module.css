@@ -14,6 +14,13 @@
   color: var(--rt-text-muted);
 }
 
+.note {
+  margin: 0 0.25rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--rt-text-subtle);
+}
+
 .list {
   background-color: var(--rt-surface);
   border: 1px solid var(--rt-border);

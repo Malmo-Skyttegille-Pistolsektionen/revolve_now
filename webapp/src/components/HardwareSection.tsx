@@ -298,12 +298,6 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
 
   return (
     <section className={styles.folded} data-testid='hardware-section'>
-      <p className={styles.explain}>
-        {t.explainBefore}
-        <strong>{t.explainWarning}</strong>
-        {t.explainAfter}
-      </p>
-
       {state.restartRequired && (
         <p className={styles.pending} data-testid='hardware-restart-required'>
           {t.restartRequiredBefore}
@@ -314,7 +308,17 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
         </p>
       )}
 
-      <SettingsGroup title={t.title} expert>
+      <SettingsGroup
+        title={t.title}
+        expert
+        note={
+          <>
+            {t.explainBefore}
+            <strong>{t.explainWarning}</strong>
+            {t.explainAfter}
+          </>
+        }
+      >
         {group(
           'targets',
           t.groups.targets,
