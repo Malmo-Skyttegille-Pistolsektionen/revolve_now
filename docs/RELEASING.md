@@ -142,6 +142,11 @@ Two of them are what somebody actually reaches for:
 | `revolve_now-<version>-factory.bin` | A new board, or one being put back to a known state. Everything at its offset in one file, written at `0x0`. **Wipes NVS**, so the device comes back up in the setup portal — but **keeps uploaded programs and audio**, because nothing is built for the `userdata` partition (#227). Erasing those is a separate `esptool erase-region`. |
 | `revolve_now-<version>-ota.bin` | An already-configured device. The app slot — **firmware, web app, shipped audio and programs together** since #227 — and this is what `POST /api/v2/ota` accepts. It leaves NVS and the uploaded files alone. |
 
+**The web app reads these names** (#518, D-47). Settings → Update links
+`<project>-<version>-ota.bin` for download and holds the file the user picks to
+the SHA-256 GitHub publishes for that asset. Renaming it, or cutting a tag that
+is not bare `X.Y.Z`, takes the release out of the update list.
+
 Flashing the factory image needs no offsets:
 
 ```bash

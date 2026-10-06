@@ -6,7 +6,7 @@ import { LanguageSection } from '../components/LanguageSection';
 import { ControlLockSection } from '../components/ControlLockSection';
 import { StartupIssuesSection } from '../components/StartupIssuesSection';
 import { StorageSection } from '../components/StorageSection';
-import { FirmwareSection } from '../components/FirmwareSection';
+import { UpdateSection } from '../components/UpdateSection';
 import { NetworkSection } from '../components/NetworkSection';
 import { AboutSection } from '../components/AboutSection';
 import { RestartPendingNotice } from '../components/RestartPendingNotice';
@@ -45,7 +45,7 @@ function SettingsPage(): React.ReactNode {
           something this page should be able to do. */}
       <NetworkSection />
 
-      <FirmwareSection />
+      <UpdateSection />
 
       <AboutSection />
     </div>

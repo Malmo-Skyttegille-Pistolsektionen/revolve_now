@@ -18,6 +18,7 @@ which is which before changing anything:
 | Startup Issues | device | What the device could not read when it booted |
 | Storage | device | How much room the flash partitions have |
 | Network | device | WiFi: which network it is on and how good the link is. Ethernet: the cable link and its address |
+| Update | device | Install a release from GitHub, or upload an OTA file |
 | About | device | What firmware and web app this is, and exactly which build |
 
 ![The Settings page](img/settings.png)
@@ -137,6 +138,35 @@ later needs a restart.
 
 If WiFi is switched off, its half says so. The device still uses WiFi when the
 cable gives it no address, so it cannot end up unreachable.
+
+## Update
+
+Installing an update **restarts the device**, so do it between runs, not
+during one; the device refuses while a program is running. It is written to
+the copy of the firmware that is not running, so an update that will not start
+rolls back by itself. The web app and the shipped programs and audio update
+with it; programs and audio you uploaded are kept.
+
+**From GitHub.** Opening Settings checks GitHub for releases; *Check again*
+asks once more. Pick a version to read its release notes. Installing is two
+steps: *Download* saves the release's `revolve_now-<version>-ota.bin` on this
+phone or computer, and *Install the downloaded file* sends it to the device.
+The page first checks the file against the checksum GitHub published for that
+release, so a wrong or damaged file is refused before the device sees it.
+
+Only this phone or computer needs internet; the device never contacts GitHub.
+If the page says it **can't reach GitHub**, the problem is here, not on the
+device: a phone joined to a range WiFi without internet may need to be told to
+stay on that network, or the file can be fetched elsewhere and uploaded below.
+
+**Going back to an older version** is possible but asks first. Newer versions
+can change how settings and uploaded programs are stored, and an older version
+may not read them: settings can be ignored or reset, programs can fail to load,
+and in the worst case the device needs a cable and a factory flash to recover.
+
+**From a file.** Choose a `revolve_now-<version>-ota.bin` you already have with
+*Upload OTA file*. This needs no internet anywhere. The `factory.bin` on a
+release page is for a cable, not for this.
 
 ## About
 

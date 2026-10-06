@@ -19,6 +19,7 @@ veta vilken som är vilken innan du ändrar något:
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
 | Lagring | enhet | Hur mycket plats flashpartitionerna har |
 | Nätverk | enhet | WiFi: vilket nätverk den är på och hur bra länken är. Ethernet: kabellänken och dess adress |
+| Uppdatering | enhet | Installera en version från GitHub, eller ladda upp en OTA-fil |
 | Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
 
 ![Sidan Inställningar](img/settings.png)
@@ -143,6 +144,38 @@ omstart.
 
 Om WiFi är avstängt säger dess halva det. Enheten använder ändå WiFi när
 kabeln inte ger någon adress, så den kan inte bli onåbar.
+
+## Uppdatering { #update }
+
+Att installera en uppdatering **startar om enheten**, så gör det mellan
+skjutningar, inte under en; enheten vägrar medan ett program körs. Den skrivs
+till den kopia av firmwaren som inte körs, så en uppdatering som inte vill
+starta rullas tillbaka av sig själv. Webbappen och de medföljande programmen
+och ljuden uppdateras med den; program och ljud ni laddat upp behålls.
+
+**Från GitHub.** När Inställningar öppnas söker sidan efter versioner på
+GitHub; *Sök igen* frågar en gång till. Välj en version för att läsa dess
+versionsinformation. Installationen sker i två steg: *Ladda ner* sparar
+versionens `revolve_now-<version>-ota.bin` på den här telefonen eller datorn,
+och *Installera den nedladdade filen* skickar den till enheten. Sidan
+kontrollerar först filen mot kontrollsumman som GitHub publicerat för
+versionen, så en felaktig eller skadad fil avvisas innan enheten ser den.
+
+Bara den här telefonen eller datorn behöver internet; enheten kontaktar aldrig
+GitHub. Om sidan säger att den **inte når GitHub** ligger problemet här, inte
+på enheten: en telefon på ett skyttebane-WiFi utan internet kan behöva få
+besked om att stanna på nätverket, eller så hämtas filen någon annanstans och
+laddas upp nedan.
+
+**Att gå tillbaka till en äldre version** går, men frågar först. Nyare
+versioner kan ändra hur inställningar och uppladdade program lagras, och en
+äldre version kanske inte kan läsa dem: inställningar kan ignoreras eller
+nollställas, program kan misslyckas att laddas, och i värsta fall behöver
+enheten kabel och en fabriksflashning för att återställas.
+
+**Från en fil.** Välj en `revolve_now-<version>-ota.bin` du redan har med
+*Ladda upp OTA-fil*. Det kräver inget internet någonstans. `factory.bin` på en
+versionssida är för kabel, inte för det här.
 
 ## Om { #about }
 

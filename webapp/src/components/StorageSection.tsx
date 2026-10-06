@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDiagnosticsApi } from '../api/diagnostics';
 import { useT } from '../i18n';
 import styles from './StorageSection.module.css';
+import { formatBytes } from '../lib/format-bytes';
 
 /**
  * What is on the flash, and how much room is left.
@@ -18,15 +19,6 @@ import styles from './StorageSection.module.css';
  * (the Three Signals Rule). "Nearly full" is said in words instead, which is
  * also the only version a colourblind operator can read.
  */
-
-const KIB = 1024;
-
-function formatBytes(bytes: number): string {
-  if (bytes < KIB) return `${String(bytes)} B`;
-  const mib = bytes / (KIB * KIB);
-  if (mib >= 1) return `${mib.toFixed(mib < 10 ? 2 : 1)} MB`;
-  return `${(bytes / KIB).toFixed(0)} KB`;
-}
 
 // Warn before it bites, not as it bites. An upload is a megabyte or so, so a
 // partition past this has room for very few more.
