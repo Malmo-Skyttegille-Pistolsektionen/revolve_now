@@ -57,6 +57,8 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-44 | The product is Revolve Now, down to the firmware project name | Decided | 2026-10-03 |
 | D-45 | Swedish in the web app and the docs; the device keeps speaking English | Decided | 2026-10-04 |
 | D-46 | Wired Ethernet beside WiFi, probed at boot, with no onboarding of its own | Decided | 2026-10-06 |
+| D-47 | Updates from GitHub are found and checked by the browser; the device only receives an upload | Decided | 2026-10-06 |
+| D-48 | Backup and restore are the device's; a restore only adds, and never carries WiFi credentials | Decided | 2026-10-06 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -2047,6 +2049,52 @@ first with this page can only be left by uploading a file.
 **Integrity:** the published SHA-256, checked in the page with a JavaScript
 hash (`crypto.subtle` needs https; the device serves http), then the device's
 own project and image checks. Nothing is signed: secure boot is not enabled.
+
+## D-48 — Backup and restore are the device's; a restore only adds, and never carries WiFi credentials *(Decided 2026-10-06)*
+
+**Decision:** `GET /backup` streams one stored ZIP of everything a club has put
+on a board — uploaded programs and clips, and the hardware configuration as
+overrides of the compiled defaults — and `POST /restore` reads it back as it
+arrives (#520). The archive's layout and every restore rule live in
+`rt_logic/backup.h`; the mock mirrors them.
+
+**On the device, not replayed by the web app.** The web app could have built
+the file from existing endpoints and restored it through `POST /programs`,
+`POST /audios` and `PUT /config/hardware`. One device-side file means one
+download and one upload, a backup any client can take with `curl`, and the
+renumbering of clips under the programs that play them done once, in tested
+code, rather than in every client.
+
+**A restore only adds.** Clips and programs get new ids and nothing is deleted.
+One identical to an upload already present — the same program, or a clip with
+the same title and bytes — is skipped, so restoring twice is harmless. Each
+item goes through the checks an upload would and is refused on its own; only a
+file that is not a backup, or one in a newer `formatVersion`, is refused whole,
+and that is decided from `manifest.json` before anything is applied.
+
+**No WiFi credentials, ever.** Nothing else in the API returns the password,
+and a backup is a file people pass around. A board that has lost its
+credentials has to join a network through the setup portal before it can be
+reached to restore anyway. The manifest says `includesWifiCredentials: false`
+so a reader does not have to wonder.
+
+**Hardware behind the window; the name opt-in.** Restoring the hardware
+configuration needs the configuration window, as `PUT /config/hardware` does;
+with it shut the rest is restored and the hardware is reported as skipped. The
+result is this build's defaults with the backup's overrides, so a board built
+for other hardware keeps its own defaults for whatever nobody changed. The
+hostname and display name come back only when asked for: two boards answering
+to one name is what restoring them onto a second board does.
+`targetsShownAtBoot` is never restored (D-31).
+
+**The upload ceiling moves to the `userdata` partition.** A restore carries all
+of it, which makes it the largest upload, so the server-wide ceiling is sized
+for it and `POST /ota` bounds itself against the slot.
+
+**Rejected:** *a web-app-side backup* — above. *Credentials behind the BOOT
+window* (D-39's gate) — it would make the backup a file to guard, for no gain
+on the board that needs it. *Replace-all restore* — deleting what is on a board
+to make it a copy is a step nobody should take by uploading a file.
 
 ## Open questions
 

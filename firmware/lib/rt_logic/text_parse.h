@@ -6,6 +6,7 @@
 
 #include <charconv>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <system_error>
 
@@ -30,6 +31,22 @@ inline std::string_view trim_space(std::string_view text) {
   const size_t first = text.find_first_not_of(kSpace);
   if (first == std::string_view::npos) return {};
   return text.substr(first, text.find_last_not_of(kSpace) - first + 1);
+}
+
+// The characters a filename may carry into a `Content-Disposition` header.
+// Everything else is replaced rather than escaped: the parts being joined are
+// a `git describe` string and an operator-chosen hostname, and a header is the
+// one place where letting an unexpected byte through is a header-splitting bug
+// rather than an ugly filename.
+inline std::string filename_safe(const std::string &in) {
+  std::string out;
+  out.reserve(in.size());
+  for (const char c : in) {
+    const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                       c == '.' || c == '_' || c == '-';
+    out += plain ? c : '-';
+  }
+  return out.empty() ? "unknown" : out;
 }
 
 }  // namespace rt

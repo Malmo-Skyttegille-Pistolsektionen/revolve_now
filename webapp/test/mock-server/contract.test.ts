@@ -7,7 +7,14 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AudioFile, DiagnosticsInfo, LibraryChangedPayload, StateUpdatePayload } from '../../src/api/types';
+import type {
+  AudioFile,
+  DiagnosticsInfo,
+  LibraryChangedPayload,
+  Program,
+  RestoreReport,
+  StateUpdatePayload,
+} from '../../src/api/types';
 import shipped40 from '../../../resources/programs/files/40.json';
 import { PROGRAM_FALT_TRANING } from '../fixtures';
 import {
@@ -21,6 +28,7 @@ import {
   setUpTarget,
 } from './contract-target';
 import { HARDWARE_DEFAULTS, type MockSeed } from './server';
+import { readStoredZip, writeStoredZip } from './zip';
 
 if (onDevice) vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -1098,5 +1106,126 @@ describe('target banks, program side', () => {
   it('uploads and loads that same program without complaint', async () => {
     const { id } = (await (await upload(BANKED)).json()) as { id: number };
     expect((await api(`/programs/${String(id)}/load`, { method: 'POST' })).status).toBe(200);
+  });
+});
+
+/**
+ * Backup and restore (#520). `hardware=false` throughout: the device's
+ * configuration is not this suite's to change. Programs only, because the QEMU
+ * build has no audio and refuses every clip; the clips' round trip is in
+ * `mock-server.test.ts` and `firmware/host_test/test_backup`.
+ */
+describe('backup and restore', () => {
+  setUpTarget(SEED);
+
+  const backup = async (): Promise<Buffer> => {
+    const res = await api('/backup');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/zip');
+    expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename=".+-backup\.zip"$/);
+    return Buffer.from(await res.arrayBuffer());
+  };
+
+  const restore = async (zip: Buffer, query = 'hardware=false'): Promise<Response> => {
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array(zip)]), 'backup.zip');
+    return api(`/restore?${query}`, { method: 'POST', body });
+  };
+
+  const uploadProgram = async (title: string, audioIds: number[]): Promise<number> => {
+    const res = await api('/programs', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        description: '',
+        series: [{ name: 'S', events: [{ duration: 1000, command: 'show', audio_ids: audioIds }] }],
+      }),
+    });
+    expect(res.status).toBe(201);
+    return ((await res.json()) as { id: number }).id;
+  };
+
+  it('starts with a manifest that says it carries no WiFi credentials, and holds no shipped program', async () => {
+    const { entries, error } = readStoredZip(await backup());
+    expect(error).toBeNull();
+    expect(entries[0].name).toBe('manifest.json');
+    expect(JSON.parse(entries[0].data.toString('utf8'))).toMatchObject({
+      format: 'revolve-now-backup',
+      formatVersion: 1,
+      includesWifiCredentials: false,
+    });
+    expect(entries.map((entry) => entry.name)).not.toContain('programs/40.json');
+    expect(entries.every((entry) => entry.crcOk)).toBe(true);
+  });
+
+  it('puts a deleted upload back, keeping its shipped clips', async () => {
+    const program = await uploadProgram('Backup round trip', [3]);
+    const zip = await backup();
+    expect((await api(`/programs/${String(program)}/delete`, { method: 'DELETE' })).status).toBe(200);
+
+    const res = await restore(zip);
+    expect(res.status).toBe(200);
+    const report = (await res.json()) as RestoreReport;
+    expect(report.hardware.result).toBe('notRequested');
+    expect(report.stoppedEarly).toBeUndefined();
+
+    const restored = report.programs.find((item) => item.sourceId === program);
+    expect(restored).toMatchObject({ title: 'Backup round trip', result: 'added' });
+    const stored = (await (await api(`/programs/${String(restored?.id)}`)).json()) as Program;
+    expect(stored.series[0].events[0].audio_ids).toEqual([3]);
+  });
+
+  it('skips what is already here, so restoring twice changes nothing', async () => {
+    await uploadProgram('Backup twice', []);
+    const before = ((await (await api('/programs')).json()) as unknown[]).length;
+    const report = (await (await restore(await backup())).json()) as RestoreReport;
+    expect(report.programs.length).toBeGreaterThan(0);
+    expect(report.programs.every((item) => item.result === 'skipped')).toBe(true);
+    expect(((await (await api('/programs')).json()) as unknown[]).length).toBe(before);
+  });
+
+  it('refuses something that is not a ZIP, whole', async () => {
+    await expectProblem(await restore(Buffer.from('not a backup')), {
+      type: '/problems/backup_invalid',
+      title: 'Not a usable backup',
+      status: 400,
+      detail: 'Not a backup: the file is not a ZIP archive.',
+    });
+  });
+
+  it('refuses a ZIP that does not start with the manifest, before applying anything', async () => {
+    const before = ((await (await api('/programs')).json()) as unknown[]).length;
+    const zip = writeStoredZip([
+      { name: 'programs/1000.json', data: Buffer.from('{"title":"Sneaked in","series":[]}') },
+    ]);
+    await expectProblem(await restore(zip), {
+      type: '/problems/backup_invalid',
+      title: 'Not a usable backup',
+      status: 400,
+      detail: 'Not a backup: it does not start with manifest.json.',
+    });
+    expect(((await (await api('/programs')).json()) as unknown[]).length).toBe(before);
+  });
+
+  it('refuses a backup in a format newer than it reads', async () => {
+    const zip = writeStoredZip([
+      { name: 'manifest.json', data: Buffer.from('{"format":"revolve-now-backup","formatVersion":2}') },
+    ]);
+    const res = await restore(zip);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { detail: string }).detail).toBe(
+      'This backup is in format 2, which this firmware cannot read. Update the firmware and try again.',
+    );
+  });
+
+  it('needs the control lock, like every other write', async () => {
+    const zip = await backup();
+    await enableLock();
+    expect((await restore(zip)).status).toBe(401);
+  });
+
+  it('serves the backup without a token while the lock is on', async () => {
+    await enableLock();
+    expect((await api('/backup')).status).toBe(200);
   });
 });

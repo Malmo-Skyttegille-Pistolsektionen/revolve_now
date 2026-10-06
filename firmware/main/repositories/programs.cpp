@@ -166,10 +166,14 @@ int32_t add_uploaded(const char *json, size_t len) {
     ESP_LOGW(TAG, "Rejected malformed upload");
     return kUploadInvalid;
   }
+  return add(program);
+}
 
+int32_t add(rt::Program program) {
   const int32_t id = rt::next_free_id(
       kFirstUploadId, [](int32_t candidate) { return s_programs.count(candidate) > 0; });
   program.id = id;
+  program.readonly = false;
 
   if (!write_program(id, program)) return kUploadWriteFailed;
 

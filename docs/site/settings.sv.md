@@ -18,6 +18,7 @@ veta vilken som är vilken innan du ändrar något:
 | Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
 | Lagring | enhet | Hur mycket plats flashpartitionerna har |
+| Säkerhetskopia | enhet | Spara det som lagts på enheten till en fil, och lägg tillbaka det |
 | Nätverk | enhet | WiFi: vilket nätverk den är på och hur bra länken är. Ethernet: kabellänken och dess adress |
 | Uppdatering | enhet | Installera en version från GitHub, eller ladda upp en OTA-fil |
 | Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
@@ -27,7 +28,8 @@ veta vilken som är vilken innan du ändrar något:
 Inget på den här sidan kan få enheten att sluta fungera. De inställningar som
 kan det — vilket nätverk den går med i, vilka stift den styr, och nedladdningen
 av kraschdumpen — finns i [Expertläge](expert-mode.md), bakom ett knapptryck
-på själva kortet.
+på själva kortet. En [återställning](#restoring) kan också lägga tillbaka
+hårdvaruinställningar, och bara bakom samma knapptryck.
 
 **En rad kan dyka upp högst upp:** *Konfigurationen är sparad men inte
 verkställd; starta om från Expertläge.* Den betyder att någon har ändrat en
@@ -100,6 +102,53 @@ inte röra det du har lagt på den.
 är dit en uppdatering skrivs, vilket är det som gör att en dålig uppdatering
 kan ångras. Att en av dem är nästan tom är normalt på en enhet som aldrig har
 uppdaterats.
+
+## Säkerhetskopia { #backup }
+
+**Ladda ner säkerhetskopia** sparar en fil med allt som laddats upp till
+enheten — dina program och ljudklipp — och dess hårdvaruinställningar: stiften,
+tavelgrupperna, namnet. Det som följer *med* enheten ingår inte; det kommer
+tillbaka med firmware.
+
+**WiFi-lösenordet finns aldrig i en säkerhetskopia**, så filen kan lämnas
+vidare eller ligga i en delad mapp.
+
+Ta en:
+
+- **Innan du uppdaterar firmware**, och framför allt innan du går tillbaka till
+  en äldre version, som kanske inte kan läsa det en nyare har sparat.
+- **Innan en fabriksåterställning**, som tömmer enhetens inställningar.
+- **För att sätta upp ett andra kort** likadant som det första.
+
+Spara den någon annanstans än på enheten.
+
+### Återställa { #restoring }
+
+**Återställ från fil…** lägger till det som finns i säkerhetskopian på
+enheten. **Inget på enheten tas bort**, och sådant som redan finns där — samma
+program, eller ett klipp med samma titel och ljud — hoppas över. Att återställa
+samma fil två gånger ändrar ingenting andra gången. Efteråt visar sidan vad som
+lades till, vad som redan fanns och vad enheten avvisade, med skälet.
+
+Två val först:
+
+- **Hårdvaruinställningar** (på som standard). De återställs bara medan
+  [konfigurationsfönstret](expert-mode.md) är öppet — tryck på BOOT tre gånger
+  först — eftersom det är de inställningar där vägen tillbaka kan vara en
+  USB-kabel. När fönstret är stängt hoppas de över och resten återställs ändå.
+  Som alla hårdvaruändringar gäller de först när enheten startar om.
+- **Enhetens namn** (av som standard): värdnamnet och visningsnamnet från
+  säkerhetskopian. Slå på det när säkerhetskopian är det här kortets egen,
+  eller kommer från ett kort det ersätter. Låt det vara av när du sätter upp
+  ett andra kort, annars svarar två kort på samma namn.
+
+**Återställ filen precis som du laddade ner den.** En säkerhetskopia som har
+packats upp och zippats igen avvisas, eftersom den inte längre är upplagd som
+enheten skrev den.
+
+En säkerhetskopia från en äldre firmware går att återställa på en nyare. Det
+som den firmware som körs inte kan läsa avvisas för sig och listas; resten
+återställs.
 
 ## Nätverk { #network }
 

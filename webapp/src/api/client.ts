@@ -118,8 +118,8 @@ async function getResponseError(response: Response): Promise<{ message: string; 
 }
 
 /**
- * A response with a file in it: the troubleshooting bundle (#201) is the only
- * one, and it is bytes rather than JSON.
+ * A response with a file in it - the troubleshooting bundle (#201) and the
+ * backup (#520) - bytes rather than JSON.
  *
  * `filename` is what the device asked for in `Content-Disposition`. Null when
  * the header is absent or unparseable, which is a caller's cue to name the

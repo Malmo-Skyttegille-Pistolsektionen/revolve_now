@@ -46,6 +46,9 @@ add_library(rt_logic STATIC
   "${RT_LOGIC_DIR}/hardware_overlay.cpp"
   "${RT_LOGIC_DIR}/version.cpp"
   "${RT_LOGIC_DIR}/zip_writer.cpp"
+  "${RT_LOGIC_DIR}/zip_reader.cpp"
+  "${RT_LOGIC_DIR}/hardware_json.cpp"
+  "${RT_LOGIC_DIR}/backup.cpp"
   "${RT_LOGIC_DIR}/target_bank.cpp"
   "${RT_LOGIC_DIR}/embedded_dir.cpp"
 )
@@ -56,12 +59,13 @@ target_include_directories(rt_logic PUBLIC "${RT_LOGIC_DIR}")
 target_include_directories(rt_logic SYSTEM PUBLIC "${ARDUINOJSON_DIR}")
 target_compile_options(rt_logic PRIVATE -Wall -Wextra -Werror)
 
-# program.cpp is the only TU that includes ArduinoJson. At the -O1 the
-# sanitizers turn on, GCC raises -Wmaybe-uninitialized from inside the vendored
-# header - and marking the include SYSTEM does not suppress it, because the
-# warning is raised from inlined code during optimization, not from the header
-# text. Scoped to this one file so executor.cpp keeps the full warning set.
+# The TUs that include ArduinoJson. At the -O1 the sanitizers turn on, GCC
+# raises -Wmaybe-uninitialized from inside the vendored header - and marking the
+# include SYSTEM does not suppress it, because the warning is raised from
+# inlined code during optimization, not from the header text. Scoped to these
+# files so executor.cpp keeps the full warning set.
 set_source_files_properties("${RT_LOGIC_DIR}/program.cpp"
+  "${RT_LOGIC_DIR}/hardware_json.cpp" "${RT_LOGIC_DIR}/backup.cpp"
   PROPERTIES COMPILE_OPTIONS "-Wno-maybe-uninitialized")
 
 if(RT_SANITIZE)
@@ -82,6 +86,8 @@ enable_testing()
 set_source_files_properties("${TEST_DIR}/test_backend_issue/test_backend_issue.cpp"
   PROPERTIES COMPILE_OPTIONS "-Wno-maybe-uninitialized")
 set_source_files_properties("${TEST_DIR}/test_problem/test_problem.cpp"
+  PROPERTIES COMPILE_OPTIONS "-Wno-maybe-uninitialized")
+set_source_files_properties("${TEST_DIR}/test_backup/test_backup.cpp"
   PROPERTIES COMPILE_OPTIONS "-Wno-maybe-uninitialized")
 
 file(GLOB test_suites RELATIVE "${TEST_DIR}" "${TEST_DIR}/test_*")

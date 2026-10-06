@@ -126,12 +126,14 @@ info:
 
     ## Limits
 
-    - Request bodies and uploads are capped at 4.5 MiB
-      (`kMaxFirmwareUploadBytes`, `firmware/main/config.h`), sized to the
-      firmware slot because a firmware image is the largest legitimate upload.
-      Exceeding it is answered `400` with a **`text/html`** body, not a problem
-      detail — that check lives in the vendored HTTP layer, above every
-      handler.
+    - Request bodies are capped at 4.5 MiB (`kMaxFirmwareUploadBytes`,
+      `firmware/main/config.h`), and uploads at about 6.8 MiB
+      (`kMaxRestoreUploadBytes`), sized to the `userdata` partition because a
+      restore carries all of it and is the largest legitimate upload.
+      Exceeding either is answered `400` with a **`text/html`** body, not a
+      problem detail — that check lives in the vendored HTTP layer, above every
+      handler. A firmware image over the 4.5 MiB slot is refused by
+      `POST /ota` itself, as `/problems/ota_image_refused`.
     - An audio clip is further capped at 1 MiB (`kMaxUploadBytes`), counted as
       it streams. Past that the upload is abandoned and the vendored layer
       answers `500`, again with a `text/html` body.
@@ -182,6 +184,10 @@ tags:
     description: >-
       The wired interface, beside WiFi on a board with a W5500 and alone under
       QEMU.
+  - name: backup
+    description: >-
+      What a club has put on a board - uploaded programs and clips, and the
+      hardware configuration - saved to one file and put back.
   - name: system
     description: >-
       The device as a whole, rather than anything stored on it: restarting it
@@ -1415,8 +1421,9 @@ paths:
           $ref: "#/components/responses/Problem"
           description: |
             `/problems/ota_image_refused` — the upload was empty, too small to
-            be an image, not an image at all or incomplete, or not for this
-            project.
+            be an image, larger than the firmware slot, not an image at all or
+            incomplete, or not for this project. Larger than the slot is
+            answered before any of it is read.
 
             `/problems/upload_missing_file` — the body was not
             `multipart/form-data`. Answered before any of it is read.
@@ -1639,6 +1646,177 @@ paths:
             - `/problems/audio_playing` — the audio task is reading the file
               right now. LittleFS has no unlink-while-open, so removing it
               would corrupt the read.
+
+  /backup:
+    get:
+      tags: [backup]
+      summary: Download a backup of this device
+      operationId: getBackup
+      description: |
+        Everything a club has put on this board, as one `application/zip`
+        that `POST /restore` reads back (#520):
+
+        | Entry | What it is |
+        |---|---|
+        | `manifest.json` | `format: "revolve-now-backup"`, `formatVersion`, the `firmwareVersion` and `hostname` it came from, and `includesWifiCredentials: false` |
+        | `hardware.json` | the stored hardware configuration, as a `HardwareConfigPatch` holding **only the values that differ from the compiled defaults** |
+        | `audio/index.json` | the clips' titles, keyed by id |
+        | `audio/<id>.wav` | each uploaded clip, byte for byte |
+        | `programs/<id>.json` | each uploaded program, as `GET /programs/{id}` returns it |
+
+        The entries are in that order, which is the order a restore needs:
+        titles before the clips they name, clips before the programs that play
+        them.
+
+        **Uploads only.** Shipped programs and clips come with the firmware
+        image and are not in it.
+
+        **No WiFi credentials, ever.** `manifest.json` says so, so whoever
+        holds the file does not have to wonder whether it is safe to pass on.
+        A board that has lost its credentials joins a network through the
+        setup portal first, and only then can it be reached to restore.
+
+        `hardware.json` is relative to the defaults so that a board built for
+        other hardware keeps its own defaults for everything nobody changed.
+        `targetsShownAtBoot` is never in it: it is serial-only (D-31).
+
+        Public, like every other `GET`: the programs and the hardware
+        configuration are already readable one by one, and nothing in it is a
+        credential.
+
+        The filename in `Content-Disposition` is
+        `<hostname>-<version>-backup.zip`. No date, for the reason the
+        troubleshooting bundle has none: this device has no clock.
+
+        Served chunked, with no `Content-Length`, and streamed from flash.
+      responses:
+        "200":
+          description: The backup.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: >-
+                `attachment` with the generated filename. Characters outside
+                `[A-Za-z0-9._-]` in the hostname or version are replaced with
+                `-`.
+              schema:
+                type: string
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            `/problems/program_running` — a program is running. The server
+            answers one request at a time and a backup takes seconds, so it
+            would hold the stop button's request behind it.
+
+  /restore:
+    post:
+      tags: [backup]
+      summary: Restore a backup onto this device
+      operationId: restoreBackup
+      description: |
+        A `multipart/form-data` body with the file `GET /backup` produced in
+        one file part. Read as it arrives, and each item applied as soon as
+        it has: **nothing is deleted**, and everything goes through the same
+        checks an upload would.
+
+        - **Clips** are added under new ids from 1000 upwards. One with the
+          same title and the same bytes as a clip already here is skipped.
+        - **Programs** are added the same way, and their `audio_ids` are
+          rewritten to the ids the restored clips were given. A program
+          identical to one already here is skipped. An uploaded clip id the
+          backup holds no clip for is removed from the program rather than
+          left pointing at whatever this board numbers that way, and listed
+          in `droppedAudioIds`.
+        - **Hardware**, unless `hardware=false`: this build's compiled
+          defaults with the backup's values applied, saved as
+          `PUT /config/hardware` would save it — so it needs the
+          configuration window, and it takes effect at the next restart
+          (D-42). With the window shut it is skipped and reported, and the
+          rest is restored anyway. The hostname and display name stay as they
+          are unless `name=true`, because two boards answering to one name is
+          the usual result of restoring them onto a second board.
+          `targetsShownAtBoot` is never changed.
+
+        Restoring the same backup twice therefore changes nothing the second
+        time.
+
+        **Across versions.** `manifest.json` must come first. A file that is
+        not a backup, or a backup in a newer `formatVersion` than this
+        firmware reads, is refused as a whole before anything is applied. An
+        item this firmware cannot read is refused on its own and reported.
+
+        **A broken archive.** If the file ends early or is damaged after the
+        manifest, the restore stops there: what was already applied stays,
+        and the `200` lists it with `stoppedEarly` set. Only stored ZIP
+        entries are read — the file as it was downloaded, not one that was
+        unpacked and zipped again.
+      security:
+        - controlLockBearer: []
+        - controlLockCookie: []
+        - {}
+      parameters:
+        - name: hardware
+          in: query
+          required: false
+          description: Restore the hardware configuration. `false` leaves it alone.
+          schema:
+            type: boolean
+            default: true
+        - name: name
+          in: query
+          required: false
+          description: >-
+            Restore the hostname and display name as well. Ignored when
+            `hardware` is `false`.
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The backup, as `GET /backup` served it.
+            encoding:
+              file:
+                contentType: application/zip
+      responses:
+        "200":
+          description: >-
+            Applied, item by item. Some items may have been refused; each says
+            why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreReport"
+        "400":
+          $ref: "#/components/responses/Problem"
+          description: |
+            Refused as a whole; nothing was applied.
+
+            - `/problems/backup_invalid` — not a ZIP, not a backup, no
+              `manifest.json` first, a `formatVersion` this firmware cannot
+              read, or a re-zipped file using compression.
+            - `/problems/upload_missing_file` — not a multipart body, or no
+              file part arrived.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            `/problems/program_running` — a program is running. Refused before
+            the body is read: the upload holds the server for as long as it
+            takes, and the stop button with it.
 
   /sse/v2:
     get:
@@ -2507,6 +2685,7 @@ components:
             - /problems/hardware_config_window_closed
             - /problems/wifi_credentials_invalid
             - /problems/bank_unavailable
+            - /problems/backup_invalid
             # upload
             - /problems/upload_missing_file
             - /problems/upload_missing_title
@@ -2560,6 +2739,101 @@ components:
           enum: [accepted]
         restarting:
           type: boolean
+      additionalProperties: false
+
+    RestoreReport:
+      type: object
+      description: What `POST /restore` did with each part of the backup.
+      required: [source, hardware, audios, programs]
+      properties:
+        source:
+          type: object
+          description: What `manifest.json` said about where the backup came from.
+          required: [formatVersion, firmwareVersion, hostname, displayName]
+          properties:
+            formatVersion:
+              type: integer
+              format: int32
+            firmwareVersion:
+              type: string
+            hostname:
+              type: string
+            displayName:
+              type: string
+          additionalProperties: false
+        hardware:
+          $ref: "#/components/schemas/RestoreHardware"
+        audios:
+          type: array
+          description: Every clip in the backup, in archive order.
+          items:
+            $ref: "#/components/schemas/RestoreItem"
+        programs:
+          type: array
+          description: Every program in the backup, in archive order.
+          items:
+            $ref: "#/components/schemas/RestoreItem"
+        stoppedEarly:
+          allOf:
+            - $ref: "#/components/schemas/Problem"
+          description: >-
+            Present when the archive broke part way - cut short or damaged.
+            The restore stopped there; everything listed above it was applied.
+      additionalProperties: false
+
+    RestoreItem:
+      type: object
+      required: [sourceId, title, result]
+      properties:
+        sourceId:
+          type: integer
+          format: int32
+          description: Its id on the device the backup was taken from.
+        title:
+          type: string
+          description: >-
+            Empty for a program this firmware could not read; a placeholder
+            for a clip the backup had no title for.
+        result:
+          type: string
+          enum: [added, skipped, refused]
+          description: |
+            - `added` — stored under `id`.
+            - `skipped` — an identical one is already here, as `id`.
+            - `refused` — not stored; `problem` says why.
+        id:
+          type: integer
+          format: int32
+          description: Its id on this device. Absent when refused.
+        problem:
+          $ref: "#/components/schemas/Problem"
+        droppedAudioIds:
+          type: array
+          description: >-
+            Programs only: uploaded clip ids the program played that the
+            backup restored no clip for, removed from its events.
+          items:
+            type: integer
+            format: int32
+      additionalProperties: false
+
+    RestoreHardware:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: string
+          enum: [saved, unchanged, notRequested, notIncluded, skipped, refused]
+          description: |
+            - `saved` — stored; it applies at the next restart.
+            - `unchanged` — already what the backup holds.
+            - `notRequested` — `hardware=false`.
+            - `notIncluded` — the backup has no `hardware.json`.
+            - `skipped` — the configuration window is shut; `problem` says how
+              to open it.
+            - `refused` — this firmware refuses a value; `problem` names it.
+        problem:
+          $ref: "#/components/schemas/Problem"
       additionalProperties: false
 
     CreatedId:

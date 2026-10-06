@@ -5,6 +5,7 @@
 #include "esp_ota_ops.h"
 
 #include "backend_issue.h"
+#include "config.h"
 #include "ota_upload.h"
 #include "problem.h"
 #include "program_executor.h"
@@ -81,6 +82,13 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     if (const auto answer = s_session.gate(req->isMultipart())) {
       ESP_LOGW(TAG, "Refused before the body: %s", answer->detail);
       return send(res, *answer);
+    }
+    // The server-wide ceiling is sized for a restore, which is larger than the
+    // slot, so an image bounds itself here.
+    if (req->contentLength() > kMaxFirmwareUploadBytes) {
+      return send(res, rt::ota::Answer{&rt::problem::kOtaImageRefused,
+                                       "The file is larger than the firmware slot, so it is not "
+                                       "a firmware image for this device"});
     }
     return next();
   });

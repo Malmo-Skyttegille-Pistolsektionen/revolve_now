@@ -28,12 +28,13 @@ idf_component_register(
          "repositories/programs.cpp" "repositories/audios.cpp"
          "executor/program_executor.cpp"
          "ota/ota.cpp"
+         "backup/device_backup.cpp"
          "system/restart.cpp"
          "diagnostics/partitions.cpp" "diagnostics/build_info.cpp" "console/console.cpp"
          ${RT_NET_SRCS}
          "net/net_common.cpp" "net/ethernet.cpp" "net/web_server.cpp" "net/sse_hub.cpp"
     INCLUDE_DIRS "." "config" "io" "storage" "repositories" "executor" "net" "diagnostics" "console" "ota"
-                 "system"
+                 "system" "backup"
     REQUIRES rt_logic arduinojson psychic_http
              nvs_flash esp_netif esp_event esp_timer esp_system
              esp_http_server app_update espcoredump

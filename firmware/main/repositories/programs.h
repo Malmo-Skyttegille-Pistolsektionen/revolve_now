@@ -29,6 +29,10 @@ constexpr int32_t kUploadWriteFailed = -2;
 // kFirstUploadId. Returns the new id, or one of the two values above.
 int32_t add_uploaded(const char *json, size_t len);
 
+// The same, for a program already parsed - a restore, which rewrites its clip
+// ids first (#520). Returns the new id or kUploadWriteFailed.
+int32_t add(rt::Program program);
+
 enum class UpdateResult {
   kOk,
   kNotFound,

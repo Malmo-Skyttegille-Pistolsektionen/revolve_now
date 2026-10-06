@@ -22,6 +22,7 @@ the implementation.
 ```
 test/mock-server/                 # The v2 mock API: REST, SSE, simulation. Injectable clock
 test/mock-server/contract.test.ts # Clock-free cases; CI also runs them against QEMU (CONTRACT_BASE_URL)
+test/mock-server/zip.ts           # Stored ZIPs for /backup and /restore, as rt_logic's writer and reader
 vite-plugins/mock-server-v2.ts    # Thin adapter mounting the above on the Vite dev server
 src/lib/program-document.ts       # Validates a program against what parse_program does (D-18)
 src/i18n/                         # en/ is the source, sv/ is typed from it (D-45); useT() reads them

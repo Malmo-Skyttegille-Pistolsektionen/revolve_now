@@ -9,6 +9,7 @@
 #include "web_server.h"
 
 #include "ota.h"
+#include "device_backup.h"
 
 #include <ArduinoJson.h>
 #include <PsychicHttp.h>
@@ -38,11 +39,13 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "ethernet.h"
+#include "hardware_json.h"
 #include "issue_buffer.h"
 #include "json_util.h"
 #include "net_mgr.h"
 #include "problem.h"
 #include "restart.h"
+#include "text_parse.h"
 #include "uri_path.h"
 #include "version.h"
 #include "program_executor.h"
@@ -173,11 +176,6 @@ void on_bounded(const char *uri, int method, const PsychicHttpRequestCallback &h
   s_server.on(uri, method, handler)->addMiddleware(bound_body);
 }
 
-// What every closed-window refusal tells the person to do.
-constexpr const char *kOpenWindowHint =
-    "Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to "
-    "open a five-minute configuration window, then try again.";
-
 // Refuses with program_running while a run is in progress; `what` finishes
 // "stop it before ...". True once it has answered the request.
 bool refuse_if_running(PsychicResponse *res, const char *what) {
@@ -191,7 +189,7 @@ bool refuse_if_running(PsychicResponse *res, const char *what) {
 // True once it has answered the request.
 bool refuse_if_window_closed(PsychicResponse *res) {
   if (boot_button::config_window_open()) return false;
-  send_problem(res, rt::problem::kHardwareConfigWindowClosed, kOpenWindowHint);
+  send_problem(res, rt::problem::kHardwareConfigWindowClosed, rt::kOpenWindowHint);
   return true;
 }
 
@@ -775,22 +773,6 @@ std::string diagnostics_info_json() {
   return out;
 }
 
-// The characters a filename may carry into a `Content-Disposition` header.
-// Everything else is replaced rather than escaped: the parts being joined are
-// a `git describe` string and an operator-chosen hostname, and a header is the
-// one place where letting an unexpected byte through is a header-splitting bug
-// rather than an ugly filename.
-std::string filename_safe(const std::string &in) {
-  std::string out;
-  out.reserve(in.size());
-  for (const char c : in) {
-    const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                       c == '.' || c == '_' || c == '-';
-    out += plain ? c : '-';
-  }
-  return out.empty() ? "unknown" : out;
-}
-
 // Bytes read from flash per pass. Small enough that two of these on the heap is
 // nothing next to an OTA, large enough that a 128 KB partition is 64 reads.
 constexpr size_t kBundleChunkBytes = 2048;
@@ -871,9 +853,9 @@ void register_diagnostics_routes() {
       dump_crc = rt::crc32(dump_crc, buffer.data(), want);
     }
 
-    const std::string name = filename_safe(hardware_store::current().hostname) + "-" +
-                             filename_safe(esp_app_get_description()->version) + "-" +
-                             filename_safe(diagnostics::reset_reason_name(esp_reset_reason())) +
+    const std::string name = rt::filename_safe(hardware_store::current().hostname) + "-" +
+                             rt::filename_safe(esp_app_get_description()->version) + "-" +
+                             rt::filename_safe(diagnostics::reset_reason_name(esp_reset_reason())) +
                              ".zip";
     // No date in it: this device never learns one. The browser adds that
     // on the way to the Downloads folder.
@@ -1199,81 +1181,6 @@ bool s_webapp_bundled = false;
 
 // --- Hardware configuration (#144) ----------------------------------------
 
-// The three views the contract promises, plus the two booleans a client needs
-// to say anything useful about them.
-std::string hardware_config_json(const rt::HardwareConfig &config) {
-  std::string out = "{\"banks\":[";
-  for (size_t i = 0; i < config.banks.size(); ++i) {
-    if (i > 0) out += ',';
-    out += "{\"gpio\":";
-    out += std::to_string(config.banks[i].gpio);
-    out += ",\"activeLow\":";
-    out += config.banks[i].active_low ? "true" : "false";
-    out += ",\"name\":";
-    out += rt::json_quote(config.banks[i].name);
-    out += '}';
-  }
-  out += ']';
-  out += ",\"hostname\":";
-  out += rt::json_quote(config.hostname);
-  out += ",\"displayName\":";
-  out += rt::json_quote(config.display_name);
-  out += ",\"targetsShownAtBoot\":";
-  out += config.targets_shown_at_boot ? "true" : "false";
-  out += ",\"ledGpio\":";
-  out += std::to_string(config.led_gpio);
-  out += ",\"i2sPort\":";
-  out += std::to_string(config.i2s_port);
-  out += ",\"i2sBckGpio\":";
-  out += std::to_string(config.i2s_bck_gpio);
-  out += ",\"i2sWsGpio\":";
-  out += std::to_string(config.i2s_ws_gpio);
-  out += ",\"i2sDoutGpio\":";
-  out += std::to_string(config.i2s_dout_gpio);
-  out += ",\"i2sMclkGpio\":";
-  out += std::to_string(config.i2s_mclk_gpio);
-  out += ",\"httpPort\":";
-  out += std::to_string(config.http_port);
-  out += ",\"wifiMaxRetries\":";
-  out += std::to_string(config.wifi_max_retries);
-  out += ",\"wifiEnabled\":";
-  out += config.wifi_enabled ? "true" : "false";
-  out += ",\"ethEnabled\":";
-  out += config.eth_enabled ? "true" : "false";
-  out += ",\"ethSclkGpio\":";
-  out += std::to_string(config.eth_sclk_gpio);
-  out += ",\"ethMosiGpio\":";
-  out += std::to_string(config.eth_mosi_gpio);
-  out += ",\"ethMisoGpio\":";
-  out += std::to_string(config.eth_miso_gpio);
-  out += ",\"ethCsGpio\":";
-  out += std::to_string(config.eth_cs_gpio);
-  out += ",\"ethIntGpio\":";
-  out += std::to_string(config.eth_int_gpio);
-  out += ",\"ethRstGpio\":";
-  out += std::to_string(config.eth_rst_gpio);
-  out += "}";
-  return out;
-}
-
-bool same_config(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
-  // targets_shown_at_boot included even though HTTP cannot change it: the
-  // serial console can, and that needs a restart to take effect too. Leaving it
-  // out would report restartRequired false right after `boot-targets hidden`.
-  // Every pin too: each is latched at boot, so a saved change to any of them is
-  // waiting on a restart.
-  return rt::same_wiring(a.banks, b.banks) && a.hostname == b.hostname &&
-         a.display_name == b.display_name && a.targets_shown_at_boot == b.targets_shown_at_boot &&
-         a.led_gpio == b.led_gpio && a.i2s_port == b.i2s_port && a.i2s_bck_gpio == b.i2s_bck_gpio &&
-         a.i2s_ws_gpio == b.i2s_ws_gpio && a.i2s_dout_gpio == b.i2s_dout_gpio &&
-         a.i2s_mclk_gpio == b.i2s_mclk_gpio && a.http_port == b.http_port &&
-         a.wifi_max_retries == b.wifi_max_retries && a.eth_sclk_gpio == b.eth_sclk_gpio &&
-         a.eth_mosi_gpio == b.eth_mosi_gpio && a.eth_miso_gpio == b.eth_miso_gpio &&
-         a.eth_cs_gpio == b.eth_cs_gpio && a.eth_int_gpio == b.eth_int_gpio &&
-         a.eth_rst_gpio == b.eth_rst_gpio && a.wifi_enabled == b.wifi_enabled &&
-         a.eth_enabled == b.eth_enabled;
-}
-
 void register_config_routes() {
   s_server.on("/api/v2/config/hardware", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
     // `active` is what boot latched; `saved` is what NVS holds now. They differ
@@ -1285,11 +1192,11 @@ void register_config_routes() {
     const rt::HardwareConfig defaults = hardware_store::defaults();
 
     std::string out = "{\"active\":";
-    out += hardware_config_json(active);
+    out += rt::hardware_config_json(active);
     out += ",\"saved\":";
-    out += hardware_config_json(saved);
+    out += rt::hardware_config_json(saved);
     out += ",\"defaults\":";
-    out += hardware_config_json(defaults);
+    out += rt::hardware_config_json(defaults);
     out += ",\"overridden\":";
     out += hardware_store::overridden() ? "true" : "false";
     // One meaning: "would a PUT be accepted right now". The run is already part
@@ -1302,7 +1209,7 @@ void register_config_routes() {
     out += std::to_string(window_open ? boot_button::config_window_remaining_s() : 0);
     out += "}";
     out += ",\"restartRequired\":";
-    out += same_config(active, saved) ? "false" : "true";
+    out += rt::same_config(active, saved) ? "false" : "true";
     out += "}";
     return send_json(res, 200, out);
   });
@@ -1310,27 +1217,25 @@ void register_config_routes() {
   s_server.on("/api/v2/config/hardware", HTTP_PUT, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
+    // Patched onto a copy of what is stored: absent fields keep their value
+    // rather than reverting to a compiled default (rt::apply_hardware_patch).
     const char *body = req->body();
-    JsonDocument doc;
-    if (body == nullptr || deserializeJson(doc, body) != DeserializationError::Ok ||
-        !doc.is<JsonObject>()) {
-      return send_problem(res, rt::problem::kHardwareConfigInvalid,
-                          "Expected a JSON object of hardware configuration fields");
+    rt::HardwareConfig config = hardware_store::saved();
+    const rt::PatchError shape =
+        rt::apply_hardware_patch(body, body == nullptr ? 0 : strlen(body), config);
+
+    // A body that is not an object, or that names `targetsShownAtBoot`, is
+    // refused ahead of the guards. The latter is refused, not ignored (D-31,
+    // #144): where the targets rest at boot is what protects somebody standing
+    // downrange, so it changes only from the serial console.
+    if (shape == rt::PatchError::kNotObject || shape == rt::PatchError::kSerialOnly) {
+      return send_problem(res,
+                          shape == rt::PatchError::kSerialOnly
+                              ? rt::problem::kHardwareConfigSerialOnly
+                              : rt::problem::kHardwareConfigInvalid,
+                          rt::patch_error_message(shape));
     }
 
-    // Refused, not ignored (D-31, #144). Where the targets rest at boot is
-    // what protects somebody standing downrange, so it changes only from the
-    // serial console - and an operator who believes they changed it is worse
-    // off than one who was told they could not.
-    if (!doc["targetsShownAtBoot"].isNull()) {
-      return send_problem(res, rt::problem::kHardwareConfigSerialOnly,
-                          "targetsShownAtBoot changes only from the serial console: "
-                          "'boot-targets shown' or 'boot-targets hidden'");
-    }
-
-    // Absent fields keep what is stored rather than reverting to a compiled
-    // default: a client that knows about fewer fields than this firmware must
-    // not silently undo the ones it cannot see.
     // Not while a program is running. Reconfiguring the machine and operating
     // it are different activities, and these values only take effect at the
     // next restart - so the only thing changing them mid-run can do is confuse
@@ -1346,59 +1251,9 @@ void register_config_routes() {
     // hostname changes mDNS and does not.
     if (refuse_if_window_closed(res)) return ESP_OK;
 
-    rt::HardwareConfig config = hardware_store::saved();
-
-    // `banks` replaces the whole array - it is an ordered list, and a partial
-    // merge of one has no meaning.
-    if (!doc["banks"].isNull()) {
-      if (!doc["banks"].is<JsonArray>()) {
-        return send_problem(res, rt::problem::kHardwareConfigInvalid,
-                            "'banks' must be an array of target banks");
-      }
-      std::vector<rt::TargetBank> banks;
-      for (JsonVariant entry : doc["banks"].as<JsonArray>()) {
-        if (!entry.is<JsonObject>()) {
-          return send_problem(res, rt::problem::kHardwareConfigInvalid,
-                              "Each entry in 'banks' must be an object with gpio, activeLow and "
-                              "name");
-        }
-        rt::TargetBank bank;
-        bank.gpio = entry["gpio"] | 0;
-        bank.active_low = entry["activeLow"] | true;
-        bank.name = entry["name"] | "";
-        banks.push_back(bank);
-      }
-      // The count is checked by validate() below, which owns every bound this
-      // struct has; an empty array reaches it and comes back kBankCountOutOfRange.
-      config.banks = banks;
+    if (shape != rt::PatchError::kNone) {
+      return send_problem(res, rt::problem::kHardwareConfigInvalid, rt::patch_error_message(shape));
     }
-
-    if (!doc["hostname"].isNull()) config.hostname = doc["hostname"] | config.hostname;
-    if (!doc["displayName"].isNull())
-      config.display_name = doc["displayName"] | config.display_name;
-    if (!doc["ledGpio"].isNull()) config.led_gpio = doc["ledGpio"] | config.led_gpio;
-    if (!doc["i2sPort"].isNull()) config.i2s_port = doc["i2sPort"] | config.i2s_port;
-    if (!doc["i2sBckGpio"].isNull()) config.i2s_bck_gpio = doc["i2sBckGpio"] | config.i2s_bck_gpio;
-    if (!doc["i2sWsGpio"].isNull()) config.i2s_ws_gpio = doc["i2sWsGpio"] | config.i2s_ws_gpio;
-    if (!doc["i2sDoutGpio"].isNull())
-      config.i2s_dout_gpio = doc["i2sDoutGpio"] | config.i2s_dout_gpio;
-    if (!doc["i2sMclkGpio"].isNull())
-      config.i2s_mclk_gpio = doc["i2sMclkGpio"] | config.i2s_mclk_gpio;
-    if (!doc["httpPort"].isNull()) config.http_port = doc["httpPort"] | config.http_port;
-    if (!doc["wifiMaxRetries"].isNull())
-      config.wifi_max_retries = doc["wifiMaxRetries"] | config.wifi_max_retries;
-    if (!doc["wifiEnabled"].isNull())
-      config.wifi_enabled = doc["wifiEnabled"] | config.wifi_enabled;
-    if (!doc["ethEnabled"].isNull()) config.eth_enabled = doc["ethEnabled"] | config.eth_enabled;
-    if (!doc["ethSclkGpio"].isNull())
-      config.eth_sclk_gpio = doc["ethSclkGpio"] | config.eth_sclk_gpio;
-    if (!doc["ethMosiGpio"].isNull())
-      config.eth_mosi_gpio = doc["ethMosiGpio"] | config.eth_mosi_gpio;
-    if (!doc["ethMisoGpio"].isNull())
-      config.eth_miso_gpio = doc["ethMisoGpio"] | config.eth_miso_gpio;
-    if (!doc["ethCsGpio"].isNull()) config.eth_cs_gpio = doc["ethCsGpio"] | config.eth_cs_gpio;
-    if (!doc["ethIntGpio"].isNull()) config.eth_int_gpio = doc["ethIntGpio"] | config.eth_int_gpio;
-    if (!doc["ethRstGpio"].isNull()) config.eth_rst_gpio = doc["ethRstGpio"] | config.eth_rst_gpio;
 
     rt::ValidationDetail detail;
     const rt::ConfigRefusal refusal = hardware_store::save(config, &detail);
@@ -1649,9 +1504,10 @@ void register_static_routes() {
 
 bool start() {
   // The server-wide ceiling has to admit the largest legitimate upload, which
-  // is firmware (PsychicHttp's own defaults are 16 KB for a body and 2 MB for an
-  // upload). Anything smaller has to bound itself against kMaxUploadBytes.
-  s_server.maxUploadSize = kMaxFirmwareUploadBytes;
+  // is a restore (PsychicHttp's own defaults are 16 KB for a body and 2 MB for
+  // an upload). Every smaller upload bounds itself: firmware against the slot,
+  // audio against kMaxUploadBytes.
+  s_server.maxUploadSize = kMaxRestoreUploadBytes;
   s_server.maxRequestBodySize = kMaxFirmwareUploadBytes;
   // Every connected client holds a socket open indefinitely for /sse/v2 on top
   // of its REST traffic. Bounded by LWIP: httpd requires
@@ -1712,6 +1568,7 @@ bool start() {
   // discipline of their own (a handle that must be aborted, not ended, before
   // it is finalised) and do not belong mixed into the request handlers here.
   ota::register_routes(s_server, require_control_lock);
+  device_backup::register_routes(s_server, require_control_lock);
 
   sse_hub::attach(s_server, "/sse/v2");
 
