@@ -159,7 +159,7 @@ jobs:
 
       - name: Save the compiler cache
         if: >-
-          needs.changes.outputs.firmware != 'false' && github.ref == 'refs/heads/main'
+          needs.changes.outputs.firmware != 'false' && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
           && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6.1.0
         with:
@@ -344,7 +344,7 @@ jobs:
 
       - name: Save the compiler cache
         if: >-
-          needs.changes.outputs.firmware != 'false' && github.ref == 'refs/heads/main'
+          needs.changes.outputs.firmware != 'false' && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
           && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6.1.0
         with:
