@@ -203,9 +203,12 @@ export function UpdateSection(): React.ReactNode {
             {selected.notes.trim() === '' ? (
               <p className={styles.muted}>{s.noNotes}</p>
             ) : (
-              <Suspense fallback={null}>
-                <ReleaseNotes source={selected.notes} />
-              </Suspense>
+              <details className={styles.notes} data-testid='update-notes'>
+                <summary>{t.settings.overview.whatsNew(selected.version)}</summary>
+                <Suspense fallback={null}>
+                  <ReleaseNotes source={selected.notes} />
+                </Suspense>
+              </details>
             )}
             <a className={styles.link} href={selected.pageUrl} target='_blank' rel='noopener noreferrer'>
               {s.releasePage}

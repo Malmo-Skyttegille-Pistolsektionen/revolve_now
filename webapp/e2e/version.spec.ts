@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openApp } from './device';
+import { openApp, openSettings } from './device';
 
 /**
  * The webapp and the firmware are one artifact under one tag (D-29), and this
@@ -17,7 +17,7 @@ test('the app reports the same version as the firmware it ships inside', async (
   expect(typeof info.version).toBe('string');
 
   await openApp(page);
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'about');
 
   await expect(page.getByTestId('version-app')).toHaveText(info.version);
   await expect(page.getByTestId('version-firmware')).toHaveText(info.version);

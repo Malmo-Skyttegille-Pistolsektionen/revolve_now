@@ -8,18 +8,22 @@ which is which before changing anything:
 - **Device settings and readouts** come from the board itself, and are the
   same for everyone looking at it.
 
-| Section | Kind | What it is |
+The page opens with a short status: which firmware, how the device is
+connected, whether it started cleanly and whether the control lock is on.
+Below it, each topic is one row with a line saying how it stands. Tap a row to
+open it; opening another closes the first. A row that needs a look, such as a
+newer release or a startup problem, says so in its badge.
+
+| Row | Kind | What it is |
 |---|---|---|
-| Server Base URL | browser | Which device this browser talks to |
-| Theme | browser | Light or dark, or whatever this phone or computer is set to |
-| Language | browser | English or Swedish, or whatever this phone or computer is set to |
-| Address | device | The address the device says it is reachable on |
-| Control lock | device | Whether control is open to everyone or needs a login |
-| Startup Issues | device | What the device could not read when it booted |
-| Storage | device | How much room the flash partitions have |
+| Update | device | Install a release from GitHub, or upload an OTA file |
 | Backup | device | Save what has been put on the device to a file, and put it back |
 | Network | device | WiFi: which network it is on and how good the link is. Ethernet: the cable link and its address |
-| Update | device | Install a release from GitHub, or upload an OTA file |
+| Control lock | device | Whether control is open to everyone or needs a login |
+| Storage | device | How much room the flash partitions have |
+| Startup Issues | device | What the device could not read when it booted |
+| Appearance and language | browser | Light or dark, English or Swedish, or whatever this phone or computer is set to |
+| Server Base URL | browser | Which device this browser talks to, and the address the device reports |
 | About | device | What firmware and web app this is, and exactly which build |
 
 ![The Settings page](img/settings.png)

@@ -109,9 +109,15 @@ export async function openApp(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/run$/);
 }
 
+/** Go to Settings and unfold one row, e.g. `control-lock` (#525). */
+export async function openSettings(page: Page, row: string): Promise<void> {
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByTestId(`settings-fold-${row}`).locator(':scope > button').click();
+}
+
 /** Walk the documented enable flow through the Settings UI. */
 export async function enableControlLockViaUi(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'control-lock');
   await expect(page.getByTestId('control-lock-status')).toHaveText('OFF');
   await page.getByTestId('control-lock-password').fill(CONTROL_LOCK_PASSWORD);
   await page.getByRole('button', { name: 'Turn the lock on' }).click();

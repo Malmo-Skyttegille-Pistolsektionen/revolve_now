@@ -9,18 +9,22 @@ veta vilken som är vilken innan du ändrar något:
 - **Enhetsinställningar och avläsningar** kommer från kortet självt och är
   desamma för alla som tittar på det.
 
-| Avsnitt | Sort | Vad det är |
+Sidan börjar med en kort status: vilken firmware, hur enheten är ansluten, om
+den startade utan problem och om kontrollåset är på. Under den är varje ämne
+en rad med en rad text om hur det står till. Tryck på en rad för att öppna den;
+öppnar du en annan stängs den första. En rad som behöver ses över, till
+exempel en nyare version eller ett startproblem, säger det i sin etikett.
+
+| Rad | Sort | Vad det är |
 |---|---|---|
-| Serveradress (Server Base URL) | webbläsare | Vilken enhet den här webbläsaren pratar med |
-| Tema | webbläsare | Ljust eller mörkt, eller det som den här telefonen eller datorn är inställd på |
-| Språk | webbläsare | Engelska eller svenska, eller det som den här telefonen eller datorn är inställd på |
-| Adress | enhet | Adressen enheten säger att den kan nås på |
-| Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
-| Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
-| Lagring | enhet | Hur mycket plats flashpartitionerna har |
+| Uppdatering | enhet | Installera en version från GitHub, eller ladda upp en OTA-fil |
 | Säkerhetskopia | enhet | Spara det som lagts på enheten till en fil, och lägg tillbaka det |
 | Nätverk | enhet | WiFi: vilket nätverk den är på och hur bra länken är. Ethernet: kabellänken och dess adress |
-| Uppdatering | enhet | Installera en version från GitHub, eller ladda upp en OTA-fil |
+| Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
+| Lagring | enhet | Hur mycket plats flashpartitionerna har |
+| Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
+| Utseende och språk | webbläsare | Ljust eller mörkt, engelska eller svenska, eller det som den här telefonen eller datorn är inställd på |
+| Serveradress (Server Base URL) | webbläsare | Vilken enhet den här webbläsaren pratar med, och adressen enheten rapporterar |
 | Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
 
 ![Sidan Inställningar](img/settings.png)

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { CONTROL_LOCK_PASSWORD, enableControlLockViaUi, openApp, resetDevice } from './device';
+import { CONTROL_LOCK_PASSWORD, enableControlLockViaUi, openApp, openSettings, resetDevice } from './device';
 
 const STALE_TOKEN_KEY = 'rt_settings_control_lock_token';
 
@@ -27,7 +27,7 @@ test('enable, logout to view-only, log back in, disable', async ({ page, request
   await expect(page.getByTestId('run-program-select')).toHaveCount(0);
 
   // Log back in with the same password the enable set.
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'control-lock');
   await page.getByTestId('control-lock-password').fill(CONTROL_LOCK_PASSWORD);
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.getByTestId('control-lock-status')).toHaveText('ON ✓');
@@ -36,7 +36,7 @@ test('enable, logout to view-only, log back in, disable', async ({ page, request
   await expect(page.getByRole('button', { name: 'Toggle Targets' })).toBeVisible();
 
   // Disable puts the device back to full public access.
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'control-lock');
   await page.getByRole('button', { name: 'Turn the lock off' }).click();
   await expect(page.getByTestId('control-lock-status')).toHaveText('OFF');
   expect(await (await request.get('/api/v2/control-lock/status')).json()).toEqual({ enabled: false });

@@ -184,3 +184,10 @@ a.buttonSecondary {
   align-items: center;
   gap: 0.5rem 0.75rem;
 }
+
+/* Folded: the full notes are most of this section's height. */
+.notes > summary {
+  cursor: pointer;
+  color: var(--rt-action-text);
+  font-size: 0.9rem;
+}
