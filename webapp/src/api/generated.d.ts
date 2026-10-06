@@ -746,6 +746,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ethernet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The wired interface, if there is one
+         * @description Public, like every other `GET`. A board probes for a W5500 on SPI at
+         *     boot and, if one answers, brings it up beside WiFi with a DHCP client;
+         *     the server answers on both. Under QEMU the emulated OpenCores MAC is
+         *     reported here the same way.
+         *
+         *     Answers on every build, so a client can tell "this device has no
+         *     Ethernet" (`supported` or `present` false) from "this firmware is older
+         *     than this endpoint" (a 404).
+         */
+        get: operations["getEthernetStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/restart": {
         parameters: {
             query?: never;
@@ -1082,6 +1109,40 @@ export interface components {
              * @description How many times to try the stored network before raising the setup portal. At roughly 2.4 s an attempt, 60 is about two and a half minutes; beyond that a device that cannot join looks broken rather than busy.
              */
             wifiMaxRetries: number;
+            /** @description Whether to join WiFi. Off is honoured only while Ethernet has an address at boot; without one the device joins WiFi anyway and falls back to the setup portal, so it cannot be left unreachable. Off together with `ethEnabled` off is refused. */
+            wifiEnabled: boolean;
+            /** @description Whether to look for a W5500 at boot. On, the device probes for the chip on the pins below and carries on over WiFi alone if nothing answers, and the pins are checked like any other; off, they are carried but not used. */
+            ethEnabled: boolean;
+            /**
+             * Format: int32
+             * @description The SPI clock to a W5500 Ethernet controller.
+             */
+            ethSclkGpio: number;
+            /**
+             * Format: int32
+             * @description The SPI data line into the W5500 (MOSI).
+             */
+            ethMosiGpio: number;
+            /**
+             * Format: int32
+             * @description The SPI data line out of the W5500 (MISO).
+             */
+            ethMisoGpio: number;
+            /**
+             * Format: int32
+             * @description The W5500's chip select (SCS).
+             */
+            ethCsGpio: number;
+            /**
+             * Format: int32
+             * @description The W5500's interrupt line, or -1 to poll the chip instead.
+             */
+            ethIntGpio: number;
+            /**
+             * Format: int32
+             * @description The W5500's reset line, or -1 to reset it over SPI instead.
+             */
+            ethRstGpio: number;
         };
         /**
          * @description Whether the device is currently accepting hardware configuration.
@@ -1161,6 +1222,14 @@ export interface components {
             i2sMclkGpio?: components["schemas"]["HardwareConfig"]["i2sMclkGpio"];
             httpPort?: components["schemas"]["HardwareConfig"]["httpPort"];
             wifiMaxRetries?: components["schemas"]["HardwareConfig"]["wifiMaxRetries"];
+            wifiEnabled?: components["schemas"]["HardwareConfig"]["wifiEnabled"];
+            ethEnabled?: components["schemas"]["HardwareConfig"]["ethEnabled"];
+            ethSclkGpio?: components["schemas"]["HardwareConfig"]["ethSclkGpio"];
+            ethMosiGpio?: components["schemas"]["HardwareConfig"]["ethMosiGpio"];
+            ethMisoGpio?: components["schemas"]["HardwareConfig"]["ethMisoGpio"];
+            ethCsGpio?: components["schemas"]["HardwareConfig"]["ethCsGpio"];
+            ethIntGpio?: components["schemas"]["HardwareConfig"]["ethIntGpio"];
+            ethRstGpio?: components["schemas"]["HardwareConfig"]["ethRstGpio"];
         };
         /**
          * @description Three views of one configuration, because they can legitimately differ.
@@ -1194,6 +1263,8 @@ export interface components {
         WifiStatus: {
             /** @description Whether this build has a WiFi radio at all. False on the Ethernet build (`CONFIG_RT_NET_OPENETH`, QEMU), where every field below is empty or zero and the other two operations refuse with `/problems/wifi_unavailable`. */
             radioPresent: boolean;
+            /** @description `HardwareConfig.wifiEnabled` as the device booted with, false with no radio. Off is honoured only while Ethernet serves, so the station may still be `connected` with this false. */
+            enabled: boolean;
             /** @description Whether the station currently holds an association. A device serving this response is normally connected — but it may be answering over the Ethernet build, or in the moment between a drop and a reconnect, which the reconnect backoff can stretch to 30 seconds. */
             connected: boolean;
             /** @description The network joined, empty when not associated. Which one this is matters: the store tries the provisioned network first and the compiled seeds after it, so a device that has been to two sites may be on either. */
@@ -1208,7 +1279,7 @@ export interface components {
              * @description The same reading as `rssi`, bucketed 0-4 by the firmware (`wifi_scan::bars`). Carried rather than left to the client so that the web app, the serial console and any future client agree on where "two bars" ends — the thresholds are a judgement about this device's radio, not a display detail.
              */
             bars: number;
-            /** @description Dotted quad, empty before the interface has an address. The same value as `DiagnosticsInfo.ipAddress`. */
+            /** @description The station's dotted quad, empty before it has an address. The same value as `DiagnosticsInfo.ipAddress` unless Ethernet is also up, which that field prefers. */
             ipAddress: string;
             /**
              * @description The station MAC, lower-case and colon-separated. What a router's client list and a MAC filter identify this device by, which is the form the question is asked in when a device will not join.
@@ -1257,6 +1328,32 @@ export interface components {
              * @example WPA2
              */
             auth: string;
+        };
+        /** @description The wired interface, as it stands. */
+        EthernetStatus: {
+            /** @description Whether this build can have a wired interface at all. False on a firmware built without W5500 support; every field below is then false, zero or empty. */
+            supported: boolean;
+            /** @description `HardwareConfig.ethEnabled` as the device booted with. False means it did not look for a controller, so `present` is false too. */
+            enabled: boolean;
+            /** @description Whether a controller answered at boot. False when Ethernet is switched off or none responded on the configured pins - the probe runs once, so fitting one needs a restart. */
+            present: boolean;
+            /** @description Whether a cable is in and something is at the other end. */
+            linkUp: boolean;
+            /**
+             * Format: int32
+             * @description The negotiated speed, 0 without a link.
+             * @enum {integer}
+             */
+            speedMbps: 0 | 10 | 100;
+            /** @description The negotiated duplex, false without a link. */
+            fullDuplex: boolean;
+            /** @description The dotted quad leased over DHCP, empty without one. The device is also at `<hostname>.local` on this interface. */
+            ipAddress: string;
+            /**
+             * @description The interface's MAC, lower-case and colon-separated, empty when no controller is present. Distinct from the WiFi station's, so a router lists the device twice when both are connected.
+             * @example 30:ed:a0:a8:ab:7b
+             */
+            macAddress: string;
         };
         WifiNetworkList: {
             /** @description Strongest first, one entry per SSID. Empty is a real answer: nothing in range, or a scan the driver refused. There is no timestamp — the device has no clock, and the list is a fresh scan by construction, not a cache. */
@@ -1515,7 +1612,7 @@ export interface components {
             partitions: components["schemas"]["PartitionInfo"][];
             programCount: number;
             audioCount: number;
-            /** @description The device's current address, or empty when it has none. */
+            /** @description The device's current address, or empty when it has none. The Ethernet address while that interface has a link and a lease, otherwise the WiFi station's; `GET /ethernet` and `GET /wifi` each report their own. */
             ipAddress: string;
             /** @description A GPIO and its read-back level per bank, which is what answers "is the firmware driving what it thinks it is". `padLevel` is read from the pad rather than remembered, so it tells "the firmware never drove it" apart from "something else is holding it". */
             banks: {
@@ -2504,6 +2601,26 @@ export interface operations {
              *     (`CONFIG_RT_NET_OPENETH`).
              */
             409: components["responses"]["Problem"];
+        };
+    };
+    getEthernetStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wired interface as it stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EthernetStatus"];
+                };
+            };
         };
     };
     restartSystem: {

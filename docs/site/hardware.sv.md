@@ -100,4 +100,33 @@ i repot.
 ljud-DAC:en som spelar upp eldkommandona, och [statuslampan](status-led.md).
 En tavla som bara vänds, utan ljud, är en konfiguration som stöds.
 
+## Ethernet (valfritt) { #ethernet }
+
+Ett kort kan förses med en **W5500 Ethernet-modul** — ett litet, billigt kort
+med ett nätverksuttag — och sedan anslutas till skjutbanans router eller switch
+med kabel, utöver eller i stället för WiFi. Där WiFi är opålitligt är det den
+säkra vägen in.
+
+Enheten letar efter modulen varje gång den startar. Hittar den en tar den en
+adress från routern över kabeln och svarar där, bredvid WiFi; hittar den ingen
+fortsätter den över WiFi som tidigare. Inget behöver slås på, och
+[att ansluta](connecting.md#a-network-cable) kräver ingen installation.
+
+Koppla den till de här stiften — samma på ESP32-S3-DevKitC-1 och på klubbens
+eget Revolve Now-kort, vars ej monterade W5500 använder dem:
+
+| Modulens stift | GPIO |
+|---|---|
+| SCLK | 41 |
+| MOSI (ibland MI) | 39 |
+| MISO (ibland MO) | 40 |
+| SCS / CS | 42 |
+| INT | 38 |
+| RST | behövs inte |
+| 3.3V (eller 5V, om modulen har en regulator) | 3.3V (eller 5V) |
+| GND | GND |
+
+Läs stiftnamnen från själva modulen — ordningen skiljer sig mellan tillverkare.
+Andra stift kan ställas in i [Expertläge](expert-mode.md#hardware).
+
 <!-- TODO: ett fotografi av DB9-kontakten och transistorn så som de faktiskt är kopplade -->

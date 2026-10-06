@@ -23,6 +23,7 @@
 #include "audios.h"
 #include "factory_reset.h"
 #include "console_command.h"
+#include "ethernet.h"
 #include "net_mgr.h"
 #include "partitions.h"
 #include "programs.h"
@@ -97,7 +98,7 @@ std::string status_text() {
   // The question at the range was "which network did it actually join, and on
   // what address" - HTTP could not answer it, because the laptop could not
   // reach the device at all.
-  const std::string ip = net_mgr::ip_address();
+  const std::string ip = net_mgr::wifi_ip_address();
   if (ip.empty()) {
     out += "network    not connected\r\n";
   } else {
@@ -109,6 +110,21 @@ std::string status_text() {
                net_mgr::rssi());
     }
     out += line;
+  }
+
+  // The wired side (#262), only on a build that can have one.
+  if (ethernet::supported()) {
+    const ethernet::Status eth = ethernet::status();
+    if (!eth.present) {
+      out += "ethernet   not fitted\r\n";
+    } else if (!eth.link_up) {
+      out += "ethernet   no link\r\n";
+    } else {
+      snprintf(line, sizeof(line), "ethernet   %s (%d Mbit/s %s duplex)\r\n",
+               eth.ip.empty() ? "no address" : eth.ip.c_str(), eth.speed_mbps,
+               eth.full_duplex ? "full" : "half");
+      out += line;
+    }
   }
 
   // Both halves: what the firmware drove, and what is actually on the pad. One
@@ -307,6 +323,46 @@ void handle_wifi_info() {
 
 #endif  // CONFIG_RT_NET_OPENETH
 
+// The wired side (#262), the counterpart of wifi-info.
+void handle_eth_info() {
+  if (!ethernet::supported()) {
+    say("this build has no Ethernet support\r\n");
+    return;
+  }
+  const ethernet::Status eth = ethernet::status();
+  if (!eth.present) {
+    say("no Ethernet controller - switched off, not configured, or none answered at boot\r\n");
+    return;
+  }
+
+  char line[160];
+  snprintf(line, sizeof(line), "mac        %s\r\n", eth.mac.c_str());
+  say(line);
+  if (!eth.link_up) {
+    say("link       down - no cable, or nothing at the other end\r\n");
+    return;
+  }
+  snprintf(line, sizeof(line), "link       %d Mbit/s, %s duplex\r\n", eth.speed_mbps,
+           eth.full_duplex ? "full" : "half");
+  say(line);
+
+  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("ETH_DEF");
+  esp_netif_ip_info_t ip = {};
+  if (netif == nullptr || esp_netif_get_ip_info(netif, &ip) != ESP_OK || ip.ip.addr == 0) {
+    say("ip         none yet - waiting for DHCP\r\n");
+    return;
+  }
+  snprintf(line, sizeof(line),
+           "ip         " IPSTR "\r\nnetmask    " IPSTR "\r\ngateway    " IPSTR "\r\n",
+           IP2STR(&ip.ip), IP2STR(&ip.netmask), IP2STR(&ip.gw));
+  say(line);
+  esp_netif_dns_info_t dns = {};
+  if (esp_netif_get_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns) == ESP_OK) {
+    snprintf(line, sizeof(line), "dns        " IPSTR "\r\n", IP2STR(&dns.ip.u_addr.ip4));
+    say(line);
+  }
+}
+
 // `factory-reset [confirm]`. Two steps, because there is no undo and because
 // the first step is the only chance to say what survives - somebody typing
 // this at a range is usually already having a bad day and should not have to
@@ -375,6 +431,9 @@ void handle(const std::string &line) {
     case rt::console::Command::kWifiInfo:
       handle_wifi_info();
       break;
+    case rt::console::Command::kEthInfo:
+      handle_eth_info();
+      break;
     case rt::console::Command::kFactoryReset:
       handle_factory_reset(line);
       break;
@@ -390,6 +449,8 @@ void handle(const std::string &line) {
           "               security. The same list the setup portal offers.\r\n"
           "wifi-info      what this device is joined to: signal, channel, IP,\r\n"
           "               gateway, DNS, MAC.\r\n"
+          "eth-info       the wired interface: link, speed, IP, gateway, DNS,\r\n"
+          "               MAC.\r\n"
           "factory-reset  erase every stored setting and restart into the setup\r\n"
           "               portal. Uploaded programs and clips are kept. Says what\r\n"
           "               it would do; needs 'factory-reset confirm' to do it.\r\n"

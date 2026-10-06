@@ -38,6 +38,12 @@ loudly.
 | `RT_I2S_WS_GPIO` | 12 | Word select (LRCK) |
 | `RT_I2S_DOUT_GPIO` | 11 | Data out → the DAC's DIN |
 | `RT_I2S_MCLK_GPIO` | -1 | Master clock → the DAC's SCK; -1 leaves it undriven |
+| `RT_ETH_W5500_ENABLED` | y | Probe for a W5500 at boot (see [Ethernet](#ethernet-w5500)) |
+| `RT_ETH_SCLK_GPIO` / `MOSI` / `MISO` | 41 / 39 / 40 | The W5500's SPI bus |
+| `RT_ETH_CS_GPIO` | 42 | Its chip select; -1 means no W5500 |
+| `RT_ETH_INT_GPIO` | 38 | Its interrupt; -1 polls instead |
+| `RT_ETH_RST_GPIO` | -1 | Its reset; -1 resets it over SPI |
+| `RT_ETH_SPI_CLOCK_MHZ` | 20 | SPI clock, 33 at most |
 
 Defaults are the wiring the MicroPython backend used on this hardware
 (`src/backend/config.py` in that repository). Note its "ESP32-C6" comments are
@@ -82,8 +88,9 @@ leaves the targets shown at boot.
 **Gaps on the PCB rev 1:**
 
 - **Power0–3** (GPIO9, 8, 13, 11) have no firmware support and stay low.
-- **Trigger inputs** (GPIO7, 15, 16, 17) and the **W5500 Ethernet** have no
-  firmware support.
+- **Trigger inputs** (GPIO7, 15, 16, 17) have no firmware support.
+- **U10, the W5500**, and its MagJack are not fitted. A W5500 module wired to
+  the same nets works (see [Ethernet](#ethernet-w5500)).
 
 The PCB pin map, from the KiCad netlist in #436:
 
@@ -98,9 +105,33 @@ The PCB pin map, from the KiCad netlist in #436:
 | APA102 data / clock | 0 / 46 | — |
 | UART0 TX / RX | 43 / 44 | R25 / R24 (U7, the FT232RL, is not fitted on rev 1) |
 | FLASH button | 0 | shared with the APA102 data line |
+| W5500 SCLK / MOSI / MISO | 41 / 39 / 40 | U10; the bus is shared with U8, the SPI flash (CS on GPIO6) |
+| W5500 SCS / INT | 42 / 38 | U10; its RST is not connected |
 
 Each output is a bare LTV-847 phototransistor, isolated from the board:
 collector on the odd pin, emitter on the even pin.
+
+### Ethernet (W5500)
+
+Optional on both boards (#262). At boot `net/ethernet.cpp` brings up the SPI
+bus and installs the W5500 driver; installing reads the chip's version
+register, which is the probe. Nothing answering logs one line and the device
+carries on over WiFi. A chip that answers gets a DHCP client and the MAC
+`esp_read_mac(ESP_MAC_ETH)` gives it, and the server and mDNS answer on it
+beside WiFi. `net_mgr::connect()` returns as soon as either interface has an
+address; the setup portal comes up only when neither can get one. Either
+interface can be switched off (`wifiEnabled`, `ethEnabled`), never both, and
+WiFi off holds only while Ethernet has an address. The serial console's
+`status` shows both interfaces and `eth-info` the wired one in detail.
+
+The pins are the PCB's U10 nets, so a module on the PoC uses the same
+`sdkconfig`. On the DevKitC-1, GPIO39–42 are the pad-JTAG pins, which do not
+matter while JTAG goes over USB. **GPIO38 is the RGB LED on DevKitC-1 v1.1**
+(v1.0, which this project uses, has it on 48): on a v1.1 board, set INT to -1
+or another free pin.
+
+The PCB shares the bus with U8. If U8 is ever fitted, its CS on GPIO6 has no
+pull-up and has to be held high, or it answers W5500 transfers too.
 
 ### Target banks
 
@@ -270,7 +301,8 @@ The console is the asymmetric one and it catches people out. `console.cpp`
 writes with `usb_serial_jtag_write_bytes()`, so **the `rt>` prompt exists only
 on the native USB socket.** On the UART bridge the log output still streams,
 which makes the port look right — but every command typed there is silently
-ignored. That covers `boot-targets` (#144), `wifi-scan` and `wifi-info`.
+ignored. That covers `boot-targets` (#144), `wifi-scan`, `wifi-info` and
+`eth-info`.
 
 If a documented serial-only command appears to do nothing, check the vendor ID
 before checking anything else.

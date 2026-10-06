@@ -60,8 +60,13 @@ export const settings: Messages['settings'] = {
     sizeOnly: 'endast storlek — enheten kan inte rapportera hur mycket som används här',
     nearlyFull: (left) => `Nästan fullt — ${left} kvar. Ta bort något innan du laddar upp.`,
   },
+  network: {
+    title: 'Nätverk',
+  },
   wifi: {
     title: 'WiFi',
+    switchedOff:
+      'Avstängt i Expertläge. Enheten använder WiFi ändå när kabeln inte ger någon adress, så den går alltid att nå.',
     noRadio: 'Den här firmwaren är byggd för trådbunden anslutning och har ingen WiFi-radio.',
     network: 'Nätverk',
     notConnected: 'Inte ansluten',
@@ -74,6 +79,17 @@ export const settings: Messages['settings'] = {
     moveBefore: 'Att flytta enheten till ett annat nätverk gör du i ',
     expertMode: 'Expertläge',
     moveAfter: ' — ett beslut som tas en gång per plats, bakom knapptrycket på kortet.',
+  },
+  ethernet: {
+    title: 'Ethernet',
+    link: 'Länk',
+    linkSpeed: (mbps, fullDuplex) => `${String(mbps)} Mbit/s, ${fullDuplex ? 'full' : 'halv'} duplex`,
+    noLink: 'Ingen kabel, eller inget i andra änden',
+    switchedOff: 'Avstängt i Expertläge.',
+    notFound: 'Ingen Ethernet-modul hittades när enheten startade.',
+    address: 'Adress',
+    noneYet: 'ingen ännu',
+    mac: 'MAC',
   },
   firmware: {
     title: 'Firmware',

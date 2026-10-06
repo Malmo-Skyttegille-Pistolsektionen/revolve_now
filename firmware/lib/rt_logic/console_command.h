@@ -31,6 +31,8 @@ enum class Command {
   // a surface to secure for no gain.
   kWifiScan,
   kWifiInfo,
+  // `eth-info` - the wired interface (#262): link, speed, address, MAC.
+  kEthInfo,
   // `factory-reset` - reports what it would destroy; `factory-reset confirm`
   // does it. The button gesture (#222) is the route for somebody with no
   // cable; this is the route for somebody who already has one, and it can say

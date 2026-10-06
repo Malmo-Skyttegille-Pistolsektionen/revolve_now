@@ -30,6 +30,14 @@ constexpr const char *kI2sDout = "hw_i2s_dout";
 constexpr const char *kI2sMclk = "hw_i2s_mclk";
 constexpr const char *kHttpPort = "hw_http_port";
 constexpr const char *kWifiRetry = "hw_wifi_retry";
+constexpr const char *kWifiOn = "hw_wifi_on";
+constexpr const char *kEthOn = "hw_eth_on";
+constexpr const char *kEthSclk = "hw_eth_sclk";
+constexpr const char *kEthMosi = "hw_eth_mosi";
+constexpr const char *kEthMiso = "hw_eth_miso";
+constexpr const char *kEthCs = "hw_eth_cs";
+constexpr const char *kEthInt = "hw_eth_int";
+constexpr const char *kEthRst = "hw_eth_rst";
 }  // namespace hw_key
 
 // The default hostname before the rename (D-44). Every hardware save stored it,

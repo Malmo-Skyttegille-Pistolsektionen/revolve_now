@@ -95,6 +95,12 @@ nätverket. Fel värden här är de vars väg tillbaka är en USB-kabel:
   att nå på `revolve-now.local`. Värre än ett fel stift, som åtminstone lämnar
   appen uppe att rätta det från.
 
+Gruppen **Ethernet (W5500)** säger var en [Ethernet-modul](hardware.md#ethernet)
+är kopplad, och **Använd Ethernet** stänger av den för att frigöra stiften.
+**Använd WiFi**, under Nätverk, gör samma sak för WiFi. De kan inte båda vara
+av, och WiFi av gäller bara så länge kabeln ger enheten en adress — utan en
+används WiFi ändå, så den går alltid att nå.
+
 **Ingenting här börjar gälla förrän enheten startar om**, och sidan säger det
 när ett sparat värde ännu inte används — då **Starta om för att verkställa**
 högst upp på sidan. En ändring som verkar inte ha gjort något är så någon

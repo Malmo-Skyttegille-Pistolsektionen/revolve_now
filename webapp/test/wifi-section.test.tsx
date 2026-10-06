@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { WifiStatus } from '../src/api/types';
 import { SettingsProvider } from '../src/context/SettingsContext';
-import { WifiSection } from '../src/components/WifiSection';
+import { WifiPanel } from '../src/components/WifiPanel';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
 
@@ -32,7 +32,7 @@ function renderSection(): void {
   render(
     <QueryClientProvider client={queryClient}>
       <SettingsProvider>
-        <WifiSection />
+        <WifiPanel />
       </SettingsProvider>
     </QueryClientProvider>,
   );

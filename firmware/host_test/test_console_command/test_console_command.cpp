@@ -83,6 +83,12 @@ void test_wifi_commands_are_recognised() {
   TEST_ASSERT_EQUAL(Command::kWifiInfo, parse_command("Wifi-Info"));
 }
 
+void test_eth_info_is_recognised() {
+  TEST_ASSERT_EQUAL(Command::kEthInfo, parse_command("eth-info"));
+  TEST_ASSERT_EQUAL(Command::kEthInfo, parse_command(" ETH-Info "));
+  TEST_ASSERT_EQUAL(Command::kUnknown, parse_command("eth"));
+}
+
 // The two differ by one word and do very different things, so a near miss must
 // not silently resolve to the other one.
 void test_a_near_miss_is_not_the_other_wifi_command() {
@@ -221,6 +227,7 @@ int main() {
   RUN_TEST(test_a_very_long_word_does_not_match_anything);
   RUN_TEST(test_wifi_commands_are_recognised);
   RUN_TEST(test_a_near_miss_is_not_the_other_wifi_command);
+  RUN_TEST(test_eth_info_is_recognised);
   RUN_TEST(test_boot_targets_is_recognised);
   RUN_TEST(test_no_argument_means_report_rather_than_change);
   RUN_TEST(test_both_positions_parse_whatever_the_case);

@@ -73,6 +73,11 @@ rt::Peripherals peripherals() {
 #else
   present.led = false;
 #endif
+#if CONFIG_RT_ETH_W5500_ENABLED
+  present.ethernet = true;
+#else
+  present.ethernet = false;
+#endif
   return present;
 }
 
@@ -105,6 +110,14 @@ rt::HardwareConfig defaults() {
   config.i2s_ws_gpio = CONFIG_RT_I2S_WS_GPIO;
   config.i2s_dout_gpio = CONFIG_RT_I2S_DOUT_GPIO;
   config.i2s_mclk_gpio = CONFIG_RT_I2S_MCLK_GPIO;
+#endif
+#if CONFIG_RT_ETH_W5500_ENABLED
+  config.eth_sclk_gpio = CONFIG_RT_ETH_SCLK_GPIO;
+  config.eth_mosi_gpio = CONFIG_RT_ETH_MOSI_GPIO;
+  config.eth_miso_gpio = CONFIG_RT_ETH_MISO_GPIO;
+  config.eth_cs_gpio = CONFIG_RT_ETH_CS_GPIO;
+  config.eth_int_gpio = CONFIG_RT_ETH_INT_GPIO;
+  config.eth_rst_gpio = CONFIG_RT_ETH_RST_GPIO;
 #endif
   config.http_port = CONFIG_RT_HTTP_PORT;
   // The QEMU profile builds without WiFi, so the symbol does not exist there.
@@ -145,7 +158,11 @@ bool same_as(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
          a.targets_shown_at_boot == b.targets_shown_at_boot && a.led_gpio == b.led_gpio &&
          a.i2s_port == b.i2s_port && a.i2s_bck_gpio == b.i2s_bck_gpio &&
          a.i2s_ws_gpio == b.i2s_ws_gpio && a.i2s_dout_gpio == b.i2s_dout_gpio &&
-         a.i2s_mclk_gpio == b.i2s_mclk_gpio;
+         a.i2s_mclk_gpio == b.i2s_mclk_gpio && a.eth_sclk_gpio == b.eth_sclk_gpio &&
+         a.eth_mosi_gpio == b.eth_mosi_gpio && a.eth_miso_gpio == b.eth_miso_gpio &&
+         a.eth_cs_gpio == b.eth_cs_gpio && a.eth_int_gpio == b.eth_int_gpio &&
+         a.eth_rst_gpio == b.eth_rst_gpio && a.wifi_enabled == b.wifi_enabled &&
+         a.eth_enabled == b.eth_enabled;
 }
 
 }  // namespace
@@ -248,6 +265,14 @@ rt::ConfigRefusal save(const rt::HardwareConfig &config, rt::ValidationDetail *d
   nvs_set_i32(handle, hw_key::kI2sMclk, config.i2s_mclk_gpio);
   nvs_set_i32(handle, hw_key::kHttpPort, config.http_port);
   nvs_set_i32(handle, hw_key::kWifiRetry, config.wifi_max_retries);
+  nvs_set_i8(handle, hw_key::kWifiOn, config.wifi_enabled ? 1 : 0);
+  nvs_set_i8(handle, hw_key::kEthOn, config.eth_enabled ? 1 : 0);
+  nvs_set_i32(handle, hw_key::kEthSclk, config.eth_sclk_gpio);
+  nvs_set_i32(handle, hw_key::kEthMosi, config.eth_mosi_gpio);
+  nvs_set_i32(handle, hw_key::kEthMiso, config.eth_miso_gpio);
+  nvs_set_i32(handle, hw_key::kEthCs, config.eth_cs_gpio);
+  nvs_set_i32(handle, hw_key::kEthInt, config.eth_int_gpio);
+  nvs_set_i32(handle, hw_key::kEthRst, config.eth_rst_gpio);
   nvs_commit(handle);
   nvs_close(handle);
 
@@ -285,8 +310,10 @@ bool reset() {
   // would turn "undo my hardware change" into "and now find the setup portal".
   for (const char *key :
        {hw_key::kBankCount, hw_key::kHostname, hw_key::kDisplayName, hw_key::kBootShown,
-        hw_key::kLedGpio, hw_key::kI2sPort, hw_key::kI2sBck, hw_key::kI2sWs, hw_key::kI2sDout,
-        hw_key::kI2sMclk, hw_key::kHttpPort, hw_key::kWifiRetry}) {
+        hw_key::kLedGpio,   hw_key::kI2sPort,  hw_key::kI2sBck,      hw_key::kI2sWs,
+        hw_key::kI2sDout,   hw_key::kI2sMclk,  hw_key::kHttpPort,    hw_key::kWifiRetry,
+        hw_key::kEthSclk,   hw_key::kEthMosi,  hw_key::kEthMiso,     hw_key::kEthCs,
+        hw_key::kEthInt,    hw_key::kEthRst,   hw_key::kWifiOn,      hw_key::kEthOn}) {
     if (!erase_if_present(handle, key)) {
       nvs_close(handle);
       return false;

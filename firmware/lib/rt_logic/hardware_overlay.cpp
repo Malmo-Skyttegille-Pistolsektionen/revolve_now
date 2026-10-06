@@ -59,6 +59,8 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
   }
 
   if (reader.read_bool(hw_key::kBootShown, out.targets_shown_at_boot)) found = true;
+  if (reader.read_bool(hw_key::kWifiOn, out.wifi_enabled)) found = true;
+  if (reader.read_bool(hw_key::kEthOn, out.eth_enabled)) found = true;
 
   const struct {
     const char *key;
@@ -68,6 +70,9 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
       {hw_key::kI2sBck, &out.i2s_bck_gpio},        {hw_key::kI2sWs, &out.i2s_ws_gpio},
       {hw_key::kI2sDout, &out.i2s_dout_gpio},      {hw_key::kHttpPort, &out.http_port},
       {hw_key::kWifiRetry, &out.wifi_max_retries}, {hw_key::kI2sMclk, &out.i2s_mclk_gpio},
+      {hw_key::kEthSclk, &out.eth_sclk_gpio},      {hw_key::kEthMosi, &out.eth_mosi_gpio},
+      {hw_key::kEthMiso, &out.eth_miso_gpio},      {hw_key::kEthCs, &out.eth_cs_gpio},
+      {hw_key::kEthInt, &out.eth_int_gpio},        {hw_key::kEthRst, &out.eth_rst_gpio},
   };
   for (const auto &scalar : scalars) {
     int32_t value = 0;

@@ -47,13 +47,13 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
 
   // Every pin in use, with the bank that owns it, so a collision can say which
   // two banks are on it. Grown rather than a fixed array: the count is now the
-  // bank count plus the LED plus up to four I2S lines.
+  // bank count plus the LED, up to four I2S lines and up to six Ethernet lines.
   struct PinUse {
     int32_t gpio;
     size_t bank;  // kNoBank for the LED and the audio pins.
   };
   std::vector<PinUse> in_use;
-  in_use.reserve(config.banks.size() + 5);
+  in_use.reserve(config.banks.size() + 11);
 
   // The bank pins first: they are the ones whose recovery needs a cable.
   for (size_t i = 0; i < config.banks.size(); i++) {
@@ -86,6 +86,21 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
     }
   }
 
+  if (present.ethernet && config.eth_enabled) {
+    for (const int32_t gpio :
+         {config.eth_sclk_gpio, config.eth_mosi_gpio, config.eth_miso_gpio, config.eth_cs_gpio}) {
+      const ConfigRefusal pin = validate_pin(gpio);
+      if (pin != ConfigRefusal::kNone) return pin;
+      in_use.push_back({gpio, ValidationDetail::kNoBank});
+    }
+    for (const int32_t gpio : {config.eth_int_gpio, config.eth_rst_gpio}) {
+      if (gpio == kPinUnused) continue;
+      const ConfigRefusal pin = validate_pin(gpio);
+      if (pin != ConfigRefusal::kNone) return pin;
+      in_use.push_back({gpio, ValidationDetail::kNoBank});
+    }
+  }
+
   // Two outputs on one pin is a configuration that passes every check above and
   // still does not work: whichever is initialised last wins the pad, and the
   // other silently does nothing.
@@ -104,6 +119,10 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
 
   for (const TargetBank &bank : config.banks) {
     if (bank.name.size() > kMaxBankNameLength) return ConfigRefusal::kBankNameTooLong;
+  }
+
+  if (!config.wifi_enabled && !(present.ethernet && config.eth_enabled)) {
+    return ConfigRefusal::kNoNetwork;
   }
 
   const ConfigRefusal hostname = validate_hostname(config.hostname);
@@ -163,6 +182,9 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
     case ConfigRefusal::kBankCountOutOfRange:
       return "A device drives between 1 and " + std::to_string(kMaxTargetBanks) +
              " target banks, called A to " + bank_letter(kMaxTargetBanks - 1) + ".";
+    case ConfigRefusal::kNoNetwork:
+      return "WiFi and Ethernet cannot both be off - the device would have no network to be "
+             "reached on.";
     case ConfigRefusal::kBankNameTooLong:
       return "A bank name is at most " + std::to_string(kMaxBankNameLength) + " characters.";
     case ConfigRefusal::kPinCollision:
@@ -178,9 +200,9 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
         out += ". Each bank needs a pin of its own.";
         return out;
       }
-      return "Two of these are on the same GPIO. The target banks, the status LED and the three "
-             "audio pins each need one of their own, or whichever is set up last takes the pad "
-             "and the other silently stops working.";
+      return "Two of these are on the same GPIO. The target banks, the status LED, the audio "
+             "pins and the Ethernet pins each need one of their own, or whichever is set up last "
+             "takes the pad and the other silently stops working.";
   }
   return "";
 }

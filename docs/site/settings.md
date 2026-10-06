@@ -17,7 +17,7 @@ which is which before changing anything:
 | Control lock | device | Whether control is open to everyone or needs a login |
 | Startup Issues | device | What the device could not read when it booted |
 | Storage | device | How much room the flash partitions have |
-| WiFi | device | Which network it is on, and how good the link is |
+| Network | device | WiFi: which network it is on and how good the link is. Ethernet: the cable link and its address |
 | About | device | What firmware and web app this is, and exactly which build |
 
 ![The Settings page](img/settings.png)
@@ -95,7 +95,14 @@ other is where an update is written, which is what lets a bad update be undone.
 Seeing one of them nearly empty is normal on a device that has never been
 updated.
 
-## WiFi
+## Network
+
+How the device is connected, in two halves: WiFi, and Ethernet on a firmware
+that supports an [Ethernet module](hardware.md#ethernet). A device on both has
+two addresses, and either reaches it. Switching either off is in
+[Expert mode](expert-mode.md#hardware).
+
+### WiFi { #wifi }
 
 Which network the device joined, how strong the signal is, the address it is
 reachable at, and the MAC address a router lists it under. All of it is a
@@ -119,6 +126,17 @@ by luck of being in the right building.
 To *change* the network, see [Expert mode](expert-mode.md#wifi). It is a
 once-per-site decision behind the button press on the board, which is why it is
 not on this page.
+
+### Ethernet { #ethernet }
+
+**Link** says whether a cable is in and something answers at the other end,
+and at what speed; **Address** is the one the router gave it over the cable.
+Instead of those it may say Ethernet is **switched off**, or that **no module
+was found** when the device started — it looks only then, so a module fitted
+later needs a restart.
+
+If WiFi is switched off, its half says so. The device still uses WiFi when the
+cable gives it no address, so it cannot end up unreachable.
 
 ## About
 

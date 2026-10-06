@@ -34,6 +34,7 @@ import type {
   Event,
   ProblemType,
   WifiStatus,
+  EthernetStatus,
   WifiNetwork,
 } from '../../src/api/types';
 import type { EventLocation } from '../../src/lib/run-position';
@@ -146,7 +147,7 @@ const MAX_BANK_NAME_LENGTH = 16;
 const BANK_LETTERS = 'ABCDEFGH';
 
 const PIN_COLLISION =
-  'Two of these are on the same GPIO. The target banks, the status LED and the three audio pins each need one of their own, or whichever is set up last takes the pad and the other silently stops working.';
+  'Two of these are on the same GPIO. The target banks, the status LED, the audio pins and the Ethernet pins each need one of their own, or whichever is set up last takes the pad and the other silently stops working.';
 
 function hardwareConfigRefusal(config: HardwareConfig): string | null {
   const banks = config.banks;
@@ -175,8 +176,23 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
     if (refusal !== null) return refusal;
   }
 
-  const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s];
+  // The W5500's pins (#262) are checked only while Ethernet is switched on.
+  const eth: number[] = [];
+  if (config.ethEnabled) {
+    eth.push(config.ethSclkGpio, config.ethMosiGpio, config.ethMisoGpio, config.ethCsGpio);
+    for (const gpio of [config.ethIntGpio, config.ethRstGpio]) if (gpio !== -1) eth.push(gpio);
+    for (const gpio of eth) {
+      const refusal = pinRefusal(gpio);
+      if (refusal !== null) return refusal;
+    }
+  }
+
+  const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s, ...eth];
   if (new Set(inUse).size !== inUse.length) return PIN_COLLISION;
+
+  if (!config.wifiEnabled && !config.ethEnabled) {
+    return 'WiFi and Ethernet cannot both be off - the device would have no network to be reached on.';
+  }
 
   if (config.hostname.length === 0) return 'The hostname cannot be empty - it is how the device is reached.';
   if (config.hostname.length > 20) return 'The hostname is too long; 20 characters at most.';
@@ -216,6 +232,14 @@ export const HARDWARE_DEFAULTS: HardwareConfig = {
   i2sMclkGpio: -1,
   httpPort: 80,
   wifiMaxRetries: 10,
+  wifiEnabled: true,
+  ethEnabled: true,
+  ethSclkGpio: 41,
+  ethMosiGpio: 39,
+  ethMisoGpio: 40,
+  ethCsGpio: 42,
+  ethIntGpio: 38,
+  ethRstGpio: -1,
 };
 // --- Constants ---
 const API_PREFIX = '/api/v2';
@@ -281,6 +305,7 @@ const DEFAULT_PARTITIONS: DiagnosticsInfo['partitions'] = [
 // boundary falls.
 const DEFAULT_WIFI: WifiStatus = {
   radioPresent: true,
+  enabled: true,
   connected: true,
   ssid: 'Range',
   rssi: -52,
@@ -289,6 +314,19 @@ const DEFAULT_WIFI: WifiStatus = {
   macAddress: '30:ed:a0:a8:ab:78',
   provisioned: true,
   restartRequired: false,
+};
+
+// A build that can have Ethernet, on a board with no W5500 fitted - which is
+// every board shipped so far (#262).
+const DEFAULT_ETHERNET: EthernetStatus = {
+  supported: true,
+  enabled: true,
+  present: false,
+  linkUp: false,
+  speedMbps: 0,
+  fullDuplex: false,
+  ipAddress: '',
+  macAddress: '',
 };
 
 // A small, plausible site: two networks a club might see, one of them the one
@@ -352,6 +390,8 @@ export interface MockSeed {
    * render it as such rather than as a failure.
    */
   wifiNetworks?: WifiNetwork[];
+  /** What `GET /ethernet` reports (#262). Defaults to a board with no W5500 fitted. */
+  ethernet?: Partial<EthernetStatus>;
   /**
    * The `build` block `GET /diagnostics/info` reports (#228). Defaults to a
    * plausible clean build. Set it to `null` for a device on firmware from
@@ -696,6 +736,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   // save stores, and the station keeps the association it booted with until
   // restart() adopts what was stored (#341).
   let wifi: WifiStatus = { ...DEFAULT_WIFI, ...(seed.wifi ?? {}) };
+  const ethernet: EthernetStatus = { ...DEFAULT_ETHERNET, ...(seed.ethernet ?? {}) };
   let savedWifiSsid: string | null = null;
   /** Mirrors `wifi_store::saved_since_boot()`; why a flag is D-42. */
   let wifiSavedSinceBoot = false;
@@ -1562,6 +1603,13 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       }
       savedHardware = { ...HARDWARE_DEFAULTS };
       jsonResponse(res, 200, { message: 'Hardware configuration reset - restart the device to apply it' });
+      return;
+    }
+
+    // --- Ethernet (#262) ---
+
+    if (endpoint === '/ethernet' && req.method === 'GET') {
+      jsonResponse(res, 200, ethernet);
       return;
     }
 

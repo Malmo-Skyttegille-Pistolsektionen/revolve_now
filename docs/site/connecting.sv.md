@@ -20,6 +20,18 @@ En enhet som aldrig har konfigurerats, eller som har flyttats till en plats
 vars WiFi den inte känner till, startar **blå**. Det finns ingen adress att
 hitta ännu — nätverket den ska ansluta till finns inte, sett från dess sida.
 
+## En nätverkskabel i stället { #a-network-cable }
+
+Ett kort med en [Ethernet-modul](hardware.md#ethernet) behöver ingen
+installation alls på ett trådbundet nätverk. Koppla en kabel från den till
+routern eller en switch, starta den, så tar den en adress från routern av sig
+själv — det finns inget att fylla i, så det blir ingen installationsportal. Gå
+direkt till [Hitta enheten](#finding-the-device).
+
+Den går ändå med i WiFi om den känner till ett nätverk, och svarar då på båda.
+Den startar bara **blå** om inget av dem fungerar: inget WiFi den kan gå med i,
+och ingen adress över kabeln heller.
+
 ## Installationsportalen { #the-setup-portal }
 
 En **blå** lampa betyder att enheten kör en liten egen accesspunkt. Namnet

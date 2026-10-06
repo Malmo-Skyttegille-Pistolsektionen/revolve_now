@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useWifiApi } from '../api/wifi';
 import { useT } from '../i18n';
-import styles from './WifiSection.module.css';
+import styles from './NetworkSection.module.css';
 
 /**
- * Which network the device is on, read-only (#263).
+ * Which WiFi network the device is on, read-only (#263) - the WiFi half of
+ * Settings → Network.
  *
  * Until now this was a serial-console question: `status` printed the SSID and
  * the RSSI, and over HTTP there was only `ipAddress`. That is the wrong place
@@ -20,7 +21,7 @@ import styles from './WifiSection.module.css';
  * device, so it lives in Expert mode behind the button — this page stays the one
  * you cannot break anything from.
  */
-export function WifiSection(): React.ReactNode {
+export function WifiPanel(): React.ReactNode {
   const wifiApi = useWifiApi();
   const t = useT();
   const s = t.settings.wifi;
@@ -35,10 +36,10 @@ export function WifiSection(): React.ReactNode {
 
   if (isPending) {
     return (
-      <section className={styles.section} data-testid='wifi-section'>
-        <h2 className={styles.sectionTitle}>{s.title}</h2>
+      <div className={styles.panel} data-testid='wifi-section'>
+        <h3 className={styles.panelTitle}>{s.title}</h3>
         <p className={styles.muted}>{t.common.askingDevice}</p>
-      </section>
+      </div>
     );
   }
 
@@ -46,18 +47,26 @@ export function WifiSection(): React.ReactNode {
   // Said plainly rather than shown as an empty table, which reads as a fault.
   if (wifi?.radioPresent === false) {
     return (
-      <section className={styles.section} data-testid='wifi-section'>
-        <h2 className={styles.sectionTitle}>{s.title}</h2>
+      <div className={styles.panel} data-testid='wifi-section'>
+        <h3 className={styles.panelTitle}>{s.title}</h3>
         <p className={styles.muted} data-testid='wifi-no-radio'>
           {s.noRadio}
         </p>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className={styles.section} data-testid='wifi-section'>
-      <h2 className={styles.sectionTitle}>{s.title}</h2>
+    <div className={styles.panel} data-testid='wifi-section'>
+      <h3 className={styles.panelTitle}>{s.title}</h3>
+
+      {/* Off is honoured only while the cable serves (#262), so the rows below
+          may still show a network the device fell back to. */}
+      {wifi?.enabled === false && (
+        <p className={styles.note} data-testid='wifi-switched-off'>
+          {s.switchedOff}
+        </p>
+      )}
 
       <dl className={styles.rows}>
         <dt className={styles.label}>{s.network}</dt>
@@ -110,7 +119,7 @@ export function WifiSection(): React.ReactNode {
         <strong>{s.expertMode}</strong>
         {s.moveAfter}
       </p>
-    </section>
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@
 #include "config/hardware_store.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "ethernet.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "mdns.h"
@@ -15,8 +16,8 @@ namespace {
 
 const char *TAG = "net";
 
-// Written on the event task, read from the main task and from the diagnostics
-// handler on the httpd task.
+// The station's address. Written on the event task, read from the main task
+// and from the diagnostics handler on the httpd task.
 std::string s_ip;
 SemaphoreHandle_t s_ip_lock = nullptr;
 
@@ -37,6 +38,21 @@ std::string record_ip(const ip_event_got_ip_t &event) {
   return buf;
 }
 
+void clear_ip() {
+  if (s_ip_lock == nullptr) return;
+  xSemaphoreTake(s_ip_lock, portMAX_DELAY);
+  s_ip.clear();
+  xSemaphoreGive(s_ip_lock);
+}
+
+std::string wifi_ip() {
+  if (s_ip_lock == nullptr) return {};
+  xSemaphoreTake(s_ip_lock, portMAX_DELAY);
+  const std::string copy = s_ip;
+  xSemaphoreGive(s_ip_lock);
+  return copy;
+}
+
 void start_mdns() {
   if (mdns_init() != ESP_OK) {
     ESP_LOGW(TAG, "mDNS unavailable");
@@ -53,12 +69,11 @@ void start_mdns() {
 
 namespace net_mgr {
 
+// Ethernet first when it can serve: a cable is plugged in because it is the
+// more dependable of the two.
 std::string ip_address() {
-  if (net_common::s_ip_lock == nullptr) return {};
-  xSemaphoreTake(net_common::s_ip_lock, portMAX_DELAY);
-  const std::string copy = net_common::s_ip;
-  xSemaphoreGive(net_common::s_ip_lock);
-  return copy;
+  if (ethernet::has_address()) return ethernet::status().ip;
+  return net_common::wifi_ip();
 }
 
 }  // namespace net_mgr

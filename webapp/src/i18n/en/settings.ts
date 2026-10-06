@@ -58,8 +58,13 @@ export const settings = {
     sizeOnly: 'size only — the device cannot report what is used here',
     nearlyFull: (left: string) => `Nearly full — ${left} left. Delete something before uploading.`,
   },
+  network: {
+    title: 'Network',
+  },
   wifi: {
     title: 'WiFi',
+    switchedOff:
+      'Switched off in Expert mode. The device uses WiFi anyway when the cable gives it no address, so it can always be reached.',
     noRadio: 'This firmware is built for a wired connection and has no WiFi radio.',
     network: 'Network',
     notConnected: 'Not connected',
@@ -72,6 +77,17 @@ export const settings = {
     moveBefore: 'Moving the device to a different network is in ',
     expertMode: 'Expert mode',
     moveAfter: ' — a once-per-site decision behind the button press on the board.',
+  },
+  ethernet: {
+    title: 'Ethernet',
+    link: 'Link',
+    linkSpeed: (mbps: number, fullDuplex: boolean) => `${String(mbps)} Mbit/s, ${fullDuplex ? 'full' : 'half'} duplex`,
+    noLink: 'No cable, or nothing at the other end',
+    switchedOff: 'Switched off in Expert mode.',
+    notFound: 'No Ethernet module found when the device started.',
+    address: 'Address',
+    noneYet: 'none yet',
+    mac: 'MAC',
   },
   firmware: {
     title: 'Firmware',

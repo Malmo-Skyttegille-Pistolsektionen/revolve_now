@@ -42,7 +42,20 @@ import styles from './HardwareSection.module.css';
 type NumericField = {
   key: keyof HardwareConfigPatch &
     (
-      'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'i2sMclkGpio' | 'httpPort' | 'wifiMaxRetries'
+      | 'ledGpio'
+      | 'i2sPort'
+      | 'i2sBckGpio'
+      | 'i2sWsGpio'
+      | 'i2sDoutGpio'
+      | 'i2sMclkGpio'
+      | 'ethCsGpio'
+      | 'ethSclkGpio'
+      | 'ethMosiGpio'
+      | 'ethMisoGpio'
+      | 'ethIntGpio'
+      | 'ethRstGpio'
+      | 'httpPort'
+      | 'wifiMaxRetries'
     );
   testId: string;
 };
@@ -69,6 +82,21 @@ const AUDIO_FIELDS: NumericField[] = [
   { key: 'i2sWsGpio', testId: 'hardware-i2s-ws' },
   { key: 'i2sDoutGpio', testId: 'hardware-i2s-dout' },
   { key: 'i2sMclkGpio', testId: 'hardware-i2s-mclk' },
+];
+
+/** An on/off setting (#262). Label and hint live in the dictionary under the key. */
+type ToggleField = {
+  key: keyof HardwareConfigPatch & ('wifiEnabled' | 'ethEnabled');
+  testId: string;
+};
+
+const ETHERNET_FIELDS: NumericField[] = [
+  { key: 'ethCsGpio', testId: 'hardware-eth-cs' },
+  { key: 'ethSclkGpio', testId: 'hardware-eth-sclk' },
+  { key: 'ethMosiGpio', testId: 'hardware-eth-mosi' },
+  { key: 'ethMisoGpio', testId: 'hardware-eth-miso' },
+  { key: 'ethIntGpio', testId: 'hardware-eth-int' },
+  { key: 'ethRstGpio', testId: 'hardware-eth-rst' },
 ];
 
 const NETWORK_FIELDS: NumericField[] = [
@@ -198,6 +226,27 @@ export function HardwareSection(): React.ReactNode {
           set(field.key, Number(e.target.value));
         }}
       />
+      <span className={styles.hint}>{t.fields[field.key].hint}</span>
+    </label>
+  );
+
+  const toggle = (field: ToggleField): React.ReactNode => (
+    <label className={styles.field} key={field.key}>
+      <span className={styles.checkboxRow}>
+        <input
+          type='checkbox'
+          data-testid={field.testId}
+          disabled={!canManage || busy}
+          checked={value(field.key)}
+          onChange={(e) => {
+            set(field.key, e.target.checked);
+          }}
+        />
+        <span className={styles.label}>
+          {t.fields[field.key].label}
+          {overridden(field.key) && <span className={styles.badge}>{t.changed}</span>}
+        </span>
+      </span>
       <span className={styles.hint}>{t.fields[field.key].hint}</span>
     </label>
   );
@@ -421,6 +470,15 @@ export function HardwareSection(): React.ReactNode {
         {group(t.groups.audio, 'hardware-group-audio', AUDIO_FIELDS.map(numeric))}
 
         {group(
+          t.groups.ethernet,
+          'hardware-group-ethernet',
+          <>
+            {toggle({ key: 'ethEnabled', testId: 'hardware-eth-enabled' })}
+            {ETHERNET_FIELDS.map(numeric)}
+          </>,
+        )}
+
+        {group(
           t.groups.network,
           'hardware-group-network',
           <>
@@ -466,6 +524,7 @@ export function HardwareSection(): React.ReactNode {
               <span className={styles.hint}>{t.displayName.hint}</span>
             </label>
 
+            {toggle({ key: 'wifiEnabled', testId: 'hardware-wifi-enabled' })}
             {NETWORK_FIELDS.map(numeric)}
           </>,
         )}
