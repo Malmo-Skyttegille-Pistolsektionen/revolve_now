@@ -30,6 +30,36 @@ export const hardware = {
   restartRequiredMiddle: ' — the device is still running the configuration it started with. Use ',
   restartRequiredAction: 'Restart to apply',
   restartRequiredAfter: ' at the top of this page.',
+  overview: {
+    statusLabel: 'Expert mode status',
+    window: 'Window',
+    windowLeft: (time: string) => `${time} left`,
+    restart: 'Restart needed',
+    restartPending: 'Yes - saved values are not in use yet',
+    restartNone: 'No',
+    changed: 'Changed',
+    changedCount: (count: number) =>
+      count === 0
+        ? 'Everything is at its default'
+        : count === 1
+          ? '1 setting differs from the default'
+          : `${String(count)} settings differ from the default`,
+    wifi: 'WiFi',
+    groups: {
+      network: 'Network',
+      hardware: 'Hardware',
+      fault: 'Fault report',
+    },
+    badgeChanged: 'Changed',
+    badgeUnsaved: 'Not saved',
+    badgeCrashDump: 'Crash dump',
+    banks: (count: number, pins: string) => `${count === 1 ? '1 bank' : `${String(count)} banks`} · ${pins}`,
+    off: 'Off',
+    unused: 'off',
+    wifiNetwork: (ssid: string) => (ssid === '' ? 'No network stored' : `Joins ${ssid}`),
+    crashDump: 'A crash dump is waiting to be collected',
+    noCrashDump: 'No crash dump on the device',
+  },
   groups: {
     targets: 'Targets',
     led: 'Status LED',

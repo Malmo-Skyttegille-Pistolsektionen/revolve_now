@@ -30,6 +30,13 @@ If the tab is not there, nobody has pressed the button recently. If it vanishes
 while you are typing, the five minutes ran out — press three times again and
 carry on.
 
+The page opens with a short status — how long the window has left, whether a
+restart is pending, how many settings differ from the defaults, and which WiFi
+network the device joins — then one row per topic, as on Settings. Tap a row to
+open it. A row whose values differ from the defaults says **Changed**, and one
+with edits not yet saved says **Not saved**; edits are kept while a row is
+closed, and **Save** below the hardware rows saves them all.
+
 ## Restart to apply
 
 **Nothing on this page takes effect until the device restarts**, and nothing on

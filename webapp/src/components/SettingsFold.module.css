@@ -21,8 +21,18 @@
   overflow: hidden;
 }
 
+/* The same frame as Expert mode's cards had: amber, the app's "pay attention". */
+.expert {
+  border-color: var(--rt-warn-border);
+  background-color: var(--rt-warn-tint-soft);
+}
+
 .fold + .fold {
   border-top: 1px solid var(--rt-border);
+}
+
+.expert .fold + .fold {
+  border-top-color: var(--rt-warn-border);
 }
 
 .row {
@@ -109,6 +119,7 @@
    row above is both. */
 .body > section {
   padding: 0;
+  border: 0;
   border-radius: 0;
   background: none;
   box-shadow: none;
