@@ -59,7 +59,7 @@ holds the only valid password until the device is power-cycled.
   the filesystem. A restore is the exception to the size: it carries the whole
   `userdata` partition, read entry by entry, and each entry goes through the
   same checks and the same id-derived naming an upload does.
-- **A backup never holds the WiFi credentials** (D-47). `GET
+- **A backup never holds the WiFi credentials** (D-48). `GET
   /api/v2/backup` is public like every other `GET`: the programs, clips and
   hardware configuration in it are already readable one by one.
 

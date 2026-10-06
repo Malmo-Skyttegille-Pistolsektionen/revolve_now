@@ -536,7 +536,7 @@ first:
 ## Backup and restore
 
 `GET /api/v2/backup` and `POST /api/v2/restore` move everything uploaded to a
-board, and its hardware configuration, as one stored ZIP (D-47). What is in it
+board, and its hardware configuration, as one stored ZIP (D-48). What is in it
 and what a restore does with each part is in `contracts/openapi.yaml`; the
 rules are `rt::backup::RestoreSession` in `lib/rt_logic/backup.cpp`, covered by
 `host_test/test_backup`.

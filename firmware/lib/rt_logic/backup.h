@@ -1,6 +1,6 @@
 // ============================================================================
 //  rt_logic/backup.h
-//  What a device backup holds, and how a restore applies one (#520, D-47).
+//  What a device backup holds, and how a restore applies one (#520, D-48).
 //  Host-testable: the filesystem and NVS are behind RestoreStore. Mirrored by
 //  `restoreArchive` in webapp/test/mock-server/server.ts - change both.
 // ============================================================================
