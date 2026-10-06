@@ -1045,7 +1045,8 @@ export interface paths {
          *       `PUT /config/hardware` would save it — so it needs the
          *       configuration window, and it takes effect at the next restart
          *       (D-42). With the window shut it is skipped and reported, and the
-         *       rest is restored anyway. The hostname and display name stay as they
+         *       rest is restored anyway - unless the board already holds exactly
+         *       that, which is `unchanged` and needs no window. The hostname and display name stay as they
          *       are unless `name=true`, because two boards answering to one name is
          *       the usual result of restoring them onto a second board.
          *       `targetsShownAtBoot` is never changed.
@@ -1572,8 +1573,8 @@ export interface components {
              *     - `unchanged` — already what the backup holds.
              *     - `notRequested` — `hardware=false`.
              *     - `notIncluded` — `backup.json` has no `hardware`.
-             *     - `skipped` — the configuration window is shut; `problem` says how
-             *       to open it.
+             *     - `skipped` — there is something to save and the configuration
+             *       window is shut; `problem` says how to open it.
              *     - `refused` — this firmware refuses a value; `problem` names it.
              * @enum {string}
              */

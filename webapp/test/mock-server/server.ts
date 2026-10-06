@@ -1341,6 +1341,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           : 'Not a backup: the file is empty or not a ZIP archive.';
       return { problem: { type: '/problems/backup_invalid', detail } };
     }
+    if (first.name === 'manifest.json') {
+      return {
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: 'This backup was taken by a development build in a format no release reads. Take a new backup.',
+        },
+      };
+    }
     if (first.name !== 'backup.json') {
       return {
         problem: { type: '/problems/backup_invalid', detail: 'Not a backup: it does not start with backup.json.' },
@@ -1397,11 +1405,6 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     if (manifest.hardware !== undefined && manifest.hardware !== null) {
       if (!options.hardware) {
         report.hardware = { result: 'notRequested' };
-      } else if (!configWindowOpen) {
-        report.hardware = {
-          result: 'skipped',
-          problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
-        };
       } else {
         const shape = parseHardwarePatch(isRecord(manifest.hardware) ? manifest.hardware : null);
         if ('type' in shape) {
@@ -1414,8 +1417,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
             ...(options.name ? {} : { hostname: savedHardware.hostname, displayName: savedHardware.displayName }),
           };
           const refusal = hardwareConfigRefusal(candidate);
+          // Compared before the window, so a board already set up that way needs no press.
           if (JSON.stringify(candidate) === JSON.stringify(savedHardware)) {
             report.hardware = { result: 'unchanged' };
+          } else if (!configWindowOpen) {
+            report.hardware = {
+              result: 'skipped',
+              problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
+            };
           } else if (refusal !== null) {
             report.hardware = {
               result: 'refused',

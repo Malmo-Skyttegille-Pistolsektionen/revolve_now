@@ -1332,6 +1332,21 @@ describe('restoring a backup', () => {
     expect((await saved()).i2sMclkGpio).toBe(HARDWARE_DEFAULTS.i2sMclkGpio);
   });
 
+  it('calls hardware already in place unchanged, even with the window shut', async () => {
+    server.setConfigWindow(false);
+    const report = await restore([backupJson({})]);
+    expect(report.hardware).toEqual({ result: 'unchanged' });
+  });
+
+  it('refuses a backup from before backup.json with a sentence that says so', async () => {
+    const zip = writeStoredZip([json('manifest.json', { format: 'revolve-now-backup', formatVersion: 1 })]);
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array(zip)]), 'backup.zip');
+    const res = await api('/restore', { method: 'POST', body });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { detail: string }).detail).toContain('development build');
+  });
+
   it('reports a value the device refuses, with its reason', async () => {
     const report = await restore([backupJson({ ledGpio: 27 })]);
     expect(report.hardware).toMatchObject({

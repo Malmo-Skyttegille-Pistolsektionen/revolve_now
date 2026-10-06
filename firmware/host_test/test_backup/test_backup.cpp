@@ -396,6 +396,26 @@ void test_hardware_waits_for_the_configuration_window() {
   TEST_ASSERT_EQUAL(0, store.saves);
 }
 
+void test_hardware_already_in_place_needs_no_window() {
+  FakeStore store;
+  store.window = false;
+  JsonDocument report = run(store, {{"backup.json", backup_doc("{}")}});
+  TEST_ASSERT_EQUAL_STRING("unchanged", report["hardware"]["result"]);
+  TEST_ASSERT_TRUE(report["hardware"]["problem"].isNull());
+  TEST_ASSERT_EQUAL(0, store.saves);
+}
+
+void test_a_long_clip_list_is_not_refused() {
+  FakeStore store;
+  std::map<int32_t, std::string> titles;
+  for (int32_t id = 1000; id < 3000; ++id) titles[id] = std::string(60, 'x');
+  const std::string doc = backup_doc("", titles);
+  TEST_ASSERT_GREATER_THAN(64 * 1024, doc.size());
+  JsonDocument report = run(store, {{"backup.json", doc}, {"audio/2999.wav", kWav}});
+  TEST_ASSERT_EQUAL_STRING("added", report["audios"][0]["result"]);
+  TEST_ASSERT_EQUAL_STRING(std::string(60, 'x').c_str(), report["audios"][0]["title"]);
+}
+
 void test_hardware_can_be_left_out() {
   FakeStore store;
   RestoreOptions options;
@@ -503,6 +523,17 @@ void test_a_zip_not_starting_with_backup_json_is_refused_before_anything_applies
   TEST_ASSERT_EQUAL_size_t(0, store.programs.size());
 }
 
+void test_a_backup_from_before_backup_json_says_so() {
+  FakeStore store;
+  RestoreSession session(store, {});
+  const std::vector<uint8_t> bytes =
+      archive({{"manifest.json", "{\"format\":\"revolve-now-backup\",\"formatVersion\":1}"}});
+  session.feed(bytes.data(), bytes.size());
+  session.finish();
+  TEST_ASSERT_EQUAL_PTR(&rt::problem::kBackupInvalid, session.fatal());
+  TEST_ASSERT_NOT_NULL(strstr(session.fatal_detail().c_str(), "development build"));
+}
+
 void test_a_newer_format_is_refused_whole() {
   FakeStore store;
   RestoreSession session(store, {});
@@ -574,6 +605,8 @@ int main() {
   RUN_TEST(test_a_refused_clip_is_reported_and_its_references_dropped);
   RUN_TEST(test_an_unreadable_program_is_refused_and_the_rest_carry_on);
   RUN_TEST(test_hardware_waits_for_the_configuration_window);
+  RUN_TEST(test_hardware_already_in_place_needs_no_window);
+  RUN_TEST(test_a_long_clip_list_is_not_refused);
   RUN_TEST(test_hardware_can_be_left_out);
   RUN_TEST(test_the_name_is_kept_unless_asked_for);
   RUN_TEST(test_hardware_restores_onto_defaults_not_onto_what_is_saved);
@@ -586,6 +619,7 @@ int main() {
   RUN_TEST(test_a_file_that_is_not_a_zip_is_refused_whole);
   RUN_TEST(test_an_empty_body_is_refused_whole);
   RUN_TEST(test_a_zip_not_starting_with_backup_json_is_refused_before_anything_applies);
+  RUN_TEST(test_a_backup_from_before_backup_json_says_so);
   RUN_TEST(test_a_newer_format_is_refused_whole);
   RUN_TEST(test_a_truncated_backup_reports_what_it_restored);
   RUN_TEST(test_a_damaged_clip_is_refused_and_discarded);

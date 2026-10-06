@@ -121,8 +121,8 @@ struct RestoreLimits {
   int32_t first_upload_id = 1000;
   size_t max_program_bytes = 64 * 1024;
   size_t max_audio_bytes = 1024 * 1024;
-  // backup.json.
-  size_t max_document_bytes = 64 * 1024;
+  // backup.json, which names every clip; titles have no length limit.
+  size_t max_document_bytes = 256 * 1024;
 };
 
 // A restore, entry by entry, as the upload arrives. Each item is applied the

@@ -230,6 +230,11 @@ bool RestoreSession::on_entry(const ZipReader::Entry &entry) {
   if (!manifest_read_) {
     // Nothing is applied before backup.json has said this is a backup we can
     // read, which is what lets everything up to here be refused as a whole.
+    if (entry.name == "manifest.json") {
+      return stop(problem::kBackupInvalid,
+                  "This backup was taken by a development build in a format no release reads. "
+                  "Take a new backup.");
+    }
     if (entry.name != kBackupEntry) {
       return stop(problem::kBackupInvalid, "Not a backup: it does not start with backup.json.");
     }
@@ -308,15 +313,6 @@ void RestoreSession::end_hardware() {
     return;
   }
 
-  // The same gesture PUT /config/hardware is behind: these are the settings
-  // whose recovery can need a cable.
-  if (!store_.config_window_open()) {
-    hardware_ = HardwareResult::kSkipped;
-    hardware_problem_ = &problem::kHardwareConfigWindowClosed;
-    hardware_detail_ = kOpenWindowHint;
-    return;
-  }
-
   // The backup holds overrides, so the result is this build's defaults with
   // those applied - a board ends up configured as the one backed up, not as a
   // merge of the two.
@@ -341,6 +337,16 @@ void RestoreSession::end_hardware() {
   // that changes only a name still changed something.
   if (same_config(config, saved) && config.banks == saved.banks) {
     hardware_ = HardwareResult::kUnchanged;
+    return;
+  }
+
+  // The same gesture PUT /config/hardware is behind: these are the settings
+  // whose recovery can need a cable. Asked only when there is something to
+  // save, so restoring onto a board already set up that way needs no press.
+  if (!store_.config_window_open()) {
+    hardware_ = HardwareResult::kSkipped;
+    hardware_problem_ = &problem::kHardwareConfigWindowClosed;
+    hardware_detail_ = kOpenWindowHint;
     return;
   }
 
