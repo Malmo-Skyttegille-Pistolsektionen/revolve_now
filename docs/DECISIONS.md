@@ -2096,6 +2096,54 @@ window* (D-39's gate) — it would make the backup a file to guard, for no gain
 on the board that needs it. *Replace-all restore* — deleting what is on a board
 to make it a copy is a step nobody should take by uploading a file.
 
+## D-49 — A second board line, "PCBA", built for full JLCPCB assembly from verified parts *(Decided 2026-10-06)*
+
+**Decision:** a second board line, **Revolve Now PCBA**, is designed so that
+JLCPCB can deliver it fully assembled — every part an in-stock LCSC number,
+every footprint one that part's drawing confirms. It lives in `hardware/pcba/`
+with its own revision count, starting at PCBA rev 1. The hand-built line stays
+in `hardware/` under its own count, because its designer is expected to keep
+revising it; the two are different boards, not two states of one. PCBA rev 1
+is a separate pull request, not stacked on the rev 1 one, so each can be
+reviewed on its own.
+
+**Four changes are decided; the rest of the hand-built rev 1 review (#436) stands:**
+
+- **Native USB replaces the FT232RL.** USB-C D+/D− go to GPIO20/19 through
+  22 Ω series pads; `U7`, `Q1`, `Q2` go. The BOOT button keeps its own 10 k
+  pull-up on GPIO0 and TX0/RX0/GND stay on pads, because Espressif's design
+  guide keeps the UART download path and the USB port disappears on a crash
+  or in deep sleep. Saves about $7.50 a board and frees GPIOs.
+- **HanRun HR911105A for the Ethernet jack.** The Pulse J0026D21BNL has no
+  LCSC stock. The HanRun carries the same functions on different pins —
+  separate TX and RX centre taps, so the termination network is unchanged —
+  and needs a new footprint.
+- **Ckmtw R-RJ45R08P-A004 for the output and trigger jacks.** The hand-built rev 1's
+  footprint (2.54 mm row pitch, Ø2.4 mm pegs 15 mm apart) matches none of the
+  stocked jacks, which all have 1.78 mm rows.
+- **SK9822 for the status LEDs**, driven by two 74AHCT1G125 buffers instead
+  of inverting transistors. The APA102 is out of stock; the SK9822 is
+  pin-identical and fits the same footprint, and its 3.75 V input threshold
+  is why the level shifter exists.
+
+**Nothing goes into the design unverified.** Each part change in
+`hardware/pcba/SOURCING.md` names the datasheet it was checked against; a
+value nobody can source from a datasheet or from the designer is left
+unfitted rather than guessed. `R43` (the fourth trigger channel) is the case
+in point: its voltage is a question to the designer, not a design choice.
+
+**Why fully assembled:** the club has three boards and no one whose job is
+soldering 0603 parts. A board that arrives working is the only one that gets
+built more than once.
+
+**Rejected:** *ordering the hand-built rev 1 copper assembled* — with every part fitted the
+DAC has no ground return (M1) and GPIO0 is pulled low at reset (M2), so it
+could not work as drawn. *Pulse jack via JLC global sourcing* — no layout
+change, but several dollars more per jack and weeks of lead time for one part.
+*One revision count for both lines* ("rev 2", "rev 2A", "rev C1") — a letter
+inside one counter would say one board has two states, when the two will be
+revised independently by different people.
+
 ## Open questions
 
 - **Are `app` / `x86_linux` used by anyone?** (asked — drives D-03's
