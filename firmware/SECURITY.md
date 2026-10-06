@@ -56,12 +56,17 @@ holds the only valid password until the device is power-cycled.
   board (D-39 in [`docs/DECISIONS.md`](../docs/DECISIONS.md)).
 - Uploads are capped at 1 MB, streamed to a staging file, validated, and only
   then renamed to an id-derived name — a client-supplied filename never reaches
-  the filesystem.
+  the filesystem. A restore is the exception to the size: it carries the whole
+  `userdata` partition, read entry by entry, and each entry goes through the
+  same checks and the same id-derived naming an upload does.
+- **A backup never holds the WiFi credentials** (D-47). `GET
+  /api/v2/backup` is public like every other `GET`: the programs, clips and
+  hardware configuration in it are already readable one by one.
 
 ## What is tested
 
 The parsers that take untrusted input — WAV headers, URI path ids, program
-documents and filenames — live in `lib/rt_logic/` and are covered by
+documents, filenames and backup archives — live in `lib/rt_logic/` and are covered by
 `host_test/`, which CI runs under **ASan and UBSan** on every push. That is
 deliberate: in `main/`, behind a `FILE*` or an HTTP request, no test and no
 sanitizer can reach them.

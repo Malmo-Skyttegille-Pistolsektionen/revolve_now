@@ -505,10 +505,12 @@ whose connection dies mid-body never reaches `onRequest`, which is where that
 cleanup lives, so the next upload — and every boot — starts by discarding
 whatever is still staged.
 
-Uploads and request bodies alike are bounded by `kMaxUploadBytes` (1 MB),
-applied to the HTTP layer — not just when reading files back. That check lives
-above every handler, in the vendored HTTP layer, and is the one failure that
-is **not** a problem detail: it sends `400` with a `text/html` body.
+The vendored HTTP layer refuses anything over the server-wide ceiling before a
+handler runs, and that is the one failure that is **not** a problem detail: it
+sends `400` with a `text/html` body. The ceiling is the largest legitimate
+upload, a restore (`kMaxRestoreUploadBytes`, sized to `userdata`); every other
+upload bounds itself below it — a clip or a program at `kMaxUploadBytes`
+(1 MB), firmware at the slot.
 
 `DELETE /api/v2/audios/{id}/delete` refuses to remove a clip that still matters
 to a run — on a range, a spoken command that silently fails mid-exercise is a
@@ -530,6 +532,27 @@ first:
    Blunt on purpose: it holds for every clip, referenced or not.
 4. **The clip is playing right now** — `/problems/audio_playing`. LittleFS
    has no unlink-while-open, so deleting it would corrupt the read.
+
+## Backup and restore
+
+`GET /api/v2/backup` and `POST /api/v2/restore` move everything uploaded to a
+board, and its hardware configuration, as one stored ZIP (D-47). What is in it
+and what a restore does with each part is in `contracts/openapi.yaml`; the
+rules are `rt::backup::RestoreSession` in `lib/rt_logic/backup.cpp`, covered by
+`host_test/test_backup`.
+
+**Read as it arrives.** A backup can be most of the `userdata` partition, so
+`rt::ZipReader` parses the upload chunk by chunk from the local headers, and
+each item is applied the moment its entry ends: a clip is streamed to its own
+staging file (`.restore`, never the audio upload's), a program is parsed from a
+buffer of at most `kMaxUploadBytes`. The manifest must come first, and nothing
+is applied until it has been read — which is what lets a file that is not a
+backup be a whole-request `400` while a backup that breaks part way is a `200`
+listing what was restored, with `stoppedEarly`.
+
+**Refused during a run, both ways.** The server has one task, and a backup or a
+restore holds it for seconds — long enough that the stop button's request
+would wait behind it.
 
 ## Static assets and the SPA fallback
 
