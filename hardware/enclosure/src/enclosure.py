@@ -43,15 +43,12 @@ STANDOFF_H = 5.0    # floor to PCB underside (THT leads stick out ~2-3 mm)
 HEADROOM = 16.0     # PCB top to lid underside; tallest part is an RJ45 (~13.5)
 BOSS_D = 8.0        # standoff / lid-post diameter at the board (clears J4's pads by 0.5 mm)
 
-# Fastening: M3x16 socket-head screws (ISO 4762) up through the base into hex nuts
-# captive in the lid posts, so the lid top stays unbroken. No heat-set inserts.
+# Fastening: M3x12 socket-head screws (ISO 4762) up through the base into M3 heat-set
+# inserts in the lid posts, so the lid top stays unbroken.
 SCREW_D = 3.4       # M3 clearance
 HEAD_D, HEAD_H = 6.0, 3.2       # counterbore in the base underside; the head sits flush
 FOOT_D = 10.0       # standoff widened round the counterbore, below where THT leads reach
-NUT_AF, NUT_H = 5.8, 2.7        # M3 nut (5.5 AF, 2.4 thick) plus clearance; slid in from the side
-NUT_Z = 5.0         # nut slot bottom above the PCB top; the post is solid below it
-POST_STEP = 4.5     # above this height over the PCB the lid post widens to POST_D (J4 is 3.3 tall)
-POST_D = 9.6        # leaves 1.45 mm of wall round the nut's corners
+INSERT_D, INSERT_DEPTH = 4.0, 6.0   # M3 x 5.7 heat-set insert, pressed into the post's end
 LAYER = 0.2         # print layer height, for the bridging steps over the counterbore
 
 # The logo and its frame are inlaid in the lid top, read from the web app's copy so the box
@@ -154,7 +151,7 @@ def check_openings_clear_bosses():
     for o in OPENINGS:
         cut = opening_cutter(o)
         for (x, y) in HOLES:
-            boss = Part.makeCylinder(max(BOSS_D, POST_D, FOOT_D) / 2, Z_TOP, V(x, y, 0))
+            boss = Part.makeCylinder(max(BOSS_D, FOOT_D) / 2, Z_TOP, V(x, y, 0))
             if cut.common(boss).Volume > 1e-6:
                 raise RuntimeError(f"{o['ref']} opening would cut into the screw post at {x},{y}")
 
@@ -182,22 +179,6 @@ def screw_bore(x, y):
     step2 = Part.makeBox(SCREW_D, SCREW_D, 2 * LAYER, V(x - SCREW_D / 2, y - SCREW_D / 2, HEAD_H - 0.01))
     bore = Part.makeCylinder(SCREW_D / 2, Z_PCB_BOT + 1, V(x, y, 0))
     return cb.fuse([step1, step2, bore]).removeSplitter()
-
-
-def nut_slot(x, y):
-    """Hex pocket round the screw axis, open towards the middle of the box to slide the nut in."""
-    z0 = Z_PCB_TOP + NUT_Z
-    r = NUT_AF / 3 ** 0.5  # circumradius
-    pts = [V(x + r * math.cos(math.radians(60 * i)), y + r * math.sin(math.radians(60 * i)), z0)
-           for i in range(7)]
-    pocket = Part.Face(Part.makePolygon(pts)).extrude(V(0, 0, NUT_H))
-    reach = POST_D / 2 + 1.0
-    channel = Part.makeBox(reach, NUT_AF, NUT_H, V(x, y - NUT_AF / 2, z0))
-    # turn the channel to point at the box centre; the hexagon's flats line up with it
-    ang = math.degrees(math.atan2(PCB_D / 2 - y, PCB_W / 2 - x))
-    channel.rotate(V(x, y, z0), V(0, 0, 1), ang)
-    pocket.rotate(V(x, y, z0), V(0, 0, 1), ang)
-    return pocket.fuse(channel).removeSplitter()
 
 
 def logo_faces():
@@ -239,12 +220,11 @@ def build_lid():
     lid = checked(shell.cut(cavity), v * 0.2, "lid cavity")
     for (x, y) in HOLES:
         post = Part.makeCylinder(BOSS_D / 2, Z_TOP - LID_T - Z_PCB_TOP + 0.5, V(x, y, Z_PCB_TOP))
-        upper = Part.makeCylinder(POST_D / 2, Z_TOP - LID_T - Z_PCB_TOP - POST_STEP + 0.5,
-                                  V(x, y, Z_PCB_TOP + POST_STEP))
-        lid = checked(lid.fuse([post, upper]), lid.Volume, f"post {x},{y}")
-        # the bore stops under the lid top, so no screw shows there
-        bore = Part.makeCylinder(SCREW_D / 2, Z_TOP - LID_T - Z_PCB_TOP + 1, V(x, y, Z_PCB_TOP - 1))
-        lid = checked(lid.cut(bore.fuse(nut_slot(x, y))), lid.Volume, f"screw bore {x},{y}")
+        lid = checked(lid.fuse(post), lid.Volume, f"post {x},{y}")
+        # insert hole, then room for a longer screw's tip; it stops under the lid top
+        hole = Part.makeCylinder(INSERT_D / 2, INSERT_DEPTH + 1, V(x, y, Z_PCB_TOP - 1))
+        tip = Part.makeCylinder(SCREW_D / 2, Z_TOP - LID_T - Z_PCB_TOP + 1, V(x, y, Z_PCB_TOP - 1))
+        lid = checked(lid.cut(hole.fuse(tip)), lid.Volume, f"insert hole {x},{y}")
     for o in OPENINGS:
         lid = checked(lid.cut(opening_cutter(o)), lid.Volume, o["ref"])
     return checked(lid.cut(logo_solid(extra=1.0)), lid.Volume, "logo")
