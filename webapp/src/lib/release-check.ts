@@ -163,3 +163,17 @@ export async function sha256OfFile(file: Blob): Promise<string> {
   ]);
   return bytesToHex(sha256(new Uint8Array(await file.arrayBuffer())));
 }
+
+/**
+ * The GitHub check as one query, shared by the Update section and the Settings
+ * overview. Stale for ten minutes, so opening Settings again does not spend
+ * GitHub's 60 requests an hour; never retried, since offline is the normal
+ * state at a range.
+ */
+export const githubReleasesQuery = {
+  queryKey: ['github-releases'],
+  queryFn: ({ signal }: { signal: AbortSignal }) => fetchReleases(undefined, signal),
+  staleTime: 10 * 60_000,
+  retry: false,
+  refetchOnWindowFocus: false,
+} as const;

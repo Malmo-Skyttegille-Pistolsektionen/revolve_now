@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useLocation, useNavigate } from '@tanstack/react-router';
 import { useT } from '../i18n';
 import { ServerUrlSection } from '../components/ServerUrlSection';
 import { ThemeSection } from '../components/ThemeSection';
@@ -11,6 +11,8 @@ import { BackupSection } from '../components/BackupSection';
 import { NetworkSection } from '../components/NetworkSection';
 import { AboutSection } from '../components/AboutSection';
 import { RestartPendingNotice } from '../components/RestartPendingNotice';
+import { SettingsFold, SettingsGroup } from '../components/SettingsFold';
+import { useSettingsOverview } from '../hooks/useSettingsOverview';
 import styles from './settings.module.css';
 
 export const Route = createFileRoute('/settings')({
@@ -19,6 +21,34 @@ export const Route = createFileRoute('/settings')({
 
 function SettingsPage(): React.ReactNode {
   const t = useT();
+  const o = t.settings.overview;
+  const lines = useSettingsOverview();
+  // The open row is the URL's hash, so /settings#update opens one directly.
+  const hash = useLocation({ select: (location) => location.hash });
+  const open = hash === '' ? null : hash;
+  const navigate = useNavigate();
+
+  // One open at a time, so the page stays as short as the overview.
+  const toggle = (id: string): void => {
+    void navigate({
+      to: '/settings',
+      hash: open === id ? '' : id,
+      replace: true,
+      resetScroll: false,
+      hashScrollIntoView: false,
+    });
+  };
+  const fold = (
+    id: string,
+    title: string,
+    line: (typeof lines)[keyof typeof lines],
+    body: React.ReactNode,
+    keepHeadings = false,
+  ) => (
+    <SettingsFold id={id} title={title} line={line} open={open === id} onToggle={toggle} keepHeadings={keepHeadings}>
+      {body}
+    </SettingsFold>
+  );
 
   return (
     <div className={styles.container}>
@@ -29,28 +59,48 @@ function SettingsPage(): React.ReactNode {
           reading this page may not be the one who saved it. */}
       <RestartPendingNotice />
 
-      <ServerUrlSection />
+      <section className={styles.overview} aria-labelledby='settings-overview-title' data-testid='settings-overview'>
+        <h2 id='settings-overview-title' className={styles.srOnly}>
+          {o.statusLabel}
+        </h2>
+        <dl className={styles.overviewList}>
+          <dt>{o.firmware}</dt>
+          <dd>{[lines.update.summary, lines.update.status?.label].filter(Boolean).join(' · ')}</dd>
+          <dt>{o.connection}</dt>
+          <dd>{lines.network.summary}</dd>
+          <dt>{o.startup}</dt>
+          <dd>{lines.startup.status?.label ?? lines.startup.summary}</dd>
+          <dt>{o.controlLock}</dt>
+          <dd>{lines.lock.status?.label}</dd>
+        </dl>
+      </section>
 
-      <ThemeSection />
+      <SettingsGroup title={o.groups.device}>
+        {fold('update', t.settings.update.title, lines.update, <UpdateSection />)}
+        {fold('backup', t.settings.backup.title, lines.backup, <BackupSection />)}
+        {/* Read-only, and the change is in Expert mode: which network the
+            device looks for is a once-per-site decision behind the button
+            press, not something this page should be able to do. */}
+        {fold('network', t.settings.network.title, lines.network, <NetworkSection />)}
+        {fold('control-lock', t.settings.controlLock.title, lines.lock, <ControlLockSection />)}
+        {fold('storage', t.settings.storage.title, lines.storage, <StorageSection />)}
+        {fold('startup-issues', t.settings.startupIssues.title, lines.startup, <StartupIssuesSection />)}
+        {fold('about', t.settings.about.title, lines.about, <AboutSection />)}
+      </SettingsGroup>
 
-      <LanguageSection />
-
-      <ControlLockSection />
-
-      <StartupIssuesSection />
-
-      <StorageSection />
-
-      <BackupSection />
-
-      {/* Read-only, and the change is in Expert mode: which network the device
-          looks for is a once-per-site decision behind the button press, not
-          something this page should be able to do. */}
-      <NetworkSection />
-
-      <UpdateSection />
-
-      <AboutSection />
+      <SettingsGroup title={o.groups.browser}>
+        {fold(
+          'appearance',
+          o.appearance,
+          lines.appearance,
+          <>
+            <ThemeSection />
+            <LanguageSection />
+          </>,
+          true,
+        )}
+        {fold('server-url', t.settings.serverUrl.title, lines.address, <ServerUrlSection />)}
+      </SettingsGroup>
     </div>
   );
 }
