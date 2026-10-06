@@ -266,14 +266,12 @@ def mesh_of(shape):
     return MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.05, AngularDeflection=0.2)
 
 
-def write_3mf(base, lid, inlay, path, slicer):
+def write_3mf(base, lid, inlay, path):
     """Both parts on one plate as printed: the base as modelled, the lid on its top beside it.
 
     The lid is one object of two parts, its body on filament 1 and the logo on filament 2,
-    so the logo prints in whatever colour slot 2 holds. Slicers only agree on the plain
-    geometry, not on how an object is split into parts, hence one file per slicer family:
-    "bambu" (Bambu Studio, OrcaSlicer: components + model_settings.config) and
-    "prusa" (PrusaSlicer: one mesh with triangle ranges in Slic3r_PE_model.config).
+    so the logo prints in whatever colour slot 2 holds. The parts are declared the way
+    Bambu Studio and OrcaSlicer read them: components plus Metadata/model_settings.config.
     """
     flip = lid.copy()
     flip.rotate(V(0, 0, 0), V(1, 0, 0), 180)
@@ -302,42 +300,25 @@ def write_3mf(base, lid, inlay, path, slicer):
     resources, build, config = [], [], []
     next_id = 1
     for name, parts in objects:
-        if slicer == "bambu":
-            part_ids = []
-            for pname, (verts, tris), _ in parts:
-                resources.append(f'  <object id="{next_id}" type="model" name="{pname}">\n'
-                                 + mesh_xml(verts, tris) + "  </object>\n")
-                part_ids.append(next_id)
-                next_id += 1
-            resources.append(f'  <object id="{next_id}" type="model" name="{name}">\n   <components>\n'
-                             + "".join(f'    <component objectid="{i}"/>\n' for i in part_ids)
-                             + "   </components>\n  </object>\n")
-            config.append(f'  <object id="{next_id}">\n    <metadata key="name" value="{name}"/>\n'
-                          + "".join(f'    <part id="{i}" subtype="normal_part">\n'
-                                    f'      <metadata key="name" value="{pname}"/>\n'
-                                    f'      <metadata key="extruder" value="{filament}"/>\n    </part>\n'
-                                    for i, (pname, _, filament) in zip(part_ids, parts))
-                          + "  </object>\n")
-        else:
-            verts, tris, ranges = [], [], []
-            for pname, (pv, pt), filament in parts:
-                ranges.append((pname, filament, len(tris), len(tris) + len(pt) - 1))
-                tris += [(a + len(verts), b + len(verts), c + len(verts)) for a, b, c in pt]
-                verts += pv
-            resources.append(f'  <object id="{next_id}" type="model" name="{name}">\n'
+        part_ids = []
+        for pname, (verts, tris), _ in parts:
+            resources.append(f'  <object id="{next_id}" type="model" name="{pname}">\n'
                              + mesh_xml(verts, tris) + "  </object>\n")
-            config.append(f'  <object id="{next_id}" instances_count="1">\n'
-                          f'    <metadata type="object" key="name" value="{name}"/>\n'
-                          + "".join(f'    <volume firstid="{first}" lastid="{last}">\n'
-                                    f'      <metadata type="volume" key="name" value="{pname}"/>\n'
-                                    f'      <metadata type="volume" key="extruder" value="{filament}"/>\n'
-                                    "    </volume>\n" for pname, filament, first, last in ranges)
-                          + "  </object>\n")
+            part_ids.append(next_id)
+            next_id += 1
+        resources.append(f'  <object id="{next_id}" type="model" name="{name}">\n   <components>\n'
+                         + "".join(f'    <component objectid="{i}"/>\n' for i in part_ids)
+                         + "   </components>\n  </object>\n")
+        config.append(f'  <object id="{next_id}">\n    <metadata key="name" value="{name}"/>\n'
+                      + "".join(f'    <part id="{i}" subtype="normal_part">\n'
+                                f'      <metadata key="name" value="{pname}"/>\n'
+                                f'      <metadata key="extruder" value="{filament}"/>\n    </part>\n'
+                                for i, (pname, _, filament) in zip(part_ids, parts))
+                      + "  </object>\n")
         build.append(f'  <item objectid="{next_id}"/>\n')
         next_id += 1
 
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
-    config_name = "model_settings.config" if slicer == "bambu" else "Slic3r_PE_model.config"
     files = {
         "[Content_Types].xml": xml + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n'
         ' <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n'
@@ -349,7 +330,7 @@ def write_3mf(base, lid, inlay, path, slicer):
         "3D/3dmodel.model": xml + '<model unit="millimeter" xml:lang="en-US" '
         'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n <resources>\n'
         + "".join(resources) + " </resources>\n <build>\n" + "".join(build) + " </build>\n</model>\n",
-        "Metadata/" + config_name: xml + "<config>\n" + "".join(config) + "</config>\n",
+        "Metadata/model_settings.config": xml + "<config>\n" + "".join(config) + "</config>\n",
     }
     with zipfile.ZipFile(path, "w") as z:
         for name, data in files.items():
@@ -390,8 +371,7 @@ def main():
     if os.path.exists(fcstd):
         os.remove(fcstd)  # saving over it would leave a .FCBak beside it
     doc.saveAs(fcstd)
-    write_3mf(base, lid, inlay, os.path.join(GENERATED, "enclosure.3mf"), "bambu")
-    write_3mf(base, lid, inlay, os.path.join(GENERATED, "enclosure-prusaslicer.3mf"), "prusa")
+    write_3mf(base, lid, inlay, os.path.join(GENERATED, "enclosure.3mf"))
     print(f"outer {OUT_X1 - OUT_X0:.1f} x {OUT_Y1 - OUT_Y0:.1f} x {Z_TOP:.1f} mm, split at Z={Z_PCB_TOP:.1f}")
 
 
