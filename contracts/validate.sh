@@ -7,7 +7,7 @@ cd "$(dirname "$0")" || exit 1
 status=0
 
 # pip install check-jsonschema
-check-jsonschema --check-metaschema program.schema.json || status=1
+check-jsonschema --check-metaschema program.schema.json backup.schema.json || status=1
 
 # Every shipped program must validate against the schema.
 check-jsonschema --schemafile program.schema.json ../resources/programs/files/*.json || status=1
@@ -21,6 +21,9 @@ python3 ./check_problem_types.py || status=1
 # Program, Series and Event are declared in both the OpenAPI document and the
 # program schema; this fails when their structure drifts apart.
 python3 ./check_program_schema.py || status=1
+
+# backup.json's `hardware` is HardwareConfigPatch, written out the same way.
+python3 ./check_backup_schema.py || status=1
 
 # Pinned: an unpinned CLI can turn main red from an upstream rule change with
 # no commit of ours behind it. redocly.yaml configures the rules.

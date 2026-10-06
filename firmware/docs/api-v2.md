@@ -545,7 +545,7 @@ rules are `rt::backup::RestoreSession` in `lib/rt_logic/backup.cpp`, covered by
 `rt::ZipReader` parses the upload chunk by chunk from the local headers, and
 each item is applied the moment its entry ends: a clip is streamed to its own
 staging file (`.restore`, never the audio upload's), a program is parsed from a
-buffer of at most `kMaxUploadBytes`. The manifest must come first, and nothing
+buffer of at most `kMaxUploadBytes`. `backup.json` must come first, and nothing
 is applied until it has been read — which is what lets a file that is not a
 backup be a whole-request `400` while a backup that breaks part way is a `200`
 listing what was restored, with `stoppedEarly`.

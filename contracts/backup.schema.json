@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Malmo-Skyttegille-Pistolsektionen/revolve_now/contracts/backup.schema.json",
+  "title": "Backup",
+  "description": "backup.json, the first entry of the ZIP that GET /api/v2/backup serves and POST /api/v2/restore reads. The clips follow it as audio/<id>.wav and the programs as programs/<id>.json (see program.schema.json). Canonical: written from firmware/lib/rt_logic/backup.cpp.",
+  "type": "object",
+  "required": ["format", "formatVersion", "firmwareVersion", "hostname", "displayName", "includesWifiCredentials", "audios"],
+  "properties": {
+    "format": {
+      "const": "revolve-now-backup"
+    },
+    "formatVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The layout of the archive. A restore refuses a number higher than the firmware reads, before applying anything."
+    },
+    "firmwareVersion": {
+      "type": "string",
+      "description": "The release that wrote it."
+    },
+    "hostname": {
+      "type": "string",
+      "description": "The device it came from."
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "includesWifiCredentials": {
+      "const": false,
+      "description": "A backup never carries the WiFi credentials, and says so."
+    },
+    "hardware": {
+      "description": "The stored hardware configuration as overrides of the compiled defaults: only what differs. HardwareConfigPatch in openapi.yaml, kept in step by check_backup_schema.py. targetsShownAtBoot is never in it (serial-only, D-31).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "banks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": ["gpio", "activeLow", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "gpio": { "$ref": "#/$defs/gpio" },
+              "activeLow": { "type": "boolean" },
+              "name": { "type": "string", "maxLength": 16 }
+            }
+          }
+        },
+        "hostname": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "displayName": { "type": "string", "maxLength": 40 },
+        "ledGpio": { "$ref": "#/$defs/gpio" },
+        "i2sPort": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "i2sBckGpio": { "$ref": "#/$defs/gpio" },
+        "i2sWsGpio": { "$ref": "#/$defs/gpio" },
+        "i2sDoutGpio": { "$ref": "#/$defs/gpio" },
+        "i2sMclkGpio": { "$ref": "#/$defs/optionalGpio" },
+        "httpPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "wifiMaxRetries": { "type": "integer", "minimum": 1, "maximum": 60 },
+        "wifiEnabled": { "type": "boolean" },
+        "ethEnabled": { "type": "boolean" },
+        "ethSclkGpio": { "$ref": "#/$defs/gpio" },
+        "ethMosiGpio": { "$ref": "#/$defs/gpio" },
+        "ethMisoGpio": { "$ref": "#/$defs/gpio" },
+        "ethCsGpio": { "$ref": "#/$defs/gpio" },
+        "ethIntGpio": { "$ref": "#/$defs/optionalGpio" },
+        "ethRstGpio": { "$ref": "#/$defs/optionalGpio" }
+      }
+    },
+    "audios": {
+      "description": "Every uploaded clip in the archive, with the title a .wav does not carry. A clip missing here still restores, under a placeholder title.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1000,
+            "description": "Its id on the device the backup was taken from: the clip is audio/<id>.wav."
+          },
+          "title": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "gpio": { "type": "integer", "minimum": 0, "maximum": 48 },
+    "optionalGpio": { "type": "integer", "minimum": -1, "maximum": 48, "description": "-1 leaves it unused." }
+  }
+}

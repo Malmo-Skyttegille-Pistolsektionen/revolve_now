@@ -77,7 +77,7 @@ bool feed_in_chunks(rt::ZipReader &reader, const std::vector<uint8_t> &bytes, si
 }
 
 const std::vector<std::pair<std::string, std::string>> kEntries = {
-    {"manifest.json", "{\"format\":\"revolve-now-backup\"}"},
+    {"backup.json", "{\"format\":\"revolve-now-backup\"}"},
     {"empty.txt", ""},
     {"audio/1000.wav", std::string(300, '\x7f')},
     {"programs/1000.json", "{\"title\":\"P\"}"},

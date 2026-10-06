@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openApp } from './device';
+import { openApp, openSettings } from './device';
 
 /**
  * The language setting (D-45) is a browser-side choice: nothing on the
@@ -8,7 +8,7 @@ import { openApp } from './device';
  */
 test('switching to Svenska translates the page and sticks across a reload', async ({ page }) => {
   await openApp(page);
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'appearance');
 
   // The radio inputs are visually hidden behind their labels, so the label is
   // what gets clicked - the same way a finger does it.

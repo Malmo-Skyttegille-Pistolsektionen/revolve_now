@@ -39,12 +39,24 @@ function renderSection(): void {
   );
 }
 
-const MANIFEST: ZipEntry = {
-  name: 'manifest.json',
-  data: Buffer.from(
-    JSON.stringify({ format: 'revolve-now-backup', formatVersion: 1, firmwareVersion: '0.1.0', hostname: 'range-a' }),
-  ),
-};
+function backupJson(hardware?: Record<string, unknown>): ZipEntry {
+  return {
+    name: 'backup.json',
+    data: Buffer.from(
+      JSON.stringify({
+        format: 'revolve-now-backup',
+        formatVersion: 1,
+        firmwareVersion: '0.1.0',
+        hostname: 'range-a',
+        displayName: '',
+        includesWifiCredentials: false,
+        ...(hardware ? { hardware } : {}),
+        audios: [],
+      }),
+    ),
+  };
+}
+const BACKUP_JSON = backupJson();
 
 function choose(entries: ZipEntry[] | string): void {
   const bytes = typeof entries === 'string' ? Buffer.from(entries) : writeStoredZip(entries);
@@ -84,7 +96,7 @@ describe('the backup section', () => {
     await waitFor(() => {
       expect(saved).toHaveLength(1);
     });
-    expect(saved[0].filename).toMatch(/^revolve-now-2\.0\.0-mock-backup-\d{4}-\d{2}-\d{2}\.zip$/);
+    expect(saved[0].filename).toMatch(/^revolve-now-backup-2\.0\.0-mock-\d{4}-\d{2}-\d{2}\.zip$/);
     expect(screen.getByTestId('backup-notice').textContent).toBe('Downloaded.');
   });
 
@@ -92,7 +104,7 @@ describe('the backup section', () => {
     await device();
     renderSection();
 
-    choose([MANIFEST, { name: 'programs/1000.json', data: Buffer.from('{"title":"Restored","series":[]}') }]);
+    choose([BACKUP_JSON, { name: 'programs/1000.json', data: Buffer.from('{"title":"Restored","series":[]}') }]);
 
     const report = await screen.findByTestId('backup-report');
     expect(report.textContent).toContain('Restored from range-a, firmware 0.1.0.');
@@ -106,7 +118,7 @@ describe('the backup section', () => {
 
     // Offered anyway, with the reason it will be skipped.
     expect(await screen.findByTestId('backup-window-hint')).toBeTruthy();
-    choose([MANIFEST, { name: 'hardware.json', data: Buffer.from('{"i2sMclkGpio":3}') }]);
+    choose([backupJson({ i2sMclkGpio: 3 })]);
 
     const line = await screen.findByTestId('backup-report-hardware');
     expect(line.textContent).toContain('Hardware settings were not restored:');
@@ -141,7 +153,7 @@ describe('the backup section', () => {
     await device();
     renderSection();
 
-    choose([MANIFEST, { name: 'audio/1000.wav', data: Buffer.from('nope') }]);
+    choose([BACKUP_JSON, { name: 'audio/1000.wav', data: Buffer.from('nope') }]);
 
     const refused = await screen.findByTestId('backup-report-refused');
     expect(refused.textContent).toBe('Restored clip 1000: Not a WAV this firmware can play.');
