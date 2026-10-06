@@ -128,6 +128,19 @@
       extractVersionTemplate: "^v(?<version>\\d+\\.\\d+(?:\\.\\d+)?)$",
       versioningTemplate: "loose",
     },
+
+    // The IDF container where a job pulls it only when the change needs it
+    // (#528). `image:` is then an expression, which the built-in manager skips,
+    // so the quoted literal inside it is matched here instead.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      matchStrings: [
+        "'espressif/idf:(?<currentValue>v[^@']+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+      ],
+      depNameTemplate: "espressif/idf",
+      datasourceTemplate: "docker",
+    },
   ],
 
   packageRules: [
