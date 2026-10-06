@@ -4,6 +4,7 @@
 // @vitest-environment-options { "url": "http://127.0.0.1:18092" }
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { SettingsProvider } from '../src/context/SettingsContext';
@@ -98,17 +99,47 @@ afterEach(async () => {
 });
 
 describe('the hardware section', () => {
-  // It used to be a collapsible section on Settings. It is now its own page,
-  // reached by a button and absent from the main navigation, so there is no
-  // toggle - and a stale one would silently hide every field behind a click
-  // that no longer exists.
-  it('has no expander, because it is a page rather than a section', async () => {
+  // One row per peripheral (#533). Rendered on its own, without the page's
+  // open row, every row is open, so nothing here is hidden behind a click.
+  it('folds into one row per peripheral, all open when rendered on its own', async () => {
     await device();
     renderSection();
 
     await open();
-    expect(screen.queryByTestId('hardware-toggle')).toBeNull();
+    for (const row of ['targets', 'led', 'audio', 'ethernet', 'network']) {
+      expect(screen.getByTestId(`settings-fold-${row}`).querySelector('button')?.getAttribute('aria-expanded')).toBe(
+        'true',
+      );
+    }
     expect(screen.getByTestId('hardware-bank-table')).toBeTruthy();
+  });
+
+  // Edits survive folding, and the row says it holds some, so a change made
+  // under Audio is not forgotten while Ethernet is open.
+  it('marks a row with unsaved edits, and keeps them while it is folded', async () => {
+    await device();
+    function Page(): React.ReactNode {
+      const [row, setRow] = useState<string | null>('audio');
+      return <HardwareSection open={row} onToggle={(id) => setRow(row === id ? null : id)} />;
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsProvider>
+          <Page />
+        </SettingsProvider>
+      </QueryClientProvider>,
+    );
+    await open();
+
+    fireEvent.change(field('hardware-i2s-mclk'), { target: { value: '3' } });
+    const audio = screen.getByTestId('settings-fold-audio');
+    expect(audio.textContent).toContain('Not saved');
+    expect(audio.textContent).toContain('MCLK 3');
+
+    fireEvent.click(screen.getByTestId('settings-fold-ethernet').querySelector('button') as HTMLButtonElement);
+    expect(field('hardware-i2s-mclk').value).toBe('3');
+    expect(audio.querySelector('button')?.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('hardware-save').hasAttribute('disabled')).toBe(false);
   });
 
   it('shows what the device is configured for', async () => {

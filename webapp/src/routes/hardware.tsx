@@ -1,5 +1,10 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router';
+import { useDiagnosticsApi } from '../api/diagnostics';
+import { useHardwareConfigApi } from '../api/hardwareConfig';
+import { useWifiApi } from '../api/wifi';
 import { HardwareSection } from '../components/HardwareSection';
+import { SettingsFold, SettingsGroup } from '../components/SettingsFold';
 import { WifiConfigSection } from '../components/WifiConfigSection';
 import { TroubleshootingSection } from '../components/TroubleshootingSection';
 import { RestartToApply } from '../components/RestartToApply';
@@ -34,7 +39,38 @@ export const Route = createFileRoute('/hardware')({
 
 export function HardwarePage(): React.ReactNode {
   const { open, remainingSeconds } = useConfigWindow();
-  const t = useT().hardware.page;
+  const all = useT();
+  const t = all.hardware.page;
+  const o = all.hardware.overview;
+
+  // The open row is the URL's hash, as on Settings: /hardware#audio.
+  const hash = useLocation({ select: (location) => location.hash });
+  const openRow = hash === '' ? null : hash;
+  const navigate = useNavigate();
+  const toggle = (id: string): void => {
+    void navigate({
+      to: '/hardware',
+      hash: openRow === id ? '' : id,
+      replace: true,
+      resetScroll: false,
+      hashScrollIntoView: false,
+    });
+  };
+
+  // Each already fetched by a section on this page, under the same key.
+  const hardwareApi = useHardwareConfigApi();
+  const wifiApi = useWifiApi();
+  const diagnosticsApi = useDiagnosticsApi();
+  const { data: hardware } = useQuery({ queryKey: ['hardware-config'], queryFn: hardwareApi.get });
+  const { data: wifi } = useQuery({ queryKey: ['wifi'], queryFn: wifiApi.status });
+  const { data: diagnostics } = useQuery({ queryKey: ['diagnostics'], queryFn: diagnosticsApi.info });
+  const changed =
+    hardware === undefined
+      ? undefined
+      : (Object.keys(hardware.defaults) as (keyof typeof hardware.defaults)[]).filter(
+          (key) => JSON.stringify(hardware.saved[key]) !== JSON.stringify(hardware.defaults[key]),
+        ).length;
+  const crashDump = diagnostics?.coredumpPresent === true;
 
   return (
     <div className={styles.container}>
@@ -80,16 +116,52 @@ export function HardwarePage(): React.ReactNode {
           lapse while the page is open, or the page be reached by a bookmark. */}
       {open && (
         <>
-          {/* Before the pins: it is the one somebody arrives here for while
-              the device is otherwise working, and the pins are a once-per-board
-              job. */}
-          <WifiConfigSection />
+          <section className={styles.overview} aria-labelledby='expert-overview-title' data-testid='expert-overview'>
+            <h2 id='expert-overview-title' className={styles.srOnly}>
+              {o.statusLabel}
+            </h2>
+            <dl className={styles.overviewList}>
+              <dt>{o.restart}</dt>
+              <dd>{hardware?.restartRequired === true ? o.restartPending : o.restartNone}</dd>
+              <dt>{o.changed}</dt>
+              <dd>{changed === undefined ? '…' : o.changedCount(changed)}</dd>
+              <dt>{o.wifi}</dt>
+              <dd>{wifi === undefined ? '…' : o.wifiNetwork(wifi.ssid)}</dd>
+            </dl>
+          </section>
 
-          <HardwareSection />
+          {/* First: it is the one somebody arrives here for while the device is
+              otherwise working, and the pins are a once-per-board job. */}
+          <SettingsGroup title={o.groups.connection} expert>
+            <SettingsFold
+              id='wifi'
+              title={all.hardware.wifi.title}
+              line={{ summary: wifi === undefined ? '…' : o.wifiNetwork(wifi.ssid) }}
+              open={openRow === 'wifi'}
+              onToggle={toggle}
+            >
+              <WifiConfigSection />
+            </SettingsFold>
+          </SettingsGroup>
+
+          <HardwareSection open={openRow} onToggle={toggle} />
 
           {/* Last: it hands out a copy of the device's memory, so it is the
               heaviest thing on the page rather than the first thing offered. */}
-          <TroubleshootingSection />
+          <SettingsGroup title={o.groups.fault} expert>
+            <SettingsFold
+              id='troubleshooting'
+              title={all.settings.troubleshooting.title}
+              line={{
+                summary: crashDump ? o.crashDump : o.noCrashDump,
+                status: crashDump ? { label: o.badgeCrashDump, tone: 'attention' } : undefined,
+              }}
+              open={openRow === 'troubleshooting'}
+              onToggle={toggle}
+            >
+              <TroubleshootingSection />
+            </SettingsFold>
+          </SettingsGroup>
         </>
       )}
     </div>

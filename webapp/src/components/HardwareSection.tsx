@@ -8,6 +8,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT } from '../i18n';
 import { BANK_LETTERS } from '../lib/program-document';
+import type { Line } from '../hooks/useSettingsOverview';
+import { SettingsFold, SettingsGroup } from './SettingsFold';
 import styles from './HardwareSection.module.css';
 
 /**
@@ -104,7 +106,24 @@ const NETWORK_FIELDS: NumericField[] = [
   { key: 'wifiMaxRetries', testId: 'hardware-wifi-retries' },
 ];
 
-export function HardwareSection(): React.ReactNode {
+/** Which configuration keys each folding row holds, for its badges (#533). */
+const GROUP_KEYS = {
+  targets: ['banks'],
+  led: ['ledGpio'],
+  audio: AUDIO_FIELDS.map((field) => field.key),
+  ethernet: ['ethEnabled', ...ETHERNET_FIELDS.map((field) => field.key)],
+  network: ['hostname', 'displayName', 'wifiEnabled', ...NETWORK_FIELDS.map((field) => field.key)],
+} satisfies Record<string, (keyof HardwareConfigPatch)[]>;
+
+type GroupId = keyof typeof GROUP_KEYS;
+
+interface Props {
+  /** The open row on the page, shared with its other folds; every row is open when absent. */
+  open?: string | null;
+  onToggle?: (id: string) => void;
+}
+
+export function HardwareSection({ open, onToggle = () => undefined }: Props): React.ReactNode {
   const t = useT().hardware;
   const { controlLockToken } = useSettings();
   const { controlLockEnabled } = useControlLockStatus();
@@ -251,25 +270,34 @@ export function HardwareSection(): React.ReactNode {
     </label>
   );
 
-  const group = (title: string, testId: string, children: React.ReactNode): React.ReactNode => (
-    <div className={styles.group} data-testid={testId}>
-      <h3 className={styles.groupTitle}>{title}</h3>
-      <div className={styles.fields}>{children}</div>
-    </div>
+  const o = t.overview;
+  const differs = (key: keyof HardwareConfigPatch): boolean =>
+    key === 'banks' ? JSON.stringify(savedBanks) !== JSON.stringify(defaultBanks) : saved[key] !== state.defaults[key];
+  // Unsaved edits outrank a stored difference: they are what Save is about to send.
+  const lineFor = (id: GroupId, summary: string): Line => {
+    const keys: (keyof HardwareConfigPatch)[] = GROUP_KEYS[id];
+    if (keys.some((key) => key in patch)) return { summary, status: { label: o.badgeUnsaved, tone: 'attention' } };
+    if (keys.some(differs)) return { summary, status: { label: o.badgeChanged, tone: 'quiet' } };
+    return { summary };
+  };
+  const pin = (gpio: number): string => (gpio < 0 ? o.unused : String(gpio));
+
+  const group = (id: GroupId, title: string, summary: string, children: React.ReactNode): React.ReactNode => (
+    <SettingsFold
+      id={id}
+      title={title}
+      line={lineFor(id, summary)}
+      open={open === undefined || open === id}
+      onToggle={onToggle}
+    >
+      <div className={styles.fields} data-testid={`hardware-group-${id}`}>
+        {children}
+      </div>
+    </SettingsFold>
   );
 
   return (
-    <section className={clsx(styles.section, styles.expert)} data-testid='hardware-section'>
-      <div className={styles.head}>
-        <h2 className={styles.sectionTitle}>{t.title}</h2>
-      </div>
-
-      <p className={styles.explain}>
-        {t.explainBefore}
-        <strong>{t.explainWarning}</strong>
-        {t.explainAfter}
-      </p>
-
+    <section className={styles.folded} data-testid='hardware-section'>
       {state.restartRequired && (
         <p className={styles.pending} data-testid='hardware-restart-required'>
           {t.restartRequiredBefore}
@@ -280,10 +308,26 @@ export function HardwareSection(): React.ReactNode {
         </p>
       )}
 
-      <>
+      <SettingsGroup
+        title={t.title}
+        expert
+        note={
+          <>
+            {t.explainBefore}
+            <strong>{t.explainWarning}</strong>
+            {t.explainAfter}
+          </>
+        }
+      >
         {group(
+          'targets',
           t.groups.targets,
-          'hardware-group-targets',
+          o.banks(
+            banks.length,
+            banks
+              .map((bank, index) => `${BANK_LETTERS[index]} ${Number.isFinite(bank.gpio) ? String(bank.gpio) : '?'}`)
+              .join(', '),
+          ),
           <>
             {/* A table rather than a repeated field group: every bank has the
                   same four values, and the question somebody has here is "which
@@ -465,13 +509,19 @@ export function HardwareSection(): React.ReactNode {
           </>,
         )}
 
-        {group(t.groups.led, 'hardware-group-led', LED_FIELDS.map(numeric))}
-
-        {group(t.groups.audio, 'hardware-group-audio', AUDIO_FIELDS.map(numeric))}
+        {group('led', t.groups.led, `GPIO ${pin(value('ledGpio'))}`, LED_FIELDS.map(numeric))}
 
         {group(
+          'audio',
+          t.groups.audio,
+          `BCK ${pin(value('i2sBckGpio'))} · WS ${pin(value('i2sWsGpio'))} · DOUT ${pin(value('i2sDoutGpio'))} · MCLK ${pin(value('i2sMclkGpio'))}`,
+          AUDIO_FIELDS.map(numeric),
+        )}
+
+        {group(
+          'ethernet',
           t.groups.ethernet,
-          'hardware-group-ethernet',
+          value('ethEnabled') ? `CS ${pin(value('ethCsGpio'))} · INT ${pin(value('ethIntGpio'))}` : o.off,
           <>
             {toggle({ key: 'ethEnabled', testId: 'hardware-eth-enabled' })}
             {ETHERNET_FIELDS.map(numeric)}
@@ -479,8 +529,9 @@ export function HardwareSection(): React.ReactNode {
         )}
 
         {group(
+          'network',
           t.groups.network,
-          'hardware-group-network',
+          `${value('hostname') || '…'}.local · ${t.fields.httpPort.label} ${String(value('httpPort'))}`,
           <>
             <label className={styles.field}>
               <span className={styles.label}>
@@ -528,7 +579,9 @@ export function HardwareSection(): React.ReactNode {
             {NETWORK_FIELDS.map(numeric)}
           </>,
         )}
+      </SettingsGroup>
 
+      <>
         <div className={styles.actions}>
           <button
             className={clsx(styles.button, styles.buttonPrimary)}

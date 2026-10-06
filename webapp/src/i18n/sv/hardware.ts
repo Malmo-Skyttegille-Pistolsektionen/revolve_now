@@ -27,12 +27,40 @@ export const hardware: Messages['hardware'] = {
   restartRequiredMiddle: ' — enheten kör fortfarande konfigurationen den startade med. Använd ',
   restartRequiredAction: 'Starta om för att verkställa',
   restartRequiredAfter: ' högst upp på sidan.',
+  overview: {
+    statusLabel: 'Expertlägets status',
+    restart: 'Omstart krävs',
+    restartPending: 'Ja - sparade värden används inte än',
+    restartNone: 'Nej',
+    changed: 'Ändrat',
+    changedCount: (count: number) =>
+      count === 0
+        ? 'Allt har sitt standardvärde'
+        : count === 1
+          ? '1 inställning skiljer sig från standard'
+          : `${String(count)} inställningar skiljer sig från standard`,
+    wifi: 'WiFi',
+    groups: {
+      connection: 'Anslutning',
+      hardware: 'Hårdvara',
+      fault: 'Felrapport',
+    },
+    badgeChanged: 'Ändrat',
+    badgeUnsaved: 'Inte sparat',
+    badgeCrashDump: 'Kraschdump',
+    banks: (count: number, pins: string) => `${count === 1 ? '1 grupp' : `${String(count)} grupper`} · ${pins}`,
+    off: 'Av',
+    unused: 'av',
+    wifiNetwork: (ssid: string) => (ssid === '' ? 'Inget nätverk sparat' : `Går med i ${ssid}`),
+    crashDump: 'En kraschdump väntar på att hämtas',
+    noCrashDump: 'Ingen kraschdump på enheten',
+  },
   groups: {
     targets: 'Tavlor',
     led: 'Statuslampan (LED)',
     audio: 'Ljud',
     ethernet: 'Ethernet (W5500)',
-    network: 'Nätverk',
+    network: 'Namn och nätverk',
   },
   fields: {
     ledGpio: {
