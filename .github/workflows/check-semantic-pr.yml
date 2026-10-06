@@ -8,6 +8,11 @@ on:
 permissions:
   pull-requests: read
 
+# A newer push or title edit supersedes the run.
+concurrency:
+  group: check-semantic-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   title:
     name: conventional commit title

@@ -164,6 +164,12 @@ Renaming one anyway is a two-step, in this order: rename here and let it
 report under the new name, **then** update the ruleset. The reverse order,
 and doing both at once, both wedge the gate shut until an admin bypasses it.
 
+For the same reason a required job never gets a `paths:` filter or a
+job-level `if:` that skips it. A change it cannot affect skips its *steps*
+instead, on the answer of `.github/scripts/changed_areas.py`. A path that
+script does not know about runs everything, so a new top-level directory is
+safe, but it stays slow until somebody adds a rule for it.
+
 ## Hardware rules that bite everyone
 
 Full detail in [`firmware/AGENTS.md`](firmware/AGENTS.md); these two are worth
