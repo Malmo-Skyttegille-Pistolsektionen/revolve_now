@@ -5,7 +5,7 @@ import { useWifiApi } from '../api/wifi';
 import { useSettings } from '../context/SettingsContext';
 import { useT } from '../i18n';
 import { formatBytes } from '../lib/format-bytes';
-import { compareVersions, fetchReleases } from '../lib/release-check';
+import { compareVersions, githubReleasesQuery } from '../lib/release-check';
 import { useControlLockStatus } from './useControlLockStatus';
 
 /**
@@ -25,9 +25,9 @@ export interface Line {
  * One line per Settings row, so the page can be read from its headings (#525).
  *
  * Every query here is one a section below already makes, under the same key,
- * so the overview costs no request of its own. GitHub is asked only under
- * the Update section's own rules: `github-releases` with its staleTime and no
- * retry, and a failure reads as "not checked" rather than as a fault.
+ * so the overview costs no request of its own. GitHub is asked through the
+ * Update section's own `githubReleasesQuery`, and a failure reads as "not checked"
+ * rather than as a fault.
  */
 export function useSettingsOverview() {
   const t = useT();
@@ -41,13 +41,7 @@ export function useSettingsOverview() {
   const { data: diagnostics } = useQuery({ queryKey: ['diagnostics'], queryFn: diagnosticsApi.info });
   const { data: wifi } = useQuery({ queryKey: ['wifi'], queryFn: wifiApi.status });
   const { data: ethernet } = useQuery({ queryKey: ['ethernet'], queryFn: ethernetApi.status });
-  const releases = useQuery({
-    queryKey: ['github-releases'],
-    queryFn: ({ signal }) => fetchReleases(undefined, signal),
-    staleTime: 10 * 60_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const releases = useQuery(githubReleasesQuery);
 
   const running = diagnostics?.version;
   const latest = releases.data?.find((release) => !release.prerelease);
@@ -66,7 +60,7 @@ export function useSettingsOverview() {
   const wired = ethernet?.present === true && ethernet.linkUp && ethernet.ipAddress !== '';
   const bars = Math.max(0, Math.min(4, wifi?.bars ?? 0));
   const network: Line =
-    wifi === undefined && ethernet === undefined
+    wifi === undefined && !wired
       ? { summary: o.checking }
       : wired
         ? { summary: `${o.viaEthernet} · ${ethernet.ipAddress}`, status: { label: o.viaEthernet, tone: 'quiet' } }

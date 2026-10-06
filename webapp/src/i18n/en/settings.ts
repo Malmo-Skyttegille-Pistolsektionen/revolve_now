@@ -12,7 +12,6 @@ export const settings = {
     controlLock: 'Control lock',
     appearance: 'Appearance and language',
     checking: 'Checking…',
-    unknown: 'Not known',
     upToDate: 'Up to date',
     updateAvailable: (version: string) => `${version} available`,
     notChecked: 'Not checked',

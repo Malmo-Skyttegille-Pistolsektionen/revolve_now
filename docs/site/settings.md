@@ -22,9 +22,9 @@ newer release or a startup problem, says so in its badge.
 | Control lock | device | Whether control is open to everyone or needs a login |
 | Storage | device | How much room the flash partitions have |
 | Startup Issues | device | What the device could not read when it booted |
+| About | device | What firmware and web app this is, and exactly which build |
 | Appearance and language | browser | Light or dark, English or Swedish, or whatever this phone or computer is set to |
 | Server Base URL | browser | Which device this browser talks to, and the address the device reports |
-| About | device | What firmware and web app this is, and exactly which build |
 
 ![The Settings page](img/settings.png)
 

@@ -114,7 +114,8 @@
   box-shadow: none;
 }
 
-.body:not(.keepHeadings) > section > h2:first-child {
+.body:not(.keepHeadings) > section > h2:first-child,
+.body:not(.keepHeadings) > section > div:first-child > h2:first-child {
   display: none;
 }
 

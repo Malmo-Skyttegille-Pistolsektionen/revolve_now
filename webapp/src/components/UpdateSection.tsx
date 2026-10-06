@@ -10,7 +10,7 @@ import {
   FIRST_IN_APP_UPDATE,
   ReleaseCheckError,
   compareVersions,
-  fetchReleases,
+  githubReleasesQuery,
   formatCheckedAt,
   sha256OfFile,
   type Release,
@@ -20,9 +20,6 @@ import styles from './UpdateSection.module.css';
 
 // Markdown rendering is most of this page's weight; the run screen never needs it.
 const ReleaseNotes = lazy(() => import('./ReleaseNotes').then((module) => ({ default: module.ReleaseNotes })));
-
-/** Long enough that opening Settings again does not spend GitHub's 60 requests an hour. */
-const CHECK_STALE_MS = 10 * 60_000;
 
 /**
  * Update the device without a cable (D-47): pick a GitHub release, or upload
@@ -58,13 +55,7 @@ export function UpdateSection(): React.ReactNode {
   const [confirmingDowngrade, setConfirmingDowngrade] = useState(false);
 
   const { data: diagnostics } = useQuery({ queryKey: ['diagnostics'], queryFn: diagnosticsApi.info });
-  const releasesQuery = useQuery({
-    queryKey: ['github-releases'],
-    queryFn: ({ signal }) => fetchReleases(undefined, signal),
-    staleTime: CHECK_STALE_MS,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const releasesQuery = useQuery(githubReleasesQuery);
 
   const running = diagnostics?.version;
   const runningLabel = running ?? t.common.unavailable;

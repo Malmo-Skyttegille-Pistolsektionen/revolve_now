@@ -23,9 +23,9 @@ exempel en nyare version eller ett startproblem, säger det i sin etikett.
 | Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
 | Lagring | enhet | Hur mycket plats flashpartitionerna har |
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
+| Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
 | Utseende och språk | webbläsare | Ljust eller mörkt, engelska eller svenska, eller det som den här telefonen eller datorn är inställd på |
 | Serveradress (Server Base URL) | webbläsare | Vilken enhet den här webbläsaren pratar med, och adressen enheten rapporterar |
-| Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
 
 ![Sidan Inställningar](img/settings.png)
 

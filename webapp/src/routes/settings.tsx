@@ -1,5 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { createFileRoute, useLocation, useNavigate } from '@tanstack/react-router';
 import { useT } from '../i18n';
 import { ServerUrlSection } from '../components/ServerUrlSection';
 import { ThemeSection } from '../components/ThemeSection';
@@ -20,23 +19,24 @@ export const Route = createFileRoute('/settings')({
   component: SettingsPage,
 });
 
-/** The row a link opened, e.g. /settings#update. */
-function initialFold(): string | null {
-  const hash = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
-  return hash === '' ? null : hash;
-}
-
 function SettingsPage(): React.ReactNode {
   const t = useT();
   const o = t.settings.overview;
   const lines = useSettingsOverview();
-  const [open, setOpen] = useState<string | null>(initialFold);
+  // The open row is the URL's hash, so /settings#update opens one directly.
+  const hash = useLocation({ select: (location) => location.hash });
+  const open = hash === '' ? null : hash;
+  const navigate = useNavigate();
 
   // One open at a time, so the page stays as short as the overview.
   const toggle = (id: string): void => {
-    const next = open === id ? null : id;
-    setOpen(next);
-    window.history.replaceState(null, '', next === null ? window.location.pathname : `#${next}`);
+    void navigate({
+      to: '/settings',
+      hash: open === id ? '' : id,
+      replace: true,
+      resetScroll: false,
+      hashScrollIntoView: false,
+    });
   };
   const fold = (
     id: string,
@@ -59,16 +59,21 @@ function SettingsPage(): React.ReactNode {
           reading this page may not be the one who saved it. */}
       <RestartPendingNotice />
 
-      <dl className={styles.overview} aria-label={o.statusLabel} data-testid='settings-overview'>
-        <dt>{o.firmware}</dt>
-        <dd>{[lines.update.summary, lines.update.status?.label].filter(Boolean).join(' · ')}</dd>
-        <dt>{o.connection}</dt>
-        <dd>{lines.network.summary}</dd>
-        <dt>{o.startup}</dt>
-        <dd>{lines.startup.status?.label ?? lines.startup.summary}</dd>
-        <dt>{o.controlLock}</dt>
-        <dd>{lines.lock.status?.label}</dd>
-      </dl>
+      <section className={styles.overview} aria-labelledby='settings-overview-title' data-testid='settings-overview'>
+        <h2 id='settings-overview-title' className={styles.srOnly}>
+          {o.statusLabel}
+        </h2>
+        <dl className={styles.overviewList}>
+          <dt>{o.firmware}</dt>
+          <dd>{[lines.update.summary, lines.update.status?.label].filter(Boolean).join(' · ')}</dd>
+          <dt>{o.connection}</dt>
+          <dd>{lines.network.summary}</dd>
+          <dt>{o.startup}</dt>
+          <dd>{lines.startup.status?.label ?? lines.startup.summary}</dd>
+          <dt>{o.controlLock}</dt>
+          <dd>{lines.lock.status?.label}</dd>
+        </dl>
+      </section>
 
       <SettingsGroup title={o.groups.device}>
         {fold('update', t.settings.update.title, lines.update, <UpdateSection />)}
@@ -80,6 +85,7 @@ function SettingsPage(): React.ReactNode {
         {fold('control-lock', t.settings.controlLock.title, lines.lock, <ControlLockSection />)}
         {fold('storage', t.settings.storage.title, lines.storage, <StorageSection />)}
         {fold('startup-issues', t.settings.startupIssues.title, lines.startup, <StartupIssuesSection />)}
+        {fold('about', t.settings.about.title, lines.about, <AboutSection />)}
       </SettingsGroup>
 
       <SettingsGroup title={o.groups.browser}>
@@ -94,7 +100,6 @@ function SettingsPage(): React.ReactNode {
           true,
         )}
         {fold('server-url', t.settings.serverUrl.title, lines.address, <ServerUrlSection />)}
-        {fold('about', t.settings.about.title, lines.about, <AboutSection />)}
       </SettingsGroup>
     </div>
   );

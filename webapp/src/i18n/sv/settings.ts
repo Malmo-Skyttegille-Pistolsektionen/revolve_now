@@ -14,7 +14,6 @@ export const settings: Messages['settings'] = {
     controlLock: 'Kontrollås',
     appearance: 'Utseende och språk',
     checking: 'Kontrollerar…',
-    unknown: 'Okänt',
     upToDate: 'Senaste versionen',
     updateAvailable: (version: string) => `${version} finns`,
     notChecked: 'Inte kontrollerat',
