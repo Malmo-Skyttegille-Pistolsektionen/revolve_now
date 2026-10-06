@@ -158,8 +158,9 @@ uppåt, och talar om vilket den valde.
 
 ## Var det finns efter det { #where-it-lives-after-that }
 
-Ett uppladdat program finns på **en enhet**. För att få det på varje enhet, och
-för att behålla det genom en omflashning, måste det in i repot — se
+Ett uppladdat program finns på **en enhet**. Det finns kvar efter
+uppdateringar, och en [säkerhetskopia](settings.md#backup) flyttar det till en
+annan enhet. För att få det på varje enhet måste det in i repot — se
 [få in ett program i den medföljande uppsättningen](programs-and-audio.md#getting-a-program-into-the-shipped-set).
 
 [Programredigeraren](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/editor/) gör båda halvorna av det åt dig: öppna

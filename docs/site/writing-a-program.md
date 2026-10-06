@@ -155,8 +155,9 @@ up, and tells you which it chose.
 
 ## Where it lives after that
 
-An uploaded program is on **one device**. To put it on every device, and to
-keep it through a reflash, it has to go into the repository — see
+An uploaded program is on **one device**. It survives updates, and a
+[backup](settings.md#backup) moves it to another device. To put it on every
+device, it has to go into the repository — see
 [getting a program into the shipped set](programs-and-audio.md#getting-a-program-into-the-shipped-set).
 
 The [program editor](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/editor/) does both halves of that for you: open the

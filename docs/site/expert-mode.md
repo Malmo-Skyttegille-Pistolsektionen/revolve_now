@@ -140,6 +140,24 @@ target system, so it has to be configurable — but it is also what protects
 somebody standing downrange when a board is powered, so it changes only from
 the serial console with a cable attached.
 
+### Audio { #audio }
+
+The **Audio** group says where the I2S DAC that plays the range commands is
+wired. The pin names on a DAC or amplifier board differ from the firmware's:
+
+| Field | Wire it to |
+|---|---|
+| **I2S bit clock (BCK)** | BCLK or BCK |
+| **I2S word select (WS/LRCK)** | LRC or LCK |
+| **I2S data out (DOUT)** | DIN. The names cross over, which is the usual way to wire this wrong |
+| **I2S master clock (MCLK)** | SCK, or `-1` to leave it undriven |
+
+Most PCM5102A boards make their own clock and want MCLK at `-1`. Some do not
+play without it, and the club's PCB rev 1 is one of them: its audio needs
+MCLK on GPIO48. Such a board can seem fine after a restart and then stay
+silent after a power cut, because the DAC keeps the clock it was given while
+it stays powered. Test it by switching the power off and on.
+
 ## Troubleshooting
 
 One zip file holding the device's own details and, if it has crashed, the crash

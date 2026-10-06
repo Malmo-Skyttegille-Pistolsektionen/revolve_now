@@ -36,6 +36,10 @@ mobile data or a previous WiFi.
 
 - Confirm the amplifier is powered and connected — the device has no way to
   detect that on its own.
+- Silent although the amplifier is powered and the pins look right? Check
+  the master clock (MCLK) in [Expert mode](expert-mode.md#audio). Some DAC
+  boards, the club's PCB rev 1 among them, play only with it, and may play
+  after a restart but not after a power cut.
 - Some devices are built with audio hardware disabled entirely; a target that
   only turns, with no sound, is a supported configuration on those. If that is
   the case for this device, there is nothing to fix.
