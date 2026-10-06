@@ -30,6 +30,7 @@ in `revolvenow_hardware.kicad_pcb` (position error given). Anything else is in
 | U12, U13 (new) | SN74AHCT1G125DBVR | C7484 | TI part, 4.5–5.5 V | non-inverting buffers for LED data and clock, replacing Q3/Q4 |
 | D2, D3 → one part | USBLC6-2SC6 | C7519 | ST datasheet figure 1 | pins 1/6 line 1, 3/4 line 2, 2 GND, 5 VBUS |
 | D4 | SMBJ5.0A | C78423 | Brightking datasheet | 5 V stand-off, 6.4 V breakdown, replaces the 18 V part |
+| FB1 | BLM21PG221SN1D | C85840 | Murata part, 0805 | 2 A, 220 Ω at 100 MHz. The whole 5 V supply passes FB1 (module peaks ~355 mA plus up to ~360 mA for six LEDs), so the common 500 mA 600 Ω bead is too small |
 | L1 | BLM18PG121SN1D | C14709 | WIZnet hardware design guide | bead between VDD and AVDD, 100–2000 Ω at 100 MHz; this one is 120 Ω, 2 A |
 | R26, R27 | 5.1 kΩ | basic | USB-C spec | fitted, so a C-to-C supply turns VBUS on |
 | C14 | 22 µF 6.3 V X5R 0603 | C59461 | basic part | the only 22 µF in 0603; 6.3 V on a 3.3 V rail |
@@ -61,7 +62,35 @@ Numbered as in the PR #436 review; N1 is new.
 | J3 | Are the 3.3 V / 5 V / 12 V labels the voltages used on the range? | designer |
 | J1 | Which RJ45 is fitted on the rev 1 boards? If known, its footprint can stay | designer |
 | U8 | MX25L3233FMI-08G (C2802999) is 16-pin as the footprint needs, but 69 in stock at $3.72, and the firmware does not use it. Fit or leave empty? | club |
-| — | Cost: roughly $345–360 for five boards delivered to Sweden, $535–550 for ten, including Standard PCBA (the module and SK9822 are "standard-only" parts), extended-part fees and 25 % VAT. An estimate from list prices, not a quote; the quote comes from the Gerber + BOM + CPL upload | — |
+| — | Final cost: the quote below is for this parts list on the hand-built rev 1 copper. The PCBA rev 1 Gerbers will change it a little | — |
+
+## Quote, 2026-10-06
+
+JLCPCB online quote, logged in, Standard PCBA, top side, the smallest order
+(5 PCBs, 2 of them assembled). Board: the hand-built rev 1 Gerbers (same
+100 × 100 mm, 2 layers). Parts: this file's verified list, 47 LCSC lines and
+142 placements. Shipping and Swedish import VAT come on top.
+
+| Item | USD |
+|---|--:|
+| PCB: engineering fee $4.00 + boards $5.30 | 9.30 |
+| Setup fee | 25.75 |
+| Stencil | 8.27 |
+| Components, 47 lines incl. attrition | 46.91 |
+| Feeders loading (extended parts, per order) | 68.20 |
+| SMT assembly | 3.34 |
+| Hand soldering (through-hole) | 3.61 |
+| Manual assembly | 1.45 |
+| X-ray inspection | 3.30 |
+| Packaging | 0.50 |
+| **Total, 2 assembled + 3 bare** | **170.63** |
+
+About $107 of that ($25.75 setup + $8.27 stencil + $68.20 feeders + $4.00
+engineering) is per order, not per board, so each further board costs roughly
+the components and labour, about $30. The heaviest single parts are the
+ESP32 module ($10.27 for two) and the flash ($7.43 for two), which the firmware
+does not use. Weight 1.03 kg; to Sweden JLC offered DHL Express without DDP,
+so 25 % VAT and DHL's handling fee are charged on delivery.
 
 ## Rejected
 
