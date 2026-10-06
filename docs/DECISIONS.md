@@ -1997,10 +1997,15 @@ within its grace — and a portal that then sees Ethernet get an address
 restarts into the normal path. While Ethernet serves, a WiFi that failed its
 initial join is retried every minute rather than abandoned.
 
-**Why probe rather than a build or runtime switch:** the probe is one register
-read and costs nothing on a board without the chip, so the stock image works
-with or without a module. CS -1 is the switch for a board that needs those
-pins for something else.
+**Switches:** `wifiEnabled` and `ethEnabled` turn either interface off, never
+both. WiFi off holds only while Ethernet has an address at boot; otherwise WiFi
+is used anyway and the setup portal stays the fallback, so no setting can leave
+a board unreachable. A ten-second BOOT hold resets both to on.
+
+**Why probe rather than require the switch:** the probe is one register read
+and costs nothing on a board without the chip, so the stock image works with or
+without a module. `ethEnabled` off is for a board that needs those pins for
+something else.
 
 **Why the Ethernet address wins `DiagnosticsInfo.ipAddress`:** a cable is
 plugged in because it is the dependable link. `GET /wifi` and the new

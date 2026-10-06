@@ -67,6 +67,11 @@ HardwareConfig compiled_defaults() {
   config.i2s_dout_gpio = 11;
   config.http_port = 80;
   config.wifi_max_retries = 10;
+  config.eth_sclk_gpio = 41;
+  config.eth_mosi_gpio = 39;
+  config.eth_miso_gpio = 40;
+  config.eth_cs_gpio = 42;
+  config.eth_int_gpio = 38;
   return config;
 }
 
@@ -104,8 +109,12 @@ void test_the_ethernet_pins_are_read_when_stored() {
   FakeStore store;
   HardwareConfig config = compiled_defaults();
   TEST_ASSERT_FALSE(rt::overlay_config(store, config));
-  TEST_ASSERT_EQUAL_INT32(rt::kPinUnused, config.eth_cs_gpio);
+  TEST_ASSERT_EQUAL_INT32(42, config.eth_cs_gpio);
+  TEST_ASSERT_TRUE(config.wifi_enabled);
+  TEST_ASSERT_TRUE(config.eth_enabled);
 
+  store.bools[rt::hw_key::kWifiOn] = false;
+  store.bools[rt::hw_key::kEthOn] = false;
   store.ints[rt::hw_key::kEthSclk] = 41;
   store.ints[rt::hw_key::kEthMosi] = 39;
   store.ints[rt::hw_key::kEthMiso] = 40;
@@ -119,6 +128,8 @@ void test_the_ethernet_pins_are_read_when_stored() {
   TEST_ASSERT_EQUAL_INT32(42, config.eth_cs_gpio);
   TEST_ASSERT_EQUAL_INT32(38, config.eth_int_gpio);
   TEST_ASSERT_EQUAL_INT32(2, config.eth_rst_gpio);
+  TEST_ASSERT_FALSE(config.wifi_enabled);
+  TEST_ASSERT_FALSE(config.eth_enabled);
 }
 
 // The count decides how many banks are read.
@@ -248,8 +259,9 @@ void test_every_key_fits_what_nvs_accepts() {
   }
   TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(rt::hw_key::kBankCount).size());
   TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(rt::hw_key::kBootShown).size());
-  for (const char *key : {rt::hw_key::kEthSclk, rt::hw_key::kEthMosi, rt::hw_key::kEthMiso,
-                          rt::hw_key::kEthCs, rt::hw_key::kEthInt, rt::hw_key::kEthRst}) {
+  for (const char *key :
+       {rt::hw_key::kEthSclk, rt::hw_key::kEthMosi, rt::hw_key::kEthMiso, rt::hw_key::kEthCs,
+        rt::hw_key::kEthInt, rt::hw_key::kEthRst, rt::hw_key::kWifiOn, rt::hw_key::kEthOn}) {
     TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(key).size());
   }
 }

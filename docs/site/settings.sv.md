@@ -18,8 +18,7 @@ veta vilken som är vilken innan du ändrar något:
 | Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
 | Lagring | enhet | Hur mycket plats flashpartitionerna har |
-| WiFi | enhet | Vilket nätverk den är på, och hur bra länken är |
-| Ethernet | enhet | Kabellänken och dess adress — bara på ett kort med en [Ethernet-modul](hardware.md#ethernet) |
+| Nätverk | enhet | WiFi: vilket nätverk den är på och hur bra länken är. Ethernet: kabellänken och dess adress |
 | Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
 
 ![Sidan Inställningar](img/settings.png)
@@ -101,7 +100,14 @@ inte röra det du har lagt på den.
 kan ångras. Att en av dem är nästan tom är normalt på en enhet som aldrig har
 uppdaterats.
 
-## WiFi { #wifi }
+## Nätverk { #network }
+
+Hur enheten är ansluten, i två halvor: WiFi, och Ethernet på en firmware som
+stöder en [Ethernet-modul](hardware.md#ethernet). En enhet på båda har två
+adresser, och båda når den. Att stänga av någon av dem görs i
+[Expertläge](expert-mode.md#hardware).
+
+### WiFi { #wifi }
 
 Vilket nätverk enheten gick med i, hur stark signalen är, adressen den kan nås
 på och MAC-adressen en router listar den under. Alltihop är en avläsning —
@@ -127,13 +133,16 @@ För att *byta* nätverk, se [Expertläge](expert-mode.md#wifi). Det är ett bes
 per plats bakom knapptrycket på kortet, vilket är varför det inte finns på den
 här sidan.
 
-## Ethernet { #ethernet }
+### Ethernet { #ethernet }
 
-Visas bara på ett kort med en [Ethernet-modul](hardware.md#ethernet) som
-enheten hittade när den startade. **Länk** säger om en kabel sitter i och något
-svarar i andra änden, och i vilken hastighet; **Adress** är den routern gav den
-över kabeln. En enhet på både WiFi och kabel har två adresser, och båda når
-den.
+**Länk** säger om en kabel sitter i och något svarar i andra änden, och i
+vilken hastighet; **Adress** är den routern gav den över kabeln. I stället kan
+det stå att Ethernet är **avstängt**, eller att **ingen modul hittades** när
+enheten startade — den letar bara då, så en modul som monteras senare kräver en
+omstart.
+
+Om WiFi är avstängt säger dess halva det. Enheten använder ändå WiFi när
+kabeln inte ger någon adress, så den kan inte bli onåbar.
 
 ## Om { #about }
 

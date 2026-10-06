@@ -94,3 +94,22 @@
   font-size: 0.85rem;
   line-height: 1.4;
 }
+
+/* WiFi and Ethernet are two halves of one section, a rule between them. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.panel + .panel {
+  border-top: 1px solid var(--rt-border);
+  padding-top: 0.9rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--rt-text-strong);
+  font-weight: 600;
+}

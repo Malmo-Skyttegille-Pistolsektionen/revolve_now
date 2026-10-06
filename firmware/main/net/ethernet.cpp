@@ -121,8 +121,8 @@ bool make_driver(esp_eth_mac_t **mac, esp_eth_phy_t **phy) {
   return *mac != nullptr && *phy != nullptr;
 #elif CONFIG_RT_ETH_W5500_ENABLED
   const rt::HardwareConfig &hw = hardware_store::current();
-  if (hw.eth_cs_gpio == rt::kPinUnused) {
-    ESP_LOGI(TAG, "No W5500 configured");
+  if (!hw.eth_enabled) {
+    ESP_LOGI(TAG, "Ethernet switched off in the hardware configuration");
     return false;
   }
 
@@ -196,6 +196,12 @@ bool supported() {
 bool start() {
   s_lock = xSemaphoreCreateMutex();
   s_events = xEventGroupCreate();
+
+#if CONFIG_RT_NET_OPENETH
+  s_status.enabled = true;
+#elif CONFIG_RT_ETH_W5500_ENABLED
+  s_status.enabled = hardware_store::current().eth_enabled;
+#endif
 
   esp_eth_mac_t *mac = nullptr;
   esp_eth_phy_t *phy = nullptr;

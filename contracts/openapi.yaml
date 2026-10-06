@@ -1879,6 +1879,8 @@ components:
           i2sMclkGpio,
           httpPort,
           wifiMaxRetries,
+          wifiEnabled,
+          ethEnabled,
           ethSclkGpio,
           ethMosiGpio,
           ethMisoGpio,
@@ -2005,6 +2007,20 @@ components:
             portal. At roughly 2.4 s an attempt, 60 is about two and a half
             minutes; beyond that a device that cannot join looks broken rather
             than busy.
+        wifiEnabled:
+          type: boolean
+          description: >-
+            Whether to join WiFi. Off is honoured only while Ethernet has an
+            address at boot; without one the device joins WiFi anyway and
+            falls back to the setup portal, so it cannot be left unreachable.
+            Off together with `ethEnabled` off is refused.
+        ethEnabled:
+          type: boolean
+          description: >-
+            Whether to look for a W5500 at boot. On, the device probes for the
+            chip on the pins below and carries on over WiFi alone if nothing
+            answers, and the pins are checked like any other; off, they are
+            carried but not used.
         ethSclkGpio:
           type: integer
           format: int32
@@ -2026,13 +2042,9 @@ components:
         ethCsGpio:
           type: integer
           format: int32
-          minimum: -1
+          minimum: 0
           maximum: 48
-          description: >-
-            The W5500's chip select, or -1 for no W5500. With a pin here the
-            device probes for the chip at boot and carries on over WiFi alone
-            if nothing answers, and the other five Ethernet pins are checked
-            like any other; with -1 they are carried but not used.
+          description: The W5500's chip select (SCS).
         ethIntGpio:
           type: integer
           format: int32
@@ -2144,6 +2156,10 @@ components:
           $ref: "#/components/schemas/HardwareConfig/properties/httpPort"
         wifiMaxRetries:
           $ref: "#/components/schemas/HardwareConfig/properties/wifiMaxRetries"
+        wifiEnabled:
+          $ref: "#/components/schemas/HardwareConfig/properties/wifiEnabled"
+        ethEnabled:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethEnabled"
         ethSclkGpio:
           $ref: "#/components/schemas/HardwareConfig/properties/ethSclkGpio"
         ethMosiGpio:
@@ -2207,7 +2223,7 @@ components:
         presence for precisely this reason. A read anyone on the network may
         make is not the second place.
       required:
-        [radioPresent, connected, ssid, rssi, bars, ipAddress, macAddress, provisioned,
+        [radioPresent, enabled, connected, ssid, rssi, bars, ipAddress, macAddress, provisioned,
          restartRequired]
       additionalProperties: false
       properties:
@@ -2218,6 +2234,12 @@ components:
             build (`CONFIG_RT_NET_OPENETH`, QEMU), where every field below is
             empty or zero and the other two operations refuse with
             `/problems/wifi_unavailable`.
+        enabled:
+          type: boolean
+          description: >-
+            `HardwareConfig.wifiEnabled` as the device booted with, false with
+            no radio. Off is honoured only while Ethernet serves, so the
+            station may still be `connected` with this false.
         connected:
           type: boolean
           description: >-
@@ -2336,7 +2358,7 @@ components:
       type: object
       description: The wired interface, as it stands.
       required:
-        [supported, present, linkUp, speedMbps, fullDuplex, ipAddress, macAddress]
+        [supported, enabled, present, linkUp, speedMbps, fullDuplex, ipAddress, macAddress]
       additionalProperties: false
       properties:
         supported:
@@ -2345,13 +2367,17 @@ components:
             Whether this build can have a wired interface at all. False on a
             firmware built without W5500 support; every field below is then
             false, zero or empty.
+        enabled:
+          type: boolean
+          description: >-
+            `HardwareConfig.ethEnabled` as the device booted with. False means
+            it did not look for a controller, so `present` is false too.
         present:
           type: boolean
           description: >-
-            Whether a controller answered at boot. False when no W5500 is
-            configured (`HardwareConfig.ethCsGpio` -1) or none responded on the
-            configured pins - the probe runs once, so fitting one needs a
-            restart.
+            Whether a controller answered at boot. False when Ethernet is
+            switched off or none responded on the configured pins - the probe
+            runs once, so fitting one needs a restart.
         linkUp:
           type: boolean
           description: Whether a cable is in and something is at the other end.

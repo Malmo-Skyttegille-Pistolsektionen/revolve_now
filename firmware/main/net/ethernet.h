@@ -16,6 +16,8 @@ struct Status {
   // A controller answered at boot. False with no W5500 wired, or one that did
   // not respond, and on a build without Ethernet support at all.
   bool present = false;
+  // Not switched off in the hardware configuration. Always true under QEMU.
+  bool enabled = false;
   bool link_up = false;
   // 10 or 100 while the link is up, 0 otherwise.
   int speed_mbps = 0;

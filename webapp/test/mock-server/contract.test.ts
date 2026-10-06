@@ -56,7 +56,7 @@ const COMPILED_DEFAULTS = onDevice
       ethSclkGpio: 0,
       ethMosiGpio: 0,
       ethMisoGpio: 0,
-      ethCsGpio: -1,
+      ethCsGpio: 0,
       ethIntGpio: -1,
     }
   : HARDWARE_DEFAULTS;
@@ -895,7 +895,7 @@ describe('Ethernet (#262)', () => {
   it('reports the wired link the device is answering over', async () => {
     const status = (await (await api('/ethernet')).json()) as Record<string, unknown>;
     expect(Object.keys(status).sort()).toEqual(
-      ['fullDuplex', 'ipAddress', 'linkUp', 'macAddress', 'present', 'speedMbps', 'supported'].sort(),
+      ['enabled', 'fullDuplex', 'ipAddress', 'linkUp', 'macAddress', 'present', 'speedMbps', 'supported'].sort(),
     );
     expect(status.supported).toBe(true);
     expect(status.present).toBe(true);

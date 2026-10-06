@@ -62,9 +62,17 @@ export const hardware = {
       label: 'I2S master clock (MCLK)',
       hint: 'To SCK on the DAC board, or -1 to leave it undriven. Most PCM5102A boards make their own clock and want -1; if yours stays silent with the other pins right, it may need this.',
     },
+    wifiEnabled: {
+      label: 'Use WiFi',
+      hint: 'Off leaves the device on Ethernet only. It is honoured only while the cable gives an address — without one the device uses WiFi anyway, so it can always be reached. WiFi and Ethernet cannot both be off.',
+    },
+    ethEnabled: {
+      label: 'Use Ethernet',
+      hint: 'On, the device looks for a W5500 at every start and carries on over WiFi if there is none. Turn it off to free these pins for something else.',
+    },
     ethCsGpio: {
       label: 'W5500 chip select (CS)',
-      hint: 'To SCS on the W5500, or -1 for no Ethernet. With a pin here the device looks for the chip at every start and carries on over WiFi if it is not there.',
+      hint: 'To SCS on the W5500.',
     },
     ethSclkGpio: {
       label: 'W5500 SPI clock (SCLK)',

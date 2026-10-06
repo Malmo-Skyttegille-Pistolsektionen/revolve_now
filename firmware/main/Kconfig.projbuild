@@ -136,9 +136,9 @@ config RT_ETH_MISO_GPIO
     depends on RT_ETH_W5500_ENABLED
 
 config RT_ETH_CS_GPIO
-    int "W5500 chip select (SCS) GPIO, -1 for no W5500"
+    int "W5500 chip select (SCS) GPIO"
     default 42
-    range -1 48
+    range 0 48
     depends on RT_ETH_W5500_ENABLED
 
 config RT_ETH_INT_GPIO

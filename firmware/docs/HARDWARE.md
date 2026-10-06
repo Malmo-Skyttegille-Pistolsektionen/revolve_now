@@ -119,7 +119,10 @@ register, which is the probe. Nothing answering logs one line and the device
 carries on over WiFi. A chip that answers gets a DHCP client and the MAC
 `esp_read_mac(ESP_MAC_ETH)` gives it, and the server and mDNS answer on it
 beside WiFi. `net_mgr::connect()` returns as soon as either interface has an
-address; the setup portal comes up only when neither can get one.
+address; the setup portal comes up only when neither can get one. Either
+interface can be switched off (`wifiEnabled`, `ethEnabled`), never both, and
+WiFi off holds only while Ethernet has an address. The serial console's
+`status` shows both interfaces and `eth-info` the wired one in detail.
 
 The pins are the PCB's U10 nets, so a module on the PoC uses the same
 `sdkconfig`. On the DevKitC-1, GPIO39–42 are the pad-JTAG pins, which do not
@@ -298,7 +301,8 @@ The console is the asymmetric one and it catches people out. `console.cpp`
 writes with `usb_serial_jtag_write_bytes()`, so **the `rt>` prompt exists only
 on the native USB socket.** On the UART bridge the log output still streams,
 which makes the port look right — but every command typed there is silently
-ignored. That covers `boot-targets` (#144), `wifi-scan` and `wifi-info`.
+ignored. That covers `boot-targets` (#144), `wifi-scan`, `wifi-info` and
+`eth-info`.
 
 If a documented serial-only command appears to do nothing, check the vendor ID
 before checking anything else.

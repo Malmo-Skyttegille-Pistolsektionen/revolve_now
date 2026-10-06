@@ -1236,6 +1236,10 @@ std::string hardware_config_json(const rt::HardwareConfig &config) {
   out += std::to_string(config.http_port);
   out += ",\"wifiMaxRetries\":";
   out += std::to_string(config.wifi_max_retries);
+  out += ",\"wifiEnabled\":";
+  out += config.wifi_enabled ? "true" : "false";
+  out += ",\"ethEnabled\":";
+  out += config.eth_enabled ? "true" : "false";
   out += ",\"ethSclkGpio\":";
   out += std::to_string(config.eth_sclk_gpio);
   out += ",\"ethMosiGpio\":";
@@ -1266,7 +1270,8 @@ bool same_config(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
          a.wifi_max_retries == b.wifi_max_retries && a.eth_sclk_gpio == b.eth_sclk_gpio &&
          a.eth_mosi_gpio == b.eth_mosi_gpio && a.eth_miso_gpio == b.eth_miso_gpio &&
          a.eth_cs_gpio == b.eth_cs_gpio && a.eth_int_gpio == b.eth_int_gpio &&
-         a.eth_rst_gpio == b.eth_rst_gpio;
+         a.eth_rst_gpio == b.eth_rst_gpio && a.wifi_enabled == b.wifi_enabled &&
+         a.eth_enabled == b.eth_enabled;
 }
 
 void register_config_routes() {
@@ -1382,6 +1387,9 @@ void register_config_routes() {
     if (!doc["httpPort"].isNull()) config.http_port = doc["httpPort"] | config.http_port;
     if (!doc["wifiMaxRetries"].isNull())
       config.wifi_max_retries = doc["wifiMaxRetries"] | config.wifi_max_retries;
+    if (!doc["wifiEnabled"].isNull())
+      config.wifi_enabled = doc["wifiEnabled"] | config.wifi_enabled;
+    if (!doc["ethEnabled"].isNull()) config.eth_enabled = doc["ethEnabled"] | config.eth_enabled;
     if (!doc["ethSclkGpio"].isNull())
       config.eth_sclk_gpio = doc["ethSclkGpio"] | config.eth_sclk_gpio;
     if (!doc["ethMosiGpio"].isNull())
@@ -1436,6 +1444,10 @@ std::string wifi_status_json(bool radio, const std::string &ssid, int rssi, int 
 
   std::string out = "{\"radioPresent\":";
   out += radio ? "true" : "false";
+  // Switched off in the hardware configuration (#262). Off is honoured only
+  // while Ethernet serves, so `connected` can still be true with this false.
+  out += ",\"enabled\":";
+  out += radio && hardware_store::current().wifi_enabled ? "true" : "false";
   out += ",\"connected\":";
   out += connected ? "true" : "false";
   out += ",\"ssid\":";
@@ -1464,6 +1476,8 @@ void register_ethernet_routes() {
     const ethernet::Status eth = ethernet::status();
     std::string out = "{\"supported\":";
     out += ethernet::supported() ? "true" : "false";
+    out += ",\"enabled\":";
+    out += eth.enabled ? "true" : "false";
     out += ",\"present\":";
     out += eth.present ? "true" : "false";
     out += ",\"linkUp\":";

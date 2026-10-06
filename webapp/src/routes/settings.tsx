@@ -7,8 +7,7 @@ import { ControlLockSection } from '../components/ControlLockSection';
 import { StartupIssuesSection } from '../components/StartupIssuesSection';
 import { StorageSection } from '../components/StorageSection';
 import { FirmwareSection } from '../components/FirmwareSection';
-import { WifiSection } from '../components/WifiSection';
-import { EthernetSection } from '../components/EthernetSection';
+import { NetworkSection } from '../components/NetworkSection';
 import { AboutSection } from '../components/AboutSection';
 import { RestartPendingNotice } from '../components/RestartPendingNotice';
 import styles from './settings.module.css';
@@ -44,9 +43,7 @@ function SettingsPage(): React.ReactNode {
       {/* Read-only, and the change is in Expert mode: which network the device
           looks for is a once-per-site decision behind the button press, not
           something this page should be able to do. */}
-      <WifiSection />
-
-      <EthernetSection />
+      <NetworkSection />
 
       <FirmwareSection />
 

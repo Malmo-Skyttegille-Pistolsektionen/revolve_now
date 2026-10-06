@@ -161,7 +161,8 @@ bool same_as(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
          a.i2s_mclk_gpio == b.i2s_mclk_gpio && a.eth_sclk_gpio == b.eth_sclk_gpio &&
          a.eth_mosi_gpio == b.eth_mosi_gpio && a.eth_miso_gpio == b.eth_miso_gpio &&
          a.eth_cs_gpio == b.eth_cs_gpio && a.eth_int_gpio == b.eth_int_gpio &&
-         a.eth_rst_gpio == b.eth_rst_gpio;
+         a.eth_rst_gpio == b.eth_rst_gpio && a.wifi_enabled == b.wifi_enabled &&
+         a.eth_enabled == b.eth_enabled;
 }
 
 }  // namespace
@@ -264,6 +265,8 @@ rt::ConfigRefusal save(const rt::HardwareConfig &config, rt::ValidationDetail *d
   nvs_set_i32(handle, hw_key::kI2sMclk, config.i2s_mclk_gpio);
   nvs_set_i32(handle, hw_key::kHttpPort, config.http_port);
   nvs_set_i32(handle, hw_key::kWifiRetry, config.wifi_max_retries);
+  nvs_set_i8(handle, hw_key::kWifiOn, config.wifi_enabled ? 1 : 0);
+  nvs_set_i8(handle, hw_key::kEthOn, config.eth_enabled ? 1 : 0);
   nvs_set_i32(handle, hw_key::kEthSclk, config.eth_sclk_gpio);
   nvs_set_i32(handle, hw_key::kEthMosi, config.eth_mosi_gpio);
   nvs_set_i32(handle, hw_key::kEthMiso, config.eth_miso_gpio);
@@ -307,9 +310,10 @@ bool reset() {
   // would turn "undo my hardware change" into "and now find the setup portal".
   for (const char *key :
        {hw_key::kBankCount, hw_key::kHostname, hw_key::kDisplayName, hw_key::kBootShown,
-        hw_key::kLedGpio, hw_key::kI2sPort, hw_key::kI2sBck, hw_key::kI2sWs, hw_key::kI2sDout,
-        hw_key::kI2sMclk, hw_key::kHttpPort, hw_key::kWifiRetry, hw_key::kEthSclk, hw_key::kEthMosi,
-        hw_key::kEthMiso, hw_key::kEthCs, hw_key::kEthInt, hw_key::kEthRst}) {
+        hw_key::kLedGpio,   hw_key::kI2sPort,  hw_key::kI2sBck,      hw_key::kI2sWs,
+        hw_key::kI2sDout,   hw_key::kI2sMclk,  hw_key::kHttpPort,    hw_key::kWifiRetry,
+        hw_key::kEthSclk,   hw_key::kEthMosi,  hw_key::kEthMiso,     hw_key::kEthCs,
+        hw_key::kEthInt,    hw_key::kEthRst,   hw_key::kWifiOn,      hw_key::kEthOn}) {
     if (!erase_if_present(handle, key)) {
       nvs_close(handle);
       return false;

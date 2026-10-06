@@ -86,7 +86,7 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
     }
   }
 
-  if (present.ethernet && config.eth_cs_gpio != kPinUnused) {
+  if (present.ethernet && config.eth_enabled) {
     for (const int32_t gpio :
          {config.eth_sclk_gpio, config.eth_mosi_gpio, config.eth_miso_gpio, config.eth_cs_gpio}) {
       const ConfigRefusal pin = validate_pin(gpio);
@@ -119,6 +119,10 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
 
   for (const TargetBank &bank : config.banks) {
     if (bank.name.size() > kMaxBankNameLength) return ConfigRefusal::kBankNameTooLong;
+  }
+
+  if (!config.wifi_enabled && !(present.ethernet && config.eth_enabled)) {
+    return ConfigRefusal::kNoNetwork;
   }
 
   const ConfigRefusal hostname = validate_hostname(config.hostname);
@@ -178,6 +182,9 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
     case ConfigRefusal::kBankCountOutOfRange:
       return "A device drives between 1 and " + std::to_string(kMaxTargetBanks) +
              " target banks, called A to " + bank_letter(kMaxTargetBanks - 1) + ".";
+    case ConfigRefusal::kNoNetwork:
+      return "WiFi and Ethernet cannot both be off - the device would have no network to be "
+             "reached on.";
     case ConfigRefusal::kBankNameTooLong:
       return "A bank name is at most " + std::to_string(kMaxBankNameLength) + " characters.";
     case ConfigRefusal::kPinCollision:

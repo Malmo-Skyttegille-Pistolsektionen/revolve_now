@@ -59,9 +59,17 @@ export const hardware: Messages['hardware'] = {
       label: 'I2S masterklocka (MCLK)',
       hint: 'Till SCK på DAC-kortet, eller -1 för att lämna den odriven. De flesta PCM5102A-kort gör sin egen klocka och vill ha -1; är ditt tyst fast de andra stiften stämmer kan det behöva den här.',
     },
+    wifiEnabled: {
+      label: 'Använd WiFi',
+      hint: 'Av lämnar enheten på enbart Ethernet. Det gäller bara så länge kabeln ger en adress — utan en använder enheten WiFi ändå, så den går alltid att nå. WiFi och Ethernet kan inte båda vara av.',
+    },
+    ethEnabled: {
+      label: 'Använd Ethernet',
+      hint: 'På letar enheten efter en W5500 vid varje start och fortsätter över WiFi om det inte finns någon. Stäng av för att frigöra de här stiften till något annat.',
+    },
     ethCsGpio: {
       label: 'W5500 chip select (CS)',
-      hint: 'Till SCS på W5500, eller -1 för inget Ethernet. Med ett stift här letar enheten efter kretsen vid varje start och fortsätter över WiFi om den inte finns.',
+      hint: 'Till SCS på W5500.',
     },
     ethSclkGpio: {
       label: 'W5500 SPI-klocka (SCLK)',

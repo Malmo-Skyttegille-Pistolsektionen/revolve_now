@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { EthernetStatus } from '../src/api/types';
 import { SettingsProvider } from '../src/context/SettingsContext';
-import { EthernetSection } from '../src/components/EthernetSection';
+import { EthernetPanel } from '../src/components/EthernetPanel';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
 
@@ -32,7 +32,7 @@ function renderSection(): void {
   render(
     <QueryClientProvider client={queryClient}>
       <SettingsProvider>
-        <EthernetSection />
+        <EthernetPanel />
       </SettingsProvider>
     </QueryClientProvider>,
   );
@@ -50,7 +50,7 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('the Ethernet block on Settings', () => {
+describe('the Ethernet half of Settings → Network', () => {
   it('shows the link and the address of a W5500 that answered', async () => {
     await device({
       present: true,
@@ -75,9 +75,23 @@ describe('the Ethernet block on Settings', () => {
     expect(screen.getByTestId('ethernet-ip').textContent).toBe('none yet');
   });
 
-  // Most boards have no W5500; a section saying so on every one is noise.
-  it('stays out of the way on a board without one', async () => {
+  it('says when no module answered at boot', async () => {
     await device();
+    renderSection();
+
+    expect((await screen.findByTestId('ethernet-state')).textContent).toContain('No Ethernet module');
+  });
+
+  it('says when Ethernet is switched off', async () => {
+    await device({ enabled: false });
+    renderSection();
+
+    expect((await screen.findByTestId('ethernet-state')).textContent).toContain('Switched off');
+  });
+
+  // Firmware that cannot have Ethernet has nothing to say about it.
+  it('stays out of the way on a build without Ethernet', async () => {
+    await device({ supported: false, enabled: false });
     renderSection();
 
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));

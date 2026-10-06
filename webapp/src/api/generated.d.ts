@@ -1109,6 +1109,10 @@ export interface components {
              * @description How many times to try the stored network before raising the setup portal. At roughly 2.4 s an attempt, 60 is about two and a half minutes; beyond that a device that cannot join looks broken rather than busy.
              */
             wifiMaxRetries: number;
+            /** @description Whether to join WiFi. Off is honoured only while Ethernet has an address at boot; without one the device joins WiFi anyway and falls back to the setup portal, so it cannot be left unreachable. Off together with `ethEnabled` off is refused. */
+            wifiEnabled: boolean;
+            /** @description Whether to look for a W5500 at boot. On, the device probes for the chip on the pins below and carries on over WiFi alone if nothing answers, and the pins are checked like any other; off, they are carried but not used. */
+            ethEnabled: boolean;
             /**
              * Format: int32
              * @description The SPI clock to a W5500 Ethernet controller.
@@ -1126,7 +1130,7 @@ export interface components {
             ethMisoGpio: number;
             /**
              * Format: int32
-             * @description The W5500's chip select, or -1 for no W5500. With a pin here the device probes for the chip at boot and carries on over WiFi alone if nothing answers, and the other five Ethernet pins are checked like any other; with -1 they are carried but not used.
+             * @description The W5500's chip select (SCS).
              */
             ethCsGpio: number;
             /**
@@ -1218,6 +1222,8 @@ export interface components {
             i2sMclkGpio?: components["schemas"]["HardwareConfig"]["i2sMclkGpio"];
             httpPort?: components["schemas"]["HardwareConfig"]["httpPort"];
             wifiMaxRetries?: components["schemas"]["HardwareConfig"]["wifiMaxRetries"];
+            wifiEnabled?: components["schemas"]["HardwareConfig"]["wifiEnabled"];
+            ethEnabled?: components["schemas"]["HardwareConfig"]["ethEnabled"];
             ethSclkGpio?: components["schemas"]["HardwareConfig"]["ethSclkGpio"];
             ethMosiGpio?: components["schemas"]["HardwareConfig"]["ethMosiGpio"];
             ethMisoGpio?: components["schemas"]["HardwareConfig"]["ethMisoGpio"];
@@ -1257,6 +1263,8 @@ export interface components {
         WifiStatus: {
             /** @description Whether this build has a WiFi radio at all. False on the Ethernet build (`CONFIG_RT_NET_OPENETH`, QEMU), where every field below is empty or zero and the other two operations refuse with `/problems/wifi_unavailable`. */
             radioPresent: boolean;
+            /** @description `HardwareConfig.wifiEnabled` as the device booted with, false with no radio. Off is honoured only while Ethernet serves, so the station may still be `connected` with this false. */
+            enabled: boolean;
             /** @description Whether the station currently holds an association. A device serving this response is normally connected — but it may be answering over the Ethernet build, or in the moment between a drop and a reconnect, which the reconnect backoff can stretch to 30 seconds. */
             connected: boolean;
             /** @description The network joined, empty when not associated. Which one this is matters: the store tries the provisioned network first and the compiled seeds after it, so a device that has been to two sites may be on either. */
@@ -1325,7 +1333,9 @@ export interface components {
         EthernetStatus: {
             /** @description Whether this build can have a wired interface at all. False on a firmware built without W5500 support; every field below is then false, zero or empty. */
             supported: boolean;
-            /** @description Whether a controller answered at boot. False when no W5500 is configured (`HardwareConfig.ethCsGpio` -1) or none responded on the configured pins - the probe runs once, so fitting one needs a restart. */
+            /** @description `HardwareConfig.ethEnabled` as the device booted with. False means it did not look for a controller, so `present` is false too. */
+            enabled: boolean;
+            /** @description Whether a controller answered at boot. False when Ethernet is switched off or none responded on the configured pins - the probe runs once, so fitting one needs a restart. */
             present: boolean;
             /** @description Whether a cable is in and something is at the other end. */
             linkUp: boolean;

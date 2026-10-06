@@ -307,11 +307,23 @@ Result connect() {
   ethernet::on_address(&on_wired_address);
   const bool wired = ethernet::start();
 
+  // WiFi switched off holds only while the cable serves. Without an address
+  // there, WiFi is used anyway: otherwise a board whose cable came out could
+  // be reached by nothing, not even the setup portal.
+  if (!hardware_store::current().wifi_enabled) {
+    if (wired && ethernet::wait_for_address(kLinkGrace, kDhcpTimeout)) {
+      ESP_LOGW(TAG, "WiFi switched off - serving over Ethernet only");
+      s_networks.clear();
+    } else {
+      ESP_LOGW(TAG, "WiFi is switched off but Ethernet has no address - using WiFi anyway");
+    }
+  }
+
   if (s_networks.empty()) {
     if (wired && ethernet::wait_for_address(kLinkGrace, kDhcpTimeout)) {
       // The radio still comes up, unassociated, so the web app can scan for a
       // network and store one.
-      ESP_LOGW(TAG, "No WiFi network configured - serving over Ethernet");
+      ESP_LOGI(TAG, "Not joining WiFi - serving over Ethernet");
       init_station();
       ESP_ERROR_CHECK(esp_wifi_start());
       net_common::start_mdns();

@@ -165,8 +165,8 @@ describe('the hardware section', () => {
   });
 
   // The W5500's pins are pins like any other (#262): one on a bank's pad is
-  // refused, and -1 for CS switches Ethernet off so the rest go unchecked.
-  it('checks the Ethernet pins only while a W5500 is configured', async () => {
+  // refused, and switching Ethernet off leaves them unchecked.
+  it('checks the Ethernet pins only while Ethernet is on', async () => {
     await device();
     renderSection();
     await open();
@@ -177,16 +177,34 @@ describe('the hardware section', () => {
     });
     await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('same GPIO'));
 
-    await type('hardware-eth-cs', '-1');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-eth-enabled'));
+    });
     await act(async () => {
       fireEvent.click(screen.getByTestId('hardware-save'));
     });
     await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).not.toContain('same GPIO'));
 
     const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
-      saved: { ethCsGpio: number };
+      saved: { ethEnabled: boolean };
     };
-    expect(state.saved.ethCsGpio).toBe(-1);
+    expect(state.saved.ethEnabled).toBe(false);
+  });
+
+  it('refuses switching off both WiFi and Ethernet', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    for (const testId of ['hardware-wifi-enabled', 'hardware-eth-enabled']) {
+      await act(async () => {
+        fireEvent.click(screen.getByTestId(testId));
+      });
+    }
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('cannot both be off'));
   });
 
   // The device's RFC 9457 `detail` is the sentence written for the situation -

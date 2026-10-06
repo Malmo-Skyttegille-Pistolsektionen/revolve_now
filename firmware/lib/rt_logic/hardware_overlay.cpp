@@ -59,6 +59,8 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
   }
 
   if (reader.read_bool(hw_key::kBootShown, out.targets_shown_at_boot)) found = true;
+  if (reader.read_bool(hw_key::kWifiOn, out.wifi_enabled)) found = true;
+  if (reader.read_bool(hw_key::kEthOn, out.eth_enabled)) found = true;
 
   const struct {
     const char *key;

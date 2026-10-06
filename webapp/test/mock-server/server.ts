@@ -176,9 +176,9 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
     if (refusal !== null) return refusal;
   }
 
-  // The W5500 (#262) is off while its CS is -1, and its pins are then not checked.
+  // The W5500's pins (#262) are checked only while Ethernet is switched on.
   const eth: number[] = [];
-  if (config.ethCsGpio !== -1) {
+  if (config.ethEnabled) {
     eth.push(config.ethSclkGpio, config.ethMosiGpio, config.ethMisoGpio, config.ethCsGpio);
     for (const gpio of [config.ethIntGpio, config.ethRstGpio]) if (gpio !== -1) eth.push(gpio);
     for (const gpio of eth) {
@@ -189,6 +189,10 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
 
   const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s, ...eth];
   if (new Set(inUse).size !== inUse.length) return PIN_COLLISION;
+
+  if (!config.wifiEnabled && !config.ethEnabled) {
+    return 'WiFi and Ethernet cannot both be off - the device would have no network to be reached on.';
+  }
 
   if (config.hostname.length === 0) return 'The hostname cannot be empty - it is how the device is reached.';
   if (config.hostname.length > 20) return 'The hostname is too long; 20 characters at most.';
@@ -228,6 +232,8 @@ export const HARDWARE_DEFAULTS: HardwareConfig = {
   i2sMclkGpio: -1,
   httpPort: 80,
   wifiMaxRetries: 10,
+  wifiEnabled: true,
+  ethEnabled: true,
   ethSclkGpio: 41,
   ethMosiGpio: 39,
   ethMisoGpio: 40,
@@ -299,6 +305,7 @@ const DEFAULT_PARTITIONS: DiagnosticsInfo['partitions'] = [
 // boundary falls.
 const DEFAULT_WIFI: WifiStatus = {
   radioPresent: true,
+  enabled: true,
   connected: true,
   ssid: 'Range',
   rssi: -52,
@@ -313,6 +320,7 @@ const DEFAULT_WIFI: WifiStatus = {
 // every board shipped so far (#262).
 const DEFAULT_ETHERNET: EthernetStatus = {
   supported: true,
+  enabled: true,
   present: false,
   linkUp: false,
   speedMbps: 0,

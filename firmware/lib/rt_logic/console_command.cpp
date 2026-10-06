@@ -40,6 +40,7 @@ Command parse_command(std::string_view line) {
   if (equals_ignoring_case(word, "boot-targets")) return Command::kBootTargets;
   if (equals_ignoring_case(word, "wifi-scan")) return Command::kWifiScan;
   if (equals_ignoring_case(word, "wifi-info")) return Command::kWifiInfo;
+  if (equals_ignoring_case(word, "eth-info")) return Command::kEthInfo;
   if (equals_ignoring_case(word, "factory-reset")) return Command::kFactoryReset;
   if (equals_ignoring_case(word, "play")) return Command::kPlay;
   return Command::kUnknown;

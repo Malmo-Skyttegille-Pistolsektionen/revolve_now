@@ -65,14 +65,20 @@ struct HardwareConfig {
   // this kI2sPinUnused; the PCB rev 1 breakout stays silent without it (#506).
   int32_t i2s_mclk_gpio = kI2sPinUnused;
 
-  // A W5500 Ethernet controller on SPI (#262). `eth_cs_gpio` kPinUnused means
-  // none is wired; otherwise the device probes for one at boot and carries on
-  // over WiFi alone if nothing answers. INT and RST are optional: without INT
-  // the driver polls, and without RST it resets the chip over SPI.
+  // Which interfaces to use (#262). Both off is refused. WiFi off is honoured
+  // only while Ethernet has an address - without one the device joins WiFi
+  // anyway and falls back to the setup portal, so it cannot lock itself out.
+  bool wifi_enabled = true;
+  bool eth_enabled = true;
+
+  // A W5500 Ethernet controller on SPI (#262). With `eth_enabled` the device
+  // probes for one at boot and carries on over WiFi alone if nothing answers.
+  // INT and RST are optional: without INT the driver polls, and without RST it
+  // resets the chip over SPI.
   int32_t eth_sclk_gpio = 0;
   int32_t eth_mosi_gpio = 0;
   int32_t eth_miso_gpio = 0;
-  int32_t eth_cs_gpio = kPinUnused;
+  int32_t eth_cs_gpio = 0;
   int32_t eth_int_gpio = kPinUnused;
   int32_t eth_rst_gpio = kPinUnused;
 
@@ -115,6 +121,7 @@ enum class ConfigRefusal {
   kWifiRetriesOutOfRange,
   kBankCountOutOfRange,
   kBankNameTooLong,
+  kNoNetwork,
 };
 
 // A DNS label is 63 octets; mDNS is no more generous. The setup AP appends

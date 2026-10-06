@@ -96,8 +96,10 @@ nätverket. Fel värden här är de vars väg tillbaka är en USB-kabel:
   appen uppe att rätta det från.
 
 Gruppen **Ethernet (W5500)** säger var en [Ethernet-modul](hardware.md#ethernet)
-är kopplad. Dess chip select satt till **-1** stänger av Ethernet, och de andra
-fem stiften används då inte.
+är kopplad, och **Använd Ethernet** stänger av den för att frigöra stiften.
+**Använd WiFi**, under Nätverk, gör samma sak för WiFi. De kan inte båda vara
+av, och WiFi av gäller bara så länge kabeln ger enheten en adress — utan en
+används WiFi ändå, så den går alltid att nå.
 
 **Ingenting här börjar gälla förrän enheten startar om**, och sidan säger det
 när ett sparat värde ännu inte används — då **Starta om för att verkställa**
