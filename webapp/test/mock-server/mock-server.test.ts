@@ -6,11 +6,19 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AudioFile, DiagnosticsInfo, LibraryChangedPayload, StateUpdatePayload } from '../../src/api/types';
+import type {
+  AudioFile,
+  DiagnosticsInfo,
+  HardwareConfigState,
+  LibraryChangedPayload,
+  RestoreReport,
+  StateUpdatePayload,
+} from '../../src/api/types';
 import { PROGRAM_FALT_TRANING } from '../fixtures';
 import { createFakeClock, type FakeClock } from './clock';
 import { HARDWARE_DEFAULTS, createMockServer, fakeFirmwareImage, loadSeedFromDisk, type MockServer } from './server';
 import { flushIO, openSSE, type SSEReader } from './sse-reader';
+import { writeStoredZip, type ZipEntry } from './zip';
 
 /** The app's tsconfig targets ES2020, so no `Array.prototype.at`. */
 function last<T>(items: T[]): T {
@@ -1221,5 +1229,136 @@ describe('target banks, program side', () => {
     } finally {
       await device.close();
     }
+  });
+});
+
+/**
+ * The restore's hardware rules and broken archives (#520) - the cases that
+ * change the configuration or need a damaged file, which the contract suite
+ * does not do to a real device. `firmware/host_test/test_backup` holds the
+ * firmware to the same rules.
+ */
+describe('restoring a backup', () => {
+  const MANIFEST: ZipEntry = {
+    name: 'manifest.json',
+    data: Buffer.from(
+      JSON.stringify({ format: 'revolve-now-backup', formatVersion: 1, firmwareVersion: '0.1.0', hostname: 'range-a' }),
+    ),
+  };
+  const json = (name: string, value: unknown): ZipEntry => ({ name, data: Buffer.from(JSON.stringify(value)) });
+
+  const restore = async (entries: ZipEntry[] | Buffer, query = ''): Promise<RestoreReport> => {
+    const zip = Buffer.isBuffer(entries) ? entries : writeStoredZip(entries);
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array(zip)]), 'backup.zip');
+    const res = await api(`/restore${query}`, { method: 'POST', body });
+    expect(res.status).toBe(200);
+    return (await res.json()) as RestoreReport;
+  };
+
+  const saved = async (): Promise<HardwareConfigState['saved']> =>
+    ((await (await api('/config/hardware')).json()) as HardwareConfigState).saved;
+
+  it('renumbers clips under the programs that play them, and skips them the second time', async () => {
+    const clipBody = new FormData();
+    clipBody.append('file', new Blob([new Uint8Array(Buffer.from('RIFF clip'))]), 'clip.wav');
+    clipBody.append('title', 'Round trip');
+    const clip = ((await (await api('/audios', { method: 'POST', body: clipBody })).json()) as { id: number }).id;
+    const program = (
+      (await (
+        await api('/programs', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: 'Round trip',
+            series: [{ name: 'S', events: [{ duration: 1, audio_ids: [3, clip] }] }],
+          }),
+        })
+      ).json()) as { id: number }
+    ).id;
+    const zip = Buffer.from(await (await api('/backup')).arrayBuffer());
+
+    await api(`/programs/${String(program)}/delete`, { method: 'DELETE' });
+    await api(`/audios/${String(clip)}/delete`, { method: 'DELETE' });
+    // Taken by something else, so the restored clip cannot keep its old id.
+    const squatter = new FormData();
+    squatter.append('file', new Blob([new Uint8Array(Buffer.from('RIFF other'))]), 'other.wav');
+    squatter.append('title', 'Other');
+    await api('/audios', { method: 'POST', body: squatter });
+
+    const report = await restore(zip, '?hardware=false');
+    const restoredClip = report.audios.find((item) => item.sourceId === clip);
+    expect(restoredClip).toMatchObject({ result: 'added', title: 'Round trip' });
+    expect(restoredClip?.id).not.toBe(clip);
+    const restoredProgram = report.programs.find((item) => item.sourceId === program);
+    const stored = (await (await api(`/programs/${String(restoredProgram?.id)}`)).json()) as {
+      series: { events: { audio_ids: number[] }[] }[];
+    };
+    expect(stored.series[0].events[0].audio_ids).toEqual([3, restoredClip?.id]);
+
+    const again = await restore(zip, '?hardware=false');
+    expect([...again.audios, ...again.programs].every((item) => item.result === 'skipped')).toBe(true);
+  });
+
+  it('saves the hardware onto the defaults and keeps this board’s name unless asked', async () => {
+    const entries = [MANIFEST, json('hardware.json', { hostname: 'range-a', i2sMclkGpio: 3 })];
+
+    expect((await restore(entries)).hardware.result).toBe('saved');
+    expect(await saved()).toMatchObject({ hostname: HARDWARE_DEFAULTS.hostname, i2sMclkGpio: 3 });
+
+    expect((await restore(entries, '?name=true')).hardware.result).toBe('saved');
+    expect((await saved()).hostname).toBe('range-a');
+
+    expect((await restore(entries, '?name=true')).hardware.result).toBe('unchanged');
+  });
+
+  it('skips the hardware with the window shut, and restores the rest', async () => {
+    server.setConfigWindow(false);
+    const report = await restore([
+      MANIFEST,
+      json('hardware.json', { i2sMclkGpio: 3 }),
+      json('programs/1000.json', { title: 'Still restored', series: [] }),
+    ]);
+    expect(report.hardware).toMatchObject({
+      result: 'skipped',
+      problem: { type: '/problems/hardware_config_window_closed' },
+    });
+    expect(report.programs[0].result).toBe('added');
+    expect((await saved()).i2sMclkGpio).toBe(HARDWARE_DEFAULTS.i2sMclkGpio);
+  });
+
+  it('reports a value the device refuses, with its reason', async () => {
+    const report = await restore([MANIFEST, json('hardware.json', { ledGpio: 27 })]);
+    expect(report.hardware).toMatchObject({
+      result: 'refused',
+      problem: { type: '/problems/hardware_config_invalid' },
+    });
+  });
+
+  it('drops references to a clip it could not restore', async () => {
+    const report = await restore([
+      MANIFEST,
+      { name: 'audio/1000.wav', data: Buffer.from('not a wav') },
+      json('programs/1000.json', { title: 'P', series: [{ name: 'S', events: [{ duration: 1, audio_ids: [1000] }] }] }),
+    ]);
+    expect(report.audios[0]).toMatchObject({ result: 'refused', title: 'Restored clip 1000' });
+    expect(report.programs[0]).toMatchObject({ result: 'added', droppedAudioIds: [1000] });
+  });
+
+  it('stops where a truncated archive ends, keeping what came before', async () => {
+    const whole = writeStoredZip([
+      MANIFEST,
+      json('programs/1000.json', { title: 'Before the cut', series: [] }),
+      json('programs/1001.json', { title: 'After the cut', series: [] }),
+    ]);
+    const report = await restore(whole.subarray(0, whole.indexOf('After the cut')));
+    expect(report.programs.map((item) => item.title)).toEqual(['Before the cut']);
+    expect(report.stoppedEarly?.type).toBe('/problems/backup_invalid');
+  });
+
+  it('refuses a damaged entry on its own', async () => {
+    const zip = writeStoredZip([MANIFEST, json('programs/1000.json', { title: 'Damaged', series: [] })]);
+    zip[zip.indexOf('Damaged')] ^= 0x01;
+    const report = await restore(zip);
+    expect(report.programs[0]).toMatchObject({ result: 'refused', problem: { type: '/problems/backup_invalid' } });
   });
 });

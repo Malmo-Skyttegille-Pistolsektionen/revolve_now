@@ -140,6 +140,54 @@ export const settings: Messages['settings'] = {
     accepted: 'Uppdateringen är installerad. Enheten startar om — den går inte att nå på några sekunder.',
     refused: 'Enheten avvisade uppdateringen.',
   },
+  backup: {
+    title: 'Säkerhetskopia',
+    explain:
+      'En fil med allt som laddats upp till enheten — program och ljud — och dess hårdvaruinställningar. Medföljande program och ljud ingår inte; de kommer med firmware. Ta en innan du uppdaterar firmware, och spara den någon annanstans än på enheten.',
+    noWifiBefore: '',
+    wifiPassword: 'WiFi-lösenordet',
+    noWifiAfter: ' finns aldrig i en säkerhetskopia, så den kan lämnas vidare.',
+    preparing: 'Förbereder…',
+    download: 'Ladda ner säkerhetskopia',
+    downloaded: 'Nedladdad.',
+    downloadRefused: 'Enheten avvisade nedladdningen.',
+    restoreTitle: 'Återställ',
+    restoreExplain:
+      'Lägger till det som finns i säkerhetskopian på enheten. Inget här tas bort, och sådant som redan finns hoppas över, så en andra återställning ändrar ingenting.',
+    restoreHardware: 'Hårdvaruinställningar',
+    hardwareNeedsWindow:
+      'Hårdvaruinställningar återställs bara medan konfigurationsfönstret är öppet — tryck på BOOT på enheten tre gånger först. Resten återställs ändå.',
+    restoreName: 'Enhetens namn',
+    nameHint:
+      'Värdnamnet och visningsnamnet från säkerhetskopian. Låt bli när du sätter upp ett andra kort, annars svarar två kort på samma namn.',
+    restoring: 'Återställer…',
+    restore: 'Återställ från fil…',
+    logInToRestore: 'Logga in för att återställa en säkerhetskopia.',
+    restoreRefused: 'Enheten avvisade säkerhetskopian.',
+    from: (hostname, version) => `Återställd från ${hostname}, firmware ${version}.`,
+    programs: 'Program',
+    audios: 'Ljud',
+    counts: (added, skipped, refused) =>
+      [
+        `${String(added)} tillagda`,
+        skipped > 0 ? `${String(skipped)} fanns redan` : null,
+        refused > 0 ? `${String(refused)} avvisade` : null,
+      ]
+        .filter((part) => part !== null)
+        .join(', '),
+    hardware: {
+      saved: 'Hårdvaruinställningarna är sparade — starta om enheten för att verkställa dem.',
+      unchanged: 'Hårdvaruinställningarna stämde redan med säkerhetskopian.',
+      notRequested: 'Hårdvaruinställningarna lämnades som de var.',
+      notIncluded: 'Säkerhetskopian innehåller inga hårdvaruinställningar.',
+      skipped: 'Hårdvaruinställningarna återställdes inte:',
+      refused: 'Enheten avvisade hårdvaruinställningarna:',
+    },
+    untitled: (id) => `#${String(id)}`,
+    droppedAudio: (title, count) =>
+      `${title} spelade ${String(count)} ljud som inte kunde återställas; ${count === 1 ? 'det har' : 'de har'} tagits bort från programmet.`,
+    stoppedEarly: 'Återställningen avbröts halvvägs:',
+  },
   about: {
     title: 'Om',
     app: 'App',

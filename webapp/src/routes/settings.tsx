@@ -7,6 +7,7 @@ import { ControlLockSection } from '../components/ControlLockSection';
 import { StartupIssuesSection } from '../components/StartupIssuesSection';
 import { StorageSection } from '../components/StorageSection';
 import { UpdateSection } from '../components/UpdateSection';
+import { BackupSection } from '../components/BackupSection';
 import { NetworkSection } from '../components/NetworkSection';
 import { AboutSection } from '../components/AboutSection';
 import { RestartPendingNotice } from '../components/RestartPendingNotice';
@@ -39,6 +40,8 @@ function SettingsPage(): React.ReactNode {
       <StartupIssuesSection />
 
       <StorageSection />
+
+      <BackupSection />
 
       {/* Read-only, and the change is in Expert mode: which network the device
           looks for is a once-per-site decision behind the button press, not

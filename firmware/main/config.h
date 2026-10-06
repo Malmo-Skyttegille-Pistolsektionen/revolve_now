@@ -75,6 +75,11 @@ constexpr size_t kMaxUploadBytes = 1024 * 1024;
 // of flash anyway - and it has to move with partitions.csv, because an image
 // larger than this is refused before the flash ever gets a chance to say no.
 constexpr size_t kMaxFirmwareUploadBytes = 4608 * 1024;
+// A restore carries everything on `userdata`, so it is bounded by that
+// partition (6.75 MB in partitions.csv) plus room for the multipart envelope
+// and the archive's own headers. The largest upload there is, which makes it
+// the server-wide ceiling; firmware bounds itself against the slot instead.
+constexpr size_t kMaxRestoreUploadBytes = 0x6C0000 + 64 * 1024;
 // How many boot-time backend_issues GET /api/v2/diagnostics/info keeps. They
 // are raised before the SSE hub has a server and would otherwise be dropped;
 // beyond this many the oldest is discarded. Sized for "a handful of stored

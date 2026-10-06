@@ -23,6 +23,8 @@ export type WifiStatus = components['schemas']['WifiStatus'];
 export type EthernetStatus = components['schemas']['EthernetStatus'];
 export type WifiNetwork = components['schemas']['WifiNetwork'];
 export type WifiCredentials = components['schemas']['WifiCredentials'];
+export type RestoreReport = components['schemas']['RestoreReport'];
+export type RestoreItem = components['schemas']['RestoreItem'];
 
 /**
  * Every problem type the contract knows about, as a union of the `type` URIs —

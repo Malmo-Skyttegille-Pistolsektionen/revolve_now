@@ -137,6 +137,54 @@ export const settings = {
     accepted: 'Update installed. The device is restarting — it will be unreachable for a few seconds.',
     refused: 'The device refused the update.',
   },
+  backup: {
+    title: 'Backup',
+    explain:
+      'One file with everything uploaded to this device — programs and audio — and its hardware settings. Shipped programs and audio are not in it; they come with the firmware. Take one before updating the firmware, and keep it somewhere other than the device.',
+    noWifiBefore: 'The ',
+    wifiPassword: 'WiFi password',
+    noWifiAfter: ' is never in a backup, so it is safe to pass on.',
+    preparing: 'Preparing…',
+    download: 'Download backup',
+    downloaded: 'Downloaded.',
+    downloadRefused: 'The device refused the download.',
+    restoreTitle: 'Restore',
+    restoreExplain:
+      'Adds what the backup holds to this device. Nothing here is deleted, and anything already here is skipped, so restoring twice changes nothing the second time.',
+    restoreHardware: 'Hardware settings',
+    hardwareNeedsWindow:
+      'Hardware settings are restored only while the configuration window is open — press BOOT on the device three times first. The rest is restored either way.',
+    restoreName: 'Device name',
+    nameHint:
+      'The hostname and display name from the backup. Leave it off when setting up a second board, or two boards will answer to the same name.',
+    restoring: 'Restoring…',
+    restore: 'Restore from file…',
+    logInToRestore: 'Log in to restore a backup.',
+    restoreRefused: 'The device refused the backup.',
+    from: (hostname: string, version: string) => `Restored from ${hostname}, firmware ${version}.`,
+    programs: 'Programs',
+    audios: 'Audio',
+    counts: (added: number, skipped: number, refused: number) =>
+      [
+        `${String(added)} added`,
+        skipped > 0 ? `${String(skipped)} already here` : null,
+        refused > 0 ? `${String(refused)} refused` : null,
+      ]
+        .filter((part) => part !== null)
+        .join(', '),
+    hardware: {
+      saved: 'Hardware settings saved — restart the device to apply them.',
+      unchanged: 'Hardware settings already matched the backup.',
+      notRequested: 'Hardware settings left as they were.',
+      notIncluded: 'The backup holds no hardware settings.',
+      skipped: 'Hardware settings were not restored:',
+      refused: 'The device refused the hardware settings:',
+    },
+    untitled: (id: number) => `#${String(id)}`,
+    droppedAudio: (title: string, count: number) =>
+      `${title} played ${String(count)} clip${count === 1 ? '' : 's'} that could not be restored; ${count === 1 ? 'it was' : 'they were'} removed from the program.`,
+    stoppedEarly: 'The restore stopped part way:',
+  },
   about: {
     title: 'About',
     app: 'App',

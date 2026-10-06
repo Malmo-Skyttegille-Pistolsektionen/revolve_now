@@ -79,6 +79,7 @@ struct ProblemType {
     "The configuration window is closed", 403)                                                  \
   X(kWifiCredentialsInvalid, "wifi_credentials_invalid", "Invalid WiFi credentials", 400)       \
   X(kBankUnavailable, "bank_unavailable", "No such target bank", 400)                           \
+  X(kBackupInvalid, "backup_invalid", "Not a usable backup", 400)                               \
   /* upload */                                                                                  \
   X(kUploadMissingFile, "upload_missing_file", "No file uploaded", 400)                         \
   X(kUploadMissingTitle, "upload_missing_title", "Missing title", 400)                          \
@@ -104,6 +105,11 @@ inline constexpr const ProblemType *kProblemTypes[] = {
     RT_PROBLEM_TYPES(RT_PROBLEM_ENTRY)
 #undef RT_PROBLEM_ENTRY
 };
+
+// What every closed-window refusal tells the person to do.
+constexpr const char *kOpenWindowHint =
+    "Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to "
+    "open a five-minute configuration window, then try again.";
 
 // `{"type":"/problems/<slug>","title":...,"status":N,"detail":...}`.
 //

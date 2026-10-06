@@ -17,6 +17,7 @@ which is which before changing anything:
 | Control lock | device | Whether control is open to everyone or needs a login |
 | Startup Issues | device | What the device could not read when it booted |
 | Storage | device | How much room the flash partitions have |
+| Backup | device | Save what has been put on the device to a file, and put it back |
 | Network | device | WiFi: which network it is on and how good the link is. Ethernet: the cable link and its address |
 | Update | device | Install a release from GitHub, or upload an OTA file |
 | About | device | What firmware and web app this is, and exactly which build |
@@ -26,7 +27,8 @@ which is which before changing anything:
 Nothing on this page can stop the device working. The settings that can —
 which network it joins, which pins it drives, and the crash dump download —
 are on [Expert mode](expert-mode.md), behind a button press on the board
-itself.
+itself. A [restore](#restoring) can bring hardware settings back too, and only
+behind that same button press.
 
 **One line can appear at the top:** *Configuration saved but not applied;
 restart from Expert mode.* It means somebody changed a setting on that page and
@@ -95,6 +97,53 @@ put on it.
 other is where an update is written, which is what lets a bad update be undone.
 Seeing one of them nearly empty is normal on a device that has never been
 updated.
+
+## Backup
+
+**Download backup** saves one file with everything that has been uploaded to
+the device — your programs and audio clips — and its hardware settings: the
+pins, the target banks, the name. What ships *with* the device is not in it;
+that comes back with the firmware.
+
+**The WiFi password is never in a backup**, so the file is safe to pass on or
+keep in a shared folder.
+
+Take one:
+
+- **Before updating the firmware**, and above all before going back to an older
+  version, which may not read what a newer one stored.
+- **Before a factory reset**, which empties the device's settings.
+- **To set up a second board** like the first.
+
+Keep it somewhere other than the device.
+
+### Restoring
+
+**Restore from file…** adds what the backup holds to this device. **Nothing on
+the device is deleted**, and anything already there — the same program, or a
+clip with the same title and sound — is skipped. Restoring the same file twice
+changes nothing the second time. Afterwards the page lists what was added,
+what was already there, and anything the device refused, with the reason.
+
+Two choices first:
+
+- **Hardware settings** (on by default). They are restored only while the
+  [configuration window](expert-mode.md) is open — press BOOT three times
+  first — because they are the settings whose way back can be a USB cable.
+  With the window shut they are skipped and the rest is restored anyway. Like
+  any hardware change, they take effect when the device restarts.
+- **Device name** (off by default): the hostname and display name from the
+  backup. Turn it on when the backup is this board's own, or a board it
+  replaces. Leave it off when setting up a second board, or two boards will
+  answer to the same name.
+
+**Restore the file as you downloaded it.** A backup that has been unpacked and
+zipped again is refused, because it is no longer laid out the way the device
+wrote it.
+
+A backup from an older firmware restores onto a newer one. Anything the
+running firmware cannot read is refused on its own and listed; the rest is
+restored.
 
 ## Network
 

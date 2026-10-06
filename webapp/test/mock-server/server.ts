@@ -32,6 +32,8 @@ import type {
   Series,
   StartupIssue,
   Event,
+  RestoreItem,
+  RestoreReport,
   ProblemType,
   WifiStatus,
   EthernetStatus,
@@ -41,6 +43,7 @@ import type { EventLocation } from '../../src/lib/run-position';
 import { locateEvent, seriesTotalMs } from '../../src/lib/run-position';
 import type { Clock } from './clock';
 import { realClock } from './clock';
+import { readStoredZip, writeStoredZip, type ZipEntry } from './zip';
 
 /**
  * Every RFC 9457 problem type, with the title and status the firmware answers
@@ -95,6 +98,7 @@ const PROBLEMS = {
   },
   '/problems/wifi_credentials_invalid': { title: 'Invalid WiFi credentials', status: 400 },
   '/problems/bank_unavailable': { title: 'No such target bank', status: 400 },
+  '/problems/backup_invalid': { title: 'Not a usable backup', status: 400 },
   '/problems/wifi_unavailable': { title: 'This device has no WiFi radio', status: 409 },
   // firmware update
   '/problems/ota_image_refused': { title: 'Firmware image refused', status: 400 },
@@ -705,6 +709,83 @@ interface SSEClient {
   cancelHeartbeat: () => void;
 }
 
+/** `rt::kOpenWindowHint` in firmware/lib/rt_logic/problem.h. */
+const OPEN_WINDOW_HINT =
+  'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.';
+
+/**
+ * `rt::apply_hardware_patch`'s shape checks: the refusals the firmware answers
+ * before it reads a value. A patch it accepts comes back with every bank
+ * filled in the way ArduinoJson's `entry["gpio"] | 0` does, so a half-written
+ * entry reaches validation as GPIO 0 and is refused there.
+ */
+function parseHardwarePatch(parsed: Record<string, unknown> | null):
+  | { patch: Partial<HardwareConfig> }
+  | {
+      type: '/problems/hardware_config_invalid' | '/problems/hardware_config_serial_only';
+      detail: string;
+      /** The firmware's PUT answers a bad bank only after the run and window guards. */
+      ofBanks: boolean;
+    } {
+  if (parsed === null) {
+    return {
+      type: '/problems/hardware_config_invalid',
+      detail: 'Expected a JSON object of hardware configuration fields',
+      ofBanks: false,
+    };
+  }
+  // Refused, not ignored (D-31): where the targets rest at boot changes only
+  // from the serial console.
+  if (parsed.targetsShownAtBoot !== undefined && parsed.targetsShownAtBoot !== null) {
+    return {
+      type: '/problems/hardware_config_serial_only',
+      detail: "targetsShownAtBoot changes only from the serial console: 'boot-targets shown' or 'boot-targets hidden'",
+      ofBanks: false,
+    };
+  }
+  // `null` is absent, as `doc[...].isNull()` makes it on the device.
+  const patch = Object.fromEntries(
+    Object.entries(parsed).filter(([key, value]) => value !== null && key !== 'targetsShownAtBoot'),
+  ) as Partial<HardwareConfig>;
+  if (patch.banks !== undefined) {
+    if (!Array.isArray(patch.banks)) {
+      return {
+        type: '/problems/hardware_config_invalid',
+        detail: "'banks' must be an array of target banks",
+        ofBanks: true,
+      };
+    }
+    if (patch.banks.some((bank) => bank === null || typeof bank !== 'object' || Array.isArray(bank))) {
+      return {
+        type: '/problems/hardware_config_invalid',
+        detail: "Each entry in 'banks' must be an object with gpio, activeLow and name",
+        ofBanks: true,
+      };
+    }
+    patch.banks = patch.banks.map((bank: Partial<HardwareConfig['banks'][number]>) => ({
+      gpio: typeof bank.gpio === 'number' ? bank.gpio : 0,
+      activeLow: typeof bank.activeLow === 'boolean' ? bank.activeLow : true,
+      name: typeof bank.name === 'string' ? bank.name : '',
+    }));
+  }
+  return { patch };
+}
+
+/** `rt::hardware_overrides_json`: what differs from the defaults, never `targetsShownAtBoot`. */
+function hardwareOverrides(saved: HardwareConfig, defaults: HardwareConfig): Partial<HardwareConfig> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(saved) as (keyof HardwareConfig)[]) {
+    if (key === 'targetsShownAtBoot') continue;
+    if (JSON.stringify(saved[key]) !== JSON.stringify(defaults[key])) out[key] = saved[key];
+  }
+  return out as Partial<HardwareConfig>;
+}
+
+/** `rt::backup::same_program_content`: the same program, whatever the ids. */
+function sameProgramContent(a: Program, b: Program): boolean {
+  return JSON.stringify({ ...a, id: 0, readonly: false }) === JSON.stringify({ ...b, id: 0, readonly: false });
+}
+
 export function createMockServer(options: MockServerOptions = {}): MockServer {
   const clock = options.clock ?? realClock;
   const requestedPort = options.port ?? 0;
@@ -712,6 +793,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   // Uploads, edits and deletes mutate both, so each is a copy of the seed and
   // `reset()` puts it back rather than leaking one test's writes into the next.
   const audios: AudioFile[] = [...seed.audios];
+  // The bytes of uploaded clips, which the backup carries. A seeded upload has
+  // none of its own, so it holds a header-only WAV.
+  const audioBytes = new Map<number, Buffer>();
+  function seedAudioBytes(): void {
+    audioBytes.clear();
+    for (const audio of seed.audios) {
+      if (!audio.readonly) audioBytes.set(audio.id, Buffer.from('RIFF\u0000\u0000\u0000\u0000WAVE', 'latin1'));
+    }
+  }
+  seedAudioBytes();
   const programs: Record<number, Program> = {};
   function restorePrograms(): void {
     for (const key of Object.keys(programs)) delete programs[Number(key)];
@@ -1167,6 +1258,275 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     return id;
   }
 
+  function addAudio(title: string, content: Buffer): number {
+    const id = nextUploadedId();
+    audios.push({ id, title, filename: `/userdata/audio/${id}.wav`, readonly: false });
+    audioBytes.set(id, Buffer.from(content));
+    return id;
+  }
+
+  /** `programs::add`: the next free id, stored as uploaded. */
+  function addProgram(program: Program): number {
+    let id = FIRST_UPLOAD_ID;
+    while (programs[id] !== undefined) id++;
+    programs[id] = { ...program, id, readonly: false };
+    return id;
+  }
+
+  function problemBody(type: ProblemType, detail: string) {
+    const { title, status } = PROBLEMS[type];
+    return { type, title, status, detail };
+  }
+
+  /** `GET /backup`, as `device_backup.cpp` writes it. */
+  function backupArchive(): Buffer {
+    const uploadedAudio = audios.filter((audio) => !audio.readonly);
+    const entries: ZipEntry[] = [
+      {
+        name: 'manifest.json',
+        data: Buffer.from(
+          JSON.stringify({
+            format: 'revolve-now-backup',
+            formatVersion: 1,
+            firmwareVersion: seed.firmwareVersion ?? '2.0.0-mock',
+            hostname: activeHardware.hostname,
+            displayName: activeHardware.displayName,
+            includesWifiCredentials: false,
+          }),
+        ),
+      },
+      { name: 'hardware.json', data: Buffer.from(JSON.stringify(hardwareOverrides(savedHardware, HARDWARE_DEFAULTS))) },
+      {
+        name: 'audio/index.json',
+        data: Buffer.from(
+          JSON.stringify(Object.fromEntries(uploadedAudio.map((audio) => [String(audio.id), { title: audio.title }]))),
+        ),
+      },
+      ...uploadedAudio.map((audio) => ({
+        name: `audio/${audio.id}.wav`,
+        data: audioBytes.get(audio.id) ?? Buffer.alloc(0),
+      })),
+      ...Object.values(programs)
+        .filter((program) => !program.readonly)
+        .map((program) => ({ name: `programs/${program.id}.json`, data: Buffer.from(JSON.stringify(program)) })),
+    ];
+    return writeStoredZip(entries);
+  }
+
+  /**
+   * `POST /restore`: `rt::backup::RestoreSession` over this mock's state.
+   * Either the 400 that refuses the file whole, or the report.
+   */
+  function restoreArchive(
+    zip: Buffer,
+    options: { hardware: boolean; name: boolean },
+  ): { problem: { type: ProblemType; detail: string } } | { report: RestoreReport } {
+    const { entries, error } = readStoredZip(zip);
+    const DAMAGED = 'The entry does not match its checksum - the file is damaged. Download a new backup.';
+    const readerProblem = (): string | null => {
+      switch (error) {
+        case 'notZip':
+          return 'Not a backup: the file is not a ZIP archive.';
+        case 'unsupported':
+          return 'The archive is compressed, encrypted or otherwise not as the device wrote it. Restore the file exactly as it was downloaded, not a copy that was unpacked and zipped again.';
+        case 'corrupt':
+          return 'The archive is damaged. Download a new backup.';
+        case 'truncated':
+          return 'The file ended before the backup did - it was cut short. What is listed was restored.';
+        default:
+          return null;
+      }
+    };
+
+    const first = entries[0];
+    if (first === undefined) {
+      const detail =
+        error === 'notZip' || error === 'unsupported' || error === 'corrupt'
+          ? (readerProblem() as string)
+          : 'Not a backup: the file is empty or not a ZIP archive.';
+      return { problem: { type: '/problems/backup_invalid', detail } };
+    }
+    if (first.name !== 'manifest.json') {
+      return {
+        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: it does not start with manifest.json.' },
+      };
+    }
+    if (!first.crcOk) return { problem: { type: '/problems/backup_invalid', detail: DAMAGED } };
+    const manifest = parseJsonObject(first.data.toString('utf8'));
+    if (manifest === null || manifest.format !== 'revolve-now-backup') {
+      return {
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: 'Not a backup: manifest.json does not describe a Revolve Now backup.',
+        },
+      };
+    }
+    if (typeof manifest.formatVersion !== 'number' || !Number.isInteger(manifest.formatVersion)) {
+      return {
+        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: manifest.json has no format version.' },
+      };
+    }
+    if (manifest.formatVersion < 1 || manifest.formatVersion > 1) {
+      return {
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: `This backup is in format ${manifest.formatVersion}, which this firmware cannot read. Update the firmware and try again.`,
+        },
+      };
+    }
+
+    const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+    const report: RestoreReport = {
+      source: {
+        formatVersion: manifest.formatVersion,
+        firmwareVersion: text(manifest.firmwareVersion),
+        hostname: text(manifest.hostname),
+        displayName: text(manifest.displayName),
+      },
+      hardware: { result: 'notIncluded' },
+      audios: [],
+      programs: [],
+    };
+    const titles = new Map<number, string>();
+    const audioIds = new Map<number, number>();
+    let audiosChanged = false;
+    let programsChanged = false;
+
+    for (const entry of entries.slice(1)) {
+      const audioMatch = /^audio\/(\d+)\.wav$/.exec(entry.name);
+      const programMatch = /^programs\/(\d+)\.json$/.exec(entry.name);
+
+      if (entry.name === 'hardware.json') {
+        if (!entry.crcOk) {
+          report.hardware = { result: 'refused', problem: problemBody('/problems/backup_invalid', DAMAGED) };
+        } else if (!options.hardware) {
+          report.hardware = { result: 'notRequested' };
+        } else if (!configWindowOpen) {
+          report.hardware = {
+            result: 'skipped',
+            problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
+          };
+        } else {
+          const shape = parseHardwarePatch(parseJsonObject(entry.data.toString('utf8')));
+          if ('type' in shape) {
+            report.hardware = { result: 'refused', problem: problemBody(shape.type, shape.detail) };
+          } else {
+            const candidate: HardwareConfig = {
+              ...HARDWARE_DEFAULTS,
+              ...shape.patch,
+              targetsShownAtBoot: savedHardware.targetsShownAtBoot,
+              ...(options.name ? {} : { hostname: savedHardware.hostname, displayName: savedHardware.displayName }),
+            };
+            const refusal = hardwareConfigRefusal(candidate);
+            if (JSON.stringify(candidate) === JSON.stringify(savedHardware)) {
+              report.hardware = { result: 'unchanged' };
+            } else if (refusal !== null) {
+              report.hardware = {
+                result: 'refused',
+                problem: problemBody('/problems/hardware_config_invalid', refusal),
+              };
+            } else {
+              savedHardware = candidate;
+              report.hardware = { result: 'saved' };
+            }
+          }
+        }
+      } else if (entry.name === 'audio/index.json') {
+        const index = entry.crcOk ? parseJsonObject(entry.data.toString('utf8')) : null;
+        for (const [key, value] of Object.entries(index ?? {})) {
+          if (/^\d+$/.test(key) && isRecord(value) && typeof value.title === 'string' && value.title !== '') {
+            titles.set(Number(key), value.title);
+          }
+        }
+      } else if (audioMatch) {
+        const sourceId = Number(audioMatch[1]);
+        const title = titles.get(sourceId) ?? `Restored clip ${sourceId}`;
+        let item: RestoreItem;
+        if (entry.data.length > MAX_UPLOAD_BYTES) {
+          item = {
+            sourceId,
+            title,
+            result: 'refused',
+            problem: problemBody(
+              '/problems/audio_format_unsupported',
+              'The clip is larger than the 1 MiB upload limit.',
+            ),
+          };
+        } else if (!entry.crcOk) {
+          item = { sourceId, title, result: 'refused', problem: problemBody('/problems/backup_invalid', DAMAGED) };
+        } else if (!entry.data.subarray(0, 4).equals(Buffer.from('RIFF'))) {
+          item = {
+            sourceId,
+            title,
+            result: 'refused',
+            problem: problemBody('/problems/audio_format_unsupported', 'Not a WAV this firmware can play.'),
+          };
+        } else {
+          const same = audios.find(
+            (audio) =>
+              !audio.readonly && audio.title === title && audioBytes.get(audio.id)?.equals(entry.data) === true,
+          );
+          if (same) {
+            item = { sourceId, title, result: 'skipped', id: same.id };
+          } else {
+            item = { sourceId, title, result: 'added', id: addAudio(title, entry.data) };
+            audiosChanged = true;
+          }
+        }
+        if (item.id !== undefined) audioIds.set(sourceId, item.id);
+        report.audios.push(item);
+      } else if (programMatch) {
+        const sourceId = Number(programMatch[1]);
+        const raw = entry.crcOk ? parseJsonObject(entry.data.toString('utf8')) : null;
+        const parsed = raw === null ? null : normalizeProgram(raw, 0);
+        if (!entry.crcOk) {
+          report.programs.push({
+            sourceId,
+            title: '',
+            result: 'refused',
+            problem: problemBody('/problems/backup_invalid', DAMAGED),
+          });
+        } else if (parsed === null) {
+          report.programs.push({
+            sourceId,
+            title: '',
+            result: 'refused',
+            problem: problemBody('/problems/program_invalid', 'This firmware cannot read the program.'),
+          });
+        } else {
+          // `rt::backup::remap_audio_ids`.
+          const dropped: number[] = [];
+          for (const series of parsed.series) {
+            for (const event of series.events) {
+              event.audio_ids = (event.audio_ids ?? []).flatMap((id) => {
+                if (id < FIRST_UPLOAD_ID) return [id];
+                const mapped = audioIds.get(id);
+                if (mapped !== undefined) return [mapped];
+                if (!dropped.includes(id)) dropped.push(id);
+                return [];
+              });
+            }
+          }
+          const same = Object.values(programs).find(
+            (program) => !program.readonly && sameProgramContent(program, parsed),
+          );
+          const item: RestoreItem = same
+            ? { sourceId, title: parsed.title, result: 'skipped', id: same.id }
+            : { sourceId, title: parsed.title, result: 'added', id: addProgram(parsed) };
+          if (!same) programsChanged = true;
+          if (dropped.length > 0) item.droppedAudioIds = dropped;
+          report.programs.push(item);
+        }
+      }
+    }
+
+    const stopped = readerProblem();
+    if (stopped !== null) report.stoppedEarly = problemBody('/problems/backup_invalid', stopped);
+    if (programsChanged) broadcastLibraryChanged('program');
+    if (audiosChanged) broadcastLibraryChanged('audio');
+    return { report };
+  }
+
   function isPlaying(id: number): boolean {
     return state.playingAudioId === id && state.playingUntil !== null && clock.now() < state.playingUntil;
   }
@@ -1459,6 +1819,59 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       return;
     }
 
+    // --- Backup (#520) ---
+
+    // Public like every other GET; refused during a run because the device's
+    // single server task would hold the stop button behind it.
+    if (endpoint === '/backup' && req.method === 'GET') {
+      if (isRunning()) {
+        problemResponse(res, '/problems/program_running', 'A program is running - stop it before taking a backup');
+        return;
+      }
+      const filename = `${activeHardware.hostname}-${seed.firmwareVersion ?? '2.0.0-mock'}-backup.zip`;
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      });
+      res.end(backupArchive());
+      return;
+    }
+
+    if (endpoint === '/restore' && req.method === 'POST') {
+      if (!checkControlLockAuth(req, res)) return;
+      if (isRunning()) {
+        problemResponse(res, '/problems/program_running', 'A program is running - stop it before restoring a backup');
+        return;
+      }
+      if (!(req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
+        problemResponse(
+          res,
+          '/problems/upload_missing_file',
+          'Expected a multipart/form-data body with the backup in a file part',
+        );
+        return;
+      }
+      const upload = parseMultipart(req, await parseBodyBuffer(req));
+      if (!upload || upload.content.length === 0) {
+        problemResponse(res, '/problems/upload_missing_file', 'No file uploaded');
+        return;
+      }
+      const query = new URL(req.url ?? '/', 'http://mock').searchParams;
+      const flag = (name: string, fallback: boolean): boolean => {
+        const value = query.get(name);
+        if (value === 'true' || value === '1') return true;
+        if (value === 'false' || value === '0') return false;
+        return fallback;
+      };
+      const outcome = restoreArchive(upload.content, { hardware: flag('hardware', true), name: flag('name', false) });
+      if ('problem' in outcome) {
+        problemResponse(res, outcome.problem.type, outcome.problem.detail);
+        return;
+      }
+      jsonResponse(res, 200, outcome.report);
+      return;
+    }
+
     // --- Hardware configuration (#144) ---
 
     // A save takes effect at the next restart, so `saved` and `active` differ
@@ -1486,31 +1899,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
     if (endpoint === '/config/hardware' && req.method === 'PUT') {
       if (!checkControlLockAuth(req, res)) return;
-      const parsed = parseJsonObject(await parseBody(req));
-      if (parsed === null) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_invalid',
-          'Expected a JSON object of hardware configuration fields',
-        );
+      // Absent fields keep what is stored. A body that is not an object, or
+      // that names `targetsShownAtBoot`, is refused ahead of the guards; a bad
+      // bank after them, in the firmware's order.
+      const shape = parseHardwarePatch(parseJsonObject(await parseBody(req)));
+      if ('type' in shape && !shape.ofBanks) {
+        problemResponse(res, shape.type, shape.detail);
         return;
       }
-      // Absent fields keep what is stored: a client that knows about fewer
-      // fields than this firmware must not silently undo the rest.
-      // Refused, not ignored (D-31): where the targets rest at boot changes
-      // only from the serial console, and an operator who believes they
-      // changed it is worse off than one who was told they could not.
-      if (parsed.targetsShownAtBoot !== undefined) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_serial_only',
-          "targetsShownAtBoot changes only from the serial console: 'boot-targets shown' or 'boot-targets hidden'",
-        );
-        return;
-      }
-      // Spread rather than a field-by-field copy on purpose: the explicit form
-      // silently drops any field added to the contract later, which is exactly
-      // how `timer_start_index` went missing here once already.
       // Checked before the window: "stop the run" is the more useful of the
       // two instructions.
       if (isRunning()) {
@@ -1525,44 +1921,15 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       // Expert mode is a place, not a per-field rule: the whole endpoint is
       // behind the window, hostname included.
       if (!configWindowOpen) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) to open a five-minute configuration window, then try again.',
-        );
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
-      const patch = parsed as Partial<HardwareConfig>;
-      // `null` is absent, as `doc["banks"].isNull()` makes it on the device -
-      // so a client clearing a field it does not understand keeps the stored
-      // array rather than being refused.
-      if (patch.banks === null) delete patch.banks;
-      // The two shape refusals the firmware answers before it can read a bank
-      // at all (`web_server.cpp`). Without them a malformed body threw here,
-      // which is a 500 the device never sends.
-      if (patch.banks !== undefined) {
-        if (!Array.isArray(patch.banks)) {
-          problemResponse(res, '/problems/hardware_config_invalid', "'banks' must be an array of target banks");
-          return;
-        }
-        if (patch.banks.some((bank) => bank === null || typeof bank !== 'object' || Array.isArray(bank))) {
-          problemResponse(
-            res,
-            '/problems/hardware_config_invalid',
-            "Each entry in 'banks' must be an object with gpio, activeLow and name",
-          );
-          return;
-        }
-        // Each field falls back the way ArduinoJson's `entry["gpio"] | 0` does,
-        // so a half-written entry reaches validation as GPIO 0 and is refused
-        // there - one refusal, from the same place every other bad pin gets it.
-        patch.banks = patch.banks.map((bank: Partial<HardwareConfig['banks'][number]>) => ({
-          gpio: typeof bank.gpio === 'number' ? bank.gpio : 0,
-          activeLow: typeof bank.activeLow === 'boolean' ? bank.activeLow : true,
-          name: typeof bank.name === 'string' ? bank.name : '',
-        }));
+      if ('type' in shape) {
+        problemResponse(res, shape.type, shape.detail);
+        return;
       }
+      const { patch } = shape;
 
       const candidate: HardwareConfig = {
         ...savedHardware,
@@ -2290,13 +2657,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         return;
       }
 
-      const id = nextUploadedId();
-      audios.push({
-        id,
-        title: upload.title,
-        filename: `/userdata/audio/${id}.wav`,
-        readonly: false,
-      });
+      const id = addAudio(upload.title, upload.content);
       broadcastLibraryChanged('audio');
       jsonResponse(res, 201, { id });
       return;
@@ -2430,6 +2791,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       state.playingAudioId = null;
       state.playingUntil = null;
       audios.splice(0, audios.length, ...seed.audios);
+      seedAudioBytes();
     },
 
     restart(): void {
