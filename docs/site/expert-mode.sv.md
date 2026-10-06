@@ -141,6 +141,24 @@ egenskap hos tavelanläggningen, så det måste gå att ställa in — men det �
 också det som skyddar någon som står framför skjutlinjen när ett kort
 strömsätts, så det ändras bara från seriekonsolen med en kabel ansluten.
 
+### Ljud { #audio }
+
+Gruppen **Ljud** säger var I2S-DAC:en som spelar skjutkommandona är kopplad.
+Stiftnamnen på ett DAC- eller förstärkarkort skiljer sig från firmwarens:
+
+| Fält | Koppla till |
+|---|---|
+| **I2S bitklocka (BCK)** | BCLK eller BCK |
+| **I2S word select (WS/LRCK)** | LRC eller LCK |
+| **I2S data ut (DOUT)** | DIN. Namnen korsar varandra, vilket är det vanliga sättet att koppla fel |
+| **I2S masterklocka (MCLK)** | SCK, eller `-1` för att lämna den odriven |
+
+De flesta PCM5102A-kort gör sin egen klocka och vill ha MCLK på `-1`. Vissa
+spelar inte utan den, och klubbens kretskort rev 1 är ett av dem: dess ljud
+behöver MCLK på GPIO48. Ett sådant kort kan verka fungera efter en omstart och
+sedan vara tyst efter ett strömavbrott, eftersom DAC:en behåller klockan den
+fick så länge den är strömsatt. Testa genom att slå av och på strömmen.
+
 ## Felsökning { #troubleshooting }
 
 En zip-fil med enhetens egna uppgifter och, om den har kraschat, kraschdumpen —

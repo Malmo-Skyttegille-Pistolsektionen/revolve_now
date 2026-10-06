@@ -89,8 +89,9 @@ ladda ett annat.
 
 ## Få in ett program i den medföljande uppsättningen { #getting-a-program-into-the-shipped-set }
 
-Uppladdade program finns på en enhet. Ett program som ska finnas på varje
-enhet — och överleva en omflashning — hör hemma i repot, där det följer med
+Uppladdade program finns på en enhet. De finns kvar efter uppdateringar, och
+en [säkerhetskopia](settings.md#backup) flyttar dem till en annan enhet. Ett
+program som ska finnas på varje enhet hör hemma i repot, där det följer med
 nästa firmware.
 
 Vägen är: **Ladda ner** programmet från sidan Program, och öppna sedan en pull

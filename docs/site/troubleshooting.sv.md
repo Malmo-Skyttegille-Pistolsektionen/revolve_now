@@ -37,6 +37,10 @@ tidigare WiFi.
 
 - Kontrollera att förstärkaren är strömsatt och ansluten — enheten kan inte
   upptäcka det på egen hand.
+- Tyst fast förstärkaren har ström och stiften verkar rätt? Kontrollera
+  masterklockan (MCLK) i [Expertläge](expert-mode.md#audio). Vissa DAC-kort,
+  bland dem klubbens kretskort rev 1, spelar bara med den, och kan spela efter
+  en omstart men inte efter ett strömavbrott.
 - Vissa enheter byggs med ljudhårdvaran helt avstängd; en tavla som bara
   vänds, utan ljud, är en konfiguration som stöds på dem. Är det fallet för
   den här enheten finns det inget att åtgärda.
