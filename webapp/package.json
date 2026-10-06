@@ -25,12 +25,14 @@
     "icons": "node scripts/brand-icons.ts"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "@tanstack/react-query": "5.104.1",
     "@tanstack/react-router": "1.170.41",
     "@tanstack/react-store": "0.11.2",
     "clsx": "2.1.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0"
   },
   "devDependencies": {
     "@babel/core": "8.0.6",

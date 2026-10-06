@@ -2017,6 +2017,37 @@ network; the PCB's native USB pins are not wired anyway. *A DHCP server on the
 wired port* for direct laptop connections — plugged into a club LAN, it would
 hand out conflicting leases.
 
+## D-47 — Updates from GitHub are found and checked by the browser; the device only receives an upload *(Decided 2026-10-06)*
+
+**Decision:** Settings → Update (#518) checks GitHub's releases API when it
+opens, lists the releases with their notes, and lets the user pick one —
+newer, the same, or older behind a warning. The chosen release's
+`-ota.bin` is an ordinary browser download; the user then picks that file,
+the page compares its SHA-256 with the `digest` GitHub publishes for the
+asset, and uploads it through the existing `POST /api/v2/ota`. The firmware
+has no GitHub code and needs no internet. Uploading any OTA file stays beside
+it for a network with none.
+
+**Why the user carries the file:** the asset host
+(`release-assets.githubusercontent.com`) sends no CORS header, so no page can
+read the bytes — tested in Chromium for both the download URL and the API
+asset endpoint. Every product that automates this either downloads on the
+device (Shelly, Tasmota, OctoPrint, Pi-hole) or serves the files from a host
+of its own with CORS (WLED, OpenWrt, Meshtastic). Both were rejected below.
+
+**Rejected:** *the device downloads* — built and working on hardware, but it
+puts a GitHub dependency, TLS and a certificate bundle in the firmware, and
+needs the device itself to have internet. *A copy on Pages or a CORS proxy* —
+the GitHub release stays the single source of truth.
+
+**Downgrades** are allowed and confirmed: newer versions may store settings
+or programs in ways an older one cannot read, and a version older than the
+first with this page can only be left by uploading a file.
+
+**Integrity:** the published SHA-256, checked in the page with a JavaScript
+hash (`crypto.subtle` needs https; the device serves http), then the device's
+own project and image checks. Nothing is signed: secure boot is not enabled.
+
 ## Open questions
 
 - **Are `app` / `x86_linux` used by anyone?** (asked — drives D-03's

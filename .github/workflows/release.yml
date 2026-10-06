@@ -484,6 +484,8 @@ jobs:
             0x1d000 build/ota_data_initial.bin \
             0x20000 build/revolve_now.bin
 
+          # Settings → Update finds this name in the release (D-47): renaming
+          # it takes releases out of the in-app update list.
           cp build/revolve_now.bin \
              "release/revolve_now-${VERSION}-ota.bin"
 

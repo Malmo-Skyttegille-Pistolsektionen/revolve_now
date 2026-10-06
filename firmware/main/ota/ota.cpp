@@ -85,7 +85,7 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     return next();
   });
 
-  upload.onUpload([](PsychicRequest *request, const char *filename, uint64_t index, uint8_t *data,
+  upload.onUpload([](PsychicRequest *, const char *filename, uint64_t index, uint8_t *data,
                      size_t len, bool final) -> esp_err_t {
     if (index == 0) {
       ESP_LOGI(TAG, "Upload '%s' starting", filename == nullptr ? "(unnamed)" : filename);
@@ -104,20 +104,11 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
         return ESP_FAIL;
       }
 
-      // Sized from Content-Length rather than OTA_SIZE_UNKNOWN. Unknown makes
-      // esp_ota_begin erase the whole 3 MB slot before the first byte is
-      // written, synchronously, on this HTTP task - measured on hardware as the
-      // server going unresponsive for long enough that the client gave up and
-      // the device looked hung. Erasing only what the image needs takes a
-      // fraction of that. The multipart envelope makes Content-Length slightly
-      // larger than the image, which is harmless: a little over is still far
-      // under the slot.
-      size_t erase_size = OTA_SIZE_UNKNOWN;
-      const size_t declared =
-          request == nullptr ? 0 : static_cast<size_t>(request->contentLength());
-      if (declared > 0 && declared <= s_partition->size) erase_size = declared;
-
-      if (esp_ota_begin(s_partition, erase_size, &s_handle) != ESP_OK) {
+      // Erased a sector at a time as the image arrives. Erasing it all up
+      // front - the whole slot for an unknown size, or the image's 3.4 MB from
+      // Content-Length - is one long erase, and on hardware that tripped the
+      // idle-task watchdog.
+      if (esp_ota_begin(s_partition, OTA_WITH_SEQUENTIAL_WRITES, &s_handle) != ESP_OK) {
         ESP_LOGE(TAG, "Could not open the inactive slot");
         // A failed erase has already handed out a handle.
         if (s_handle != 0) esp_ota_abort(s_handle);
