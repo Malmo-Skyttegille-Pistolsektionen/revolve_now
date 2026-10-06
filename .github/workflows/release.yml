@@ -451,6 +451,8 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
+          # Each step is a fresh shell; esptool lives in the IDF Python env.
+          . "$IDF_PATH/export.sh"
           mkdir -p release
 
           # Two images are what somebody actually needs, and they answer
