@@ -5,6 +5,9 @@
  * it holds on both without a fake clock or a seed only the mock can take;
  * the rest live in `mock-server.test.ts`.
  */
+import { readFileSync } from 'node:fs';
+
+import Ajv2020 from 'ajv/dist/2020';
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -29,6 +32,10 @@ import {
 } from './contract-target';
 import { HARDWARE_DEFAULTS, type MockSeed } from './server';
 import { readStoredZip, writeStoredZip } from './zip';
+
+const validateBackupJson = new Ajv2020({ allErrors: true, strict: true }).compile(
+  JSON.parse(readFileSync(new URL('../../../contracts/backup.schema.json', import.meta.url), 'utf8')) as object,
+);
 
 if (onDevice) vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -1145,11 +1152,13 @@ describe('backup and restore', () => {
     return ((await res.json()) as { id: number }).id;
   };
 
-  it('starts with a manifest that says it carries no WiFi credentials, and holds no shipped program', async () => {
+  it('starts with a backup.json that says it carries no WiFi credentials, and holds no shipped program', async () => {
     const { entries, error } = readStoredZip(await backup());
     expect(error).toBeNull();
-    expect(entries[0].name).toBe('manifest.json');
-    expect(JSON.parse(entries[0].data.toString('utf8'))).toMatchObject({
+    expect(entries[0].name).toBe('backup.json');
+    const document: unknown = JSON.parse(entries[0].data.toString('utf8'));
+    expect(validateBackupJson(document), JSON.stringify(validateBackupJson.errors)).toBe(true);
+    expect(document).toMatchObject({
       format: 'revolve-now-backup',
       formatVersion: 1,
       includesWifiCredentials: false,
@@ -1193,7 +1202,7 @@ describe('backup and restore', () => {
     });
   });
 
-  it('refuses a ZIP that does not start with the manifest, before applying anything', async () => {
+  it('refuses a ZIP that does not start with backup.json, before applying anything', async () => {
     const before = ((await (await api('/programs')).json()) as unknown[]).length;
     const zip = writeStoredZip([
       { name: 'programs/1000.json', data: Buffer.from('{"title":"Sneaked in","series":[]}') },
@@ -1202,14 +1211,14 @@ describe('backup and restore', () => {
       type: '/problems/backup_invalid',
       title: 'Not a usable backup',
       status: 400,
-      detail: 'Not a backup: it does not start with manifest.json.',
+      detail: 'Not a backup: it does not start with backup.json.',
     });
     expect(((await (await api('/programs')).json()) as unknown[]).length).toBe(before);
   });
 
   it('refuses a backup in a format newer than it reads', async () => {
     const zip = writeStoredZip([
-      { name: 'manifest.json', data: Buffer.from('{"format":"revolve-now-backup","formatVersion":2}') },
+      { name: 'backup.json', data: Buffer.from('{"format":"revolve-now-backup","formatVersion":2}') },
     ]);
     const res = await restore(zip);
     expect(res.status).toBe(400);

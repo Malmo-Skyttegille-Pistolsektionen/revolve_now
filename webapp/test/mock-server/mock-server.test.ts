@@ -1239,13 +1239,20 @@ describe('target banks, program side', () => {
  * firmware to the same rules.
  */
 describe('restoring a backup', () => {
-  const MANIFEST: ZipEntry = {
-    name: 'manifest.json',
-    data: Buffer.from(
-      JSON.stringify({ format: 'revolve-now-backup', formatVersion: 1, firmwareVersion: '0.1.0', hostname: 'range-a' }),
-    ),
-  };
   const json = (name: string, value: unknown): ZipEntry => ({ name, data: Buffer.from(JSON.stringify(value)) });
+  /** backup.json, with `hardware` when given. */
+  const backupJson = (hardware?: Record<string, unknown>): ZipEntry =>
+    json('backup.json', {
+      format: 'revolve-now-backup',
+      formatVersion: 1,
+      firmwareVersion: '0.1.0',
+      hostname: 'range-a',
+      displayName: '',
+      includesWifiCredentials: false,
+      ...(hardware ? { hardware } : {}),
+      audios: [],
+    });
+  const BACKUP_JSON = backupJson();
 
   const restore = async (entries: ZipEntry[] | Buffer, query = ''): Promise<RestoreReport> => {
     const zip = Buffer.isBuffer(entries) ? entries : writeStoredZip(entries);
@@ -1300,7 +1307,7 @@ describe('restoring a backup', () => {
   });
 
   it('saves the hardware onto the defaults and keeps this board’s name unless asked', async () => {
-    const entries = [MANIFEST, json('hardware.json', { hostname: 'range-a', i2sMclkGpio: 3 })];
+    const entries = [backupJson({ hostname: 'range-a', i2sMclkGpio: 3 })];
 
     expect((await restore(entries)).hardware.result).toBe('saved');
     expect(await saved()).toMatchObject({ hostname: HARDWARE_DEFAULTS.hostname, i2sMclkGpio: 3 });
@@ -1314,8 +1321,7 @@ describe('restoring a backup', () => {
   it('skips the hardware with the window shut, and restores the rest', async () => {
     server.setConfigWindow(false);
     const report = await restore([
-      MANIFEST,
-      json('hardware.json', { i2sMclkGpio: 3 }),
+      backupJson({ i2sMclkGpio: 3 }),
       json('programs/1000.json', { title: 'Still restored', series: [] }),
     ]);
     expect(report.hardware).toMatchObject({
@@ -1327,7 +1333,7 @@ describe('restoring a backup', () => {
   });
 
   it('reports a value the device refuses, with its reason', async () => {
-    const report = await restore([MANIFEST, json('hardware.json', { ledGpio: 27 })]);
+    const report = await restore([backupJson({ ledGpio: 27 })]);
     expect(report.hardware).toMatchObject({
       result: 'refused',
       problem: { type: '/problems/hardware_config_invalid' },
@@ -1336,7 +1342,7 @@ describe('restoring a backup', () => {
 
   it('drops references to a clip it could not restore', async () => {
     const report = await restore([
-      MANIFEST,
+      BACKUP_JSON,
       { name: 'audio/1000.wav', data: Buffer.from('not a wav') },
       json('programs/1000.json', { title: 'P', series: [{ name: 'S', events: [{ duration: 1, audio_ids: [1000] }] }] }),
     ]);
@@ -1346,7 +1352,7 @@ describe('restoring a backup', () => {
 
   it('stops where a truncated archive ends, keeping what came before', async () => {
     const whole = writeStoredZip([
-      MANIFEST,
+      BACKUP_JSON,
       json('programs/1000.json', { title: 'Before the cut', series: [] }),
       json('programs/1001.json', { title: 'After the cut', series: [] }),
     ]);
@@ -1356,7 +1362,7 @@ describe('restoring a backup', () => {
   });
 
   it('refuses a damaged entry on its own', async () => {
-    const zip = writeStoredZip([MANIFEST, json('programs/1000.json', { title: 'Damaged', series: [] })]);
+    const zip = writeStoredZip([BACKUP_JSON, json('programs/1000.json', { title: 'Damaged', series: [] })]);
     zip[zip.indexOf('Damaged')] ^= 0x01;
     const report = await restore(zip);
     expect(report.programs[0]).toMatchObject({ result: 'refused', problem: { type: '/problems/backup_invalid' } });

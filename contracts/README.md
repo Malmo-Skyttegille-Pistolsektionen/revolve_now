@@ -10,6 +10,7 @@ the code won.
 | `openapi.yaml` | The REST API under `/api/v2` — OpenAPI 3.1 |
 | `asyncapi.yaml` | The SSE stream at `/sse/v2` — AsyncAPI 3.1 |
 | `program.schema.json` | The program document, as stored and as served |
+| `backup.schema.json` | `backup.json`, the first entry of a device backup |
 | `redocly.yaml` | Lint configuration for `openapi.yaml` |
 | `validate.sh` | Lints all three |
 | `history/` | The API v1 specs, kept as a record only |

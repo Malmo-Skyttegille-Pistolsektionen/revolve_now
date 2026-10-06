@@ -2070,7 +2070,8 @@ One identical to an upload already present — the same program, or a clip with
 the same title and bytes — is skipped, so restoring twice is harmless. Each
 item goes through the checks an upload would and is refused on its own; only a
 file that is not a backup, or one in a newer `formatVersion`, is refused whole,
-and that is decided from `manifest.json` before anything is applied.
+and that is decided from `backup.json` (`contracts/backup.schema.json`)
+before anything is applied.
 
 **No WiFi credentials, ever.** Nothing else in the API returns the password,
 and a backup is a file people pass around. A board that has lost its

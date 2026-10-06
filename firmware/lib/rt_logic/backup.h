@@ -20,10 +20,9 @@
 namespace rt::backup {
 
 // The archive, in the order GET /backup writes it and a restore needs it:
-// titles before the clips they name, clips before the programs that play them.
-constexpr const char *kManifestEntry = "manifest.json";
-constexpr const char *kHardwareEntry = "hardware.json";
-constexpr const char *kAudioIndexEntry = "audio/index.json";
+// backup.json (which names the clips) first, clips before the programs that
+// play them. backup.json is described by contracts/backup.schema.json.
+constexpr const char *kBackupEntry = "backup.json";
 constexpr const char *kAudioDir = "audio/";
 constexpr const char *kProgramDir = "programs/";
 
@@ -32,22 +31,26 @@ constexpr const char *kFormat = "revolve-now-backup";
 // what it would be leaving out.
 constexpr int32_t kFormatVersion = 1;
 
+// backup.json: where the backup came from, the hardware overrides, and the
+// clips' titles, which a .wav does not carry.
 struct Manifest {
   int32_t format_version = kFormatVersion;
   // The release that wrote it, so a restore across versions can say so.
   std::string firmware_version;
   std::string hostname;
   std::string display_name;
+  // `hardware` as JSON text: the overrides of the compiled defaults. Empty
+  // when the document has none.
+  std::string hardware;
+  std::map<int32_t, std::string> audio_titles;
 };
 
-std::string manifest_json(const Manifest &manifest);
+std::string backup_json(const Manifest &manifest);
 
-// False with `error` set when the document is not a manifest this firmware
-// can read.
-bool parse_manifest(const std::string &json, Manifest &out, std::string &error);
-
-// `{"1000":{"title":"..."}}` - the titles, which a .wav does not carry.
-std::string audio_index_json(const std::map<int32_t, std::string> &titles);
+// False with `error` set when the document is not a backup this firmware can
+// read. A malformed `audios` only costs the titles; a malformed `hardware` is
+// kept as text, for the restore to refuse on its own.
+bool parse_backup(const std::string &json, Manifest &out, std::string &error);
 
 // `audio/<id>.wav`, `programs/<id>.json`. False for anything else.
 bool parse_audio_entry(const std::string &name, int32_t &id);
@@ -118,7 +121,7 @@ struct RestoreLimits {
   int32_t first_upload_id = 1000;
   size_t max_program_bytes = 64 * 1024;
   size_t max_audio_bytes = 1024 * 1024;
-  // manifest.json, hardware.json, audio/index.json.
+  // backup.json.
   size_t max_document_bytes = 64 * 1024;
 };
 
@@ -126,7 +129,7 @@ struct RestoreLimits {
 // moment its entry ends and validated by the running firmware exactly as an
 // upload would be; one that is refused is reported and the rest carry on.
 //
-// The manifest must come first. Until it has been read nothing is applied, so
+// backup.json must come first. Until it has been read nothing is applied, so
 // a file that is not a backup is refused as a whole (`fatal()`). After it,
 // whatever goes wrong with the archive stops the restore where it is and is
 // reported alongside what was already restored (`report_json()`).
@@ -158,7 +161,7 @@ class RestoreSession : public ZipReader::Visitor {
   enum class HardwareResult { kNotIncluded, kNotRequested, kSaved, kUnchanged, kSkipped, kRefused };
 
  private:
-  enum class Kind { kManifest, kHardware, kAudioIndex, kAudio, kProgram, kIgnored };
+  enum class Kind { kBackup, kAudio, kProgram, kIgnored };
 
   struct Item {
     int32_t source_id = 0;
@@ -169,9 +172,8 @@ class RestoreSession : public ZipReader::Visitor {
 
   bool stop(const ProblemType &problem, std::string detail);
   void reader_failed();
-  void end_manifest();
+  void end_backup();
   void end_hardware();
-  void end_audio_index();
   void end_audio(bool crc_ok);
   void end_program(bool crc_ok);
 
@@ -190,7 +192,6 @@ class RestoreSession : public ZipReader::Visitor {
   bool too_large_ = false;
   bool audio_staged_ = false;
 
-  std::map<int32_t, std::string> audio_titles_;
   std::map<int32_t, int32_t> audio_ids_;
 
   std::vector<Item> audios_;

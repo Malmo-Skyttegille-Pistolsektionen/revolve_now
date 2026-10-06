@@ -55,7 +55,7 @@ constexpr const char *kDamaged =
 
 }  // namespace
 
-std::string manifest_json(const Manifest &manifest) {
+std::string backup_json(const Manifest &manifest) {
   std::string out = "{\"format\":";
   out += json_quote(kFormat);
   out += ",\"formatVersion\":";
@@ -68,19 +68,35 @@ std::string manifest_json(const Manifest &manifest) {
   out += json_quote(manifest.display_name);
   // Said in the file, so whoever opens it does not have to wonder whether it
   // is safe to pass around.
-  out += ",\"includesWifiCredentials\":false}";
+  out += ",\"includesWifiCredentials\":false";
+  if (!manifest.hardware.empty()) {
+    out += ",\"hardware\":";
+    out += manifest.hardware;
+  }
+  out += ",\"audios\":[";
+  bool first = true;
+  for (const auto &[id, title] : manifest.audio_titles) {
+    if (!first) out += ',';
+    first = false;
+    out += "{\"id\":";
+    out += std::to_string(id);
+    out += ",\"title\":";
+    out += json_quote(title);
+    out += '}';
+  }
+  out += "]}";
   return out;
 }
 
-bool parse_manifest(const std::string &json, Manifest &out, std::string &error) {
+bool parse_backup(const std::string &json, Manifest &out, std::string &error) {
   JsonDocument doc;
   if (deserializeJson(doc, json) != DeserializationError::Ok || !doc.is<JsonObject>() ||
       std::string_view(doc["format"] | "") != kFormat) {
-    error = "Not a backup: manifest.json does not describe a Revolve Now backup.";
+    error = "Not a backup: backup.json does not describe a Revolve Now backup.";
     return false;
   }
   if (!doc["formatVersion"].is<int32_t>()) {
-    error = "Not a backup: manifest.json has no format version.";
+    error = "Not a backup: backup.json has no format version.";
     return false;
   }
   out.format_version = doc["formatVersion"].as<int32_t>();
@@ -92,20 +108,15 @@ bool parse_manifest(const std::string &json, Manifest &out, std::string &error) 
   out.firmware_version = doc["firmwareVersion"] | "";
   out.hostname = doc["hostname"] | "";
   out.display_name = doc["displayName"] | "";
-  return true;
-}
-
-std::string audio_index_json(const std::map<int32_t, std::string> &titles) {
-  std::string out = "{";
-  for (const auto &[id, title] : titles) {
-    if (out.size() > 1) out += ',';
-    out += json_quote(std::to_string(id));
-    out += ":{\"title\":";
-    out += json_quote(title);
-    out += '}';
+  out.hardware.clear();
+  if (!doc["hardware"].isNull()) serializeJson(doc["hardware"], out.hardware);
+  out.audio_titles.clear();
+  for (JsonObjectConst clip : doc["audios"].as<JsonArrayConst>()) {
+    if (!clip["id"].is<int32_t>()) continue;
+    const char *title = clip["title"] | "";
+    if (*title != '\0') out.audio_titles[clip["id"].as<int32_t>()] = title;
   }
-  out += '}';
-  return out;
+  return true;
 }
 
 bool parse_audio_entry(const std::string &name, int32_t &id) {
@@ -204,7 +215,7 @@ void RestoreSession::finish() {
   if (!manifest_read_) {
     stop(problem::kBackupInvalid, reader_.entries() == 0
                                       ? "Not a backup: the file is empty or not a ZIP archive."
-                                      : "Not a backup: it has no manifest.json.");
+                                      : "Not a backup: it has no backup.json.");
   } else if (!reader_.complete()) {
     stop(problem::kBackupInvalid,
          "The file ended before the backup did - it was cut short. What is listed was restored.");
@@ -217,16 +228,12 @@ bool RestoreSession::on_entry(const ZipReader::Entry &entry) {
   entry_id_ = 0;
 
   if (!manifest_read_) {
-    // Nothing is applied before the manifest has said this is a backup we can
+    // Nothing is applied before backup.json has said this is a backup we can
     // read, which is what lets everything up to here be refused as a whole.
-    if (entry.name != kManifestEntry) {
-      return stop(problem::kBackupInvalid, "Not a backup: it does not start with manifest.json.");
+    if (entry.name != kBackupEntry) {
+      return stop(problem::kBackupInvalid, "Not a backup: it does not start with backup.json.");
     }
-    kind_ = Kind::kManifest;
-  } else if (entry.name == kHardwareEntry) {
-    kind_ = Kind::kHardware;
-  } else if (entry.name == kAudioIndexEntry) {
-    kind_ = Kind::kAudioIndex;
+    kind_ = Kind::kBackup;
   } else if (parse_audio_entry(entry.name, entry_id_)) {
     kind_ = Kind::kAudio;
     too_large_ = entry.size > limits_.max_audio_bytes;
@@ -242,8 +249,8 @@ bool RestoreSession::on_entry(const ZipReader::Entry &entry) {
   const size_t limit =
       kind_ == Kind::kProgram ? limits_.max_program_bytes : limits_.max_document_bytes;
   if (kind_ != Kind::kAudio && kind_ != Kind::kIgnored && entry.size > limit) {
-    if (kind_ == Kind::kManifest) {
-      return stop(problem::kBackupInvalid, "Not a backup: manifest.json is implausibly large.");
+    if (kind_ == Kind::kBackup) {
+      return stop(problem::kBackupInvalid, "Not a backup: backup.json is implausibly large.");
     }
     too_large_ = true;
   }
@@ -269,23 +276,10 @@ bool RestoreSession::on_data(const uint8_t *data, size_t len) {
 
 bool RestoreSession::on_entry_end(bool crc_ok) {
   switch (kind_) {
-    case Kind::kManifest:
+    case Kind::kBackup:
       if (!crc_ok) return stop(problem::kBackupInvalid, kDamaged);
-      end_manifest();
+      end_backup();
       return fatal_ == nullptr;
-    case Kind::kHardware:
-      if (!crc_ok || too_large_) {
-        hardware_ = HardwareResult::kRefused;
-        hardware_problem_ = &problem::kBackupInvalid;
-        hardware_detail_ = crc_ok ? "hardware.json is implausibly large." : kDamaged;
-      } else {
-        end_hardware();
-      }
-      return true;
-    case Kind::kAudioIndex:
-      // Without it the clips still restore, under placeholder titles.
-      if (crc_ok && !too_large_) end_audio_index();
-      return true;
     case Kind::kAudio:
       end_audio(crc_ok);
       return true;
@@ -298,13 +292,14 @@ bool RestoreSession::on_entry_end(bool crc_ok) {
   return true;
 }
 
-void RestoreSession::end_manifest() {
+void RestoreSession::end_backup() {
   std::string error;
-  if (!parse_manifest(buffer_, manifest_, error)) {
+  if (!parse_backup(buffer_, manifest_, error)) {
     stop(problem::kBackupInvalid, error);
     return;
   }
   manifest_read_ = true;
+  if (!manifest_.hardware.empty()) end_hardware();
 }
 
 void RestoreSession::end_hardware() {
@@ -327,7 +322,7 @@ void RestoreSession::end_hardware() {
   // merge of the two.
   const HardwareConfig saved = store_.hardware_saved();
   HardwareConfig config = store_.hardware_defaults();
-  const PatchError shape = apply_hardware_patch(buffer_, config);
+  const PatchError shape = apply_hardware_patch(manifest_.hardware, config);
   if (shape != PatchError::kNone) {
     hardware_ = HardwareResult::kRefused;
     hardware_problem_ = shape == PatchError::kSerialOnly ? &problem::kHardwareConfigSerialOnly
@@ -360,23 +355,13 @@ void RestoreSession::end_hardware() {
   hardware_ = HardwareResult::kSaved;
 }
 
-void RestoreSession::end_audio_index() {
-  JsonDocument doc;
-  if (deserializeJson(doc, buffer_) != DeserializationError::Ok || !doc.is<JsonObject>()) return;
-  for (JsonPair kv : doc.as<JsonObject>()) {
-    int32_t id = 0;
-    if (!parse_decimal_u31(kv.key().c_str(), id)) continue;
-    const char *title = kv.value()["title"] | "";
-    if (*title != '\0') audio_titles_[id] = title;
-  }
-}
-
 void RestoreSession::end_audio(bool crc_ok) {
   Item item;
   item.source_id = entry_id_;
-  const auto title = audio_titles_.find(entry_id_);
-  item.title =
-      title != audio_titles_.end() ? title->second : "Restored clip " + std::to_string(entry_id_);
+  // A clip backup.json does not name still restores, under a placeholder.
+  const auto title = manifest_.audio_titles.find(entry_id_);
+  item.title = title != manifest_.audio_titles.end() ? title->second
+                                                     : "Restored clip " + std::to_string(entry_id_);
 
   if (too_large_) {
     item.outcome = ItemOutcome::refused(problem::kAudioFormatUnsupported,

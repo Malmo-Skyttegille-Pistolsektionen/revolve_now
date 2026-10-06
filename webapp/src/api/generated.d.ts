@@ -976,25 +976,24 @@ export interface paths {
          *
          *     | Entry | What it is |
          *     |---|---|
-         *     | `manifest.json` | `format: "revolve-now-backup"`, `formatVersion`, the `firmwareVersion` and `hostname` it came from, and `includesWifiCredentials: false` |
-         *     | `hardware.json` | the stored hardware configuration, as a `HardwareConfigPatch` holding **only the values that differ from the compiled defaults** |
-         *     | `audio/index.json` | the clips' titles, keyed by id |
+         *     | `backup.json` | where it came from (`format: "revolve-now-backup"`, `formatVersion`, `firmwareVersion`, `hostname`, `displayName`, `includesWifiCredentials: false`), the stored hardware configuration as `hardware`, and the clips' titles as `audios` - described by `contracts/backup.schema.json` |
          *     | `audio/<id>.wav` | each uploaded clip, byte for byte |
          *     | `programs/<id>.json` | each uploaded program, as `GET /programs/{id}` returns it |
          *
          *     The entries are in that order, which is the order a restore needs:
-         *     titles before the clips they name, clips before the programs that play
-         *     them.
+         *     `backup.json` with the titles before the clips they name, clips before
+         *     the programs that play them.
          *
          *     **Uploads only.** Shipped programs and clips come with the firmware
          *     image and are not in it.
          *
-         *     **No WiFi credentials, ever.** `manifest.json` says so, so whoever
+         *     **No WiFi credentials, ever.** `backup.json` says so, so whoever
          *     holds the file does not have to wonder whether it is safe to pass on.
          *     A board that has lost its credentials joins a network through the
          *     setup portal first, and only then can it be reached to restore.
          *
-         *     `hardware.json` is relative to the defaults so that a board built for
+         *     `hardware` holds **only the values that differ from the compiled
+         *     defaults**, as a `HardwareConfigPatch`, so that a board built for
          *     other hardware keeps its own defaults for everything nobody changed.
          *     `targetsShownAtBoot` is never in it: it is serial-only (D-31).
          *
@@ -1054,13 +1053,13 @@ export interface paths {
          *     Restoring the same backup twice therefore changes nothing the second
          *     time.
          *
-         *     **Across versions.** `manifest.json` must come first. A file that is
+         *     **Across versions.** `backup.json` must come first. A file that is
          *     not a backup, or a backup in a newer `formatVersion` than this
          *     firmware reads, is refused as a whole before anything is applied. An
          *     item this firmware cannot read is refused on its own and reported.
          *
-         *     **A broken archive.** If the file ends early or is damaged after the
-         *     manifest, the restore stops there: what was already applied stays,
+         *     **A broken archive.** If the file ends early or is damaged after
+         *     `backup.json`, the restore stops there: what was already applied stays,
          *     and the `200` lists it with `stoppedEarly` set. Only stored ZIP
          *     entries are read — the file as it was downloaded, not one that was
          *     unpacked and zipped again.
@@ -1527,7 +1526,7 @@ export interface components {
         };
         /** @description What `POST /restore` did with each part of the backup. */
         RestoreReport: {
-            /** @description What `manifest.json` said about where the backup came from. */
+            /** @description What `backup.json` said about where the backup came from. */
             source: {
                 /** Format: int32 */
                 formatVersion: number;
@@ -1572,7 +1571,7 @@ export interface components {
              * @description - `saved` — stored; it applies at the next restart.
              *     - `unchanged` — already what the backup holds.
              *     - `notRequested` — `hardware=false`.
-             *     - `notIncluded` — the backup has no `hardware.json`.
+             *     - `notIncluded` — `backup.json` has no `hardware`.
              *     - `skipped` — the configuration window is shut; `problem` says how
              *       to open it.
              *     - `refused` — this firmware refuses a value; `problem` names it.
@@ -3111,7 +3110,7 @@ export interface operations {
              * @description Refused as a whole; nothing was applied.
              *
              *     - `/problems/backup_invalid` — not a ZIP, not a backup, no
-             *       `manifest.json` first, a `formatVersion` this firmware cannot
+             *       `backup.json` first, a `formatVersion` this firmware cannot
              *       read, or a re-zipped file using compression.
              *     - `/problems/upload_missing_file` — not a multipart body, or no
              *       file part arrived.
