@@ -4,9 +4,8 @@ name: firmware-build
 on:
   # No `paths:` filter, deliberately. These checks are required by the
   # `protect-main` ruleset, and a required check that never runs blocks the pull
-  # request forever - so every workflow has to report on every PR. The cost is
-  # running the full suite on a docs-only change; the alternative was checks
-  # that render in the merge box without gating anything.
+  # request forever - so every workflow has to report on every PR. A change
+  # these checks cannot see is skipped inside the jobs instead: see `changes`.
   push:
     branches: [main]
   pull_request:
@@ -28,6 +27,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which areas this pull request touches (.github/scripts/changed_areas.py).
+  # The jobs below still run and report on every PR, but skip their steps - and
+  # their container - when it answers `false`. They test `!= 'false'` and carry
+  # `if: !cancelled()` so that this job failing runs everything: a required job
+  # that is skipped outright, as `needs` would skip it, reports as passed.
+  changes:
+    name: changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      firmware: ${{ steps.areas.outputs.firmware }}
+      webapp: ${{ steps.areas.outputs.webapp }}
+      contracts: ${{ steps.areas.outputs.contracts }}
+      e2e: ${{ steps.areas.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: false
+          persist-credentials: false
+          # The merge commit and its first parent: the base it would merge into.
+          fetch-depth: 2
+
+      - id: areas
+        run: python3 .github/scripts/changed_areas.py >> "$GITHUB_OUTPUT"
+
   host-test:
     # Runs first and on its own: the host tests need only IDF's Unity source,
     # not the cross toolchain, so they fail in ~a minute instead of after the
@@ -38,6 +61,8 @@ jobs:
     # sanitized run is not evidence the -O0 build is clean, or vice versa. The
     # job names are the required-check contract (see AGENTS.md).
     name: ${{ matrix.name }}
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -54,10 +79,12 @@ jobs:
         working-directory: firmware/host_test
     steps:
       - uses: actions/checkout@v7.0.1
+        if: needs.changes.outputs.firmware != 'false'
         with:
           submodules: false
 
       - name: Check out ESP-IDF (for Unity only)
+        if: needs.changes.outputs.firmware != 'false'
         uses: actions/checkout@v7.0.1
         with:
           repository: espressif/esp-idf
@@ -66,6 +93,7 @@ jobs:
           submodules: false
 
       - name: Fetch the Unity submodule
+        if: needs.changes.outputs.firmware != 'false'
         # esp-idf vendors Unity's source as a git submodule; a plain
         # submodules:false checkout leaves components/unity/unity empty.
         # Fetch only that one submodule rather than all of esp-idf's.
@@ -73,6 +101,7 @@ jobs:
         run: git submodule update --init --depth 1 -- components/unity/unity
 
       - name: Build and run
+        if: needs.changes.outputs.firmware != 'false'
         env:
           IDF_PATH: ${{ github.workspace }}/esp-idf
         run: |
@@ -82,31 +111,69 @@ jobs:
 
   firmware:
     name: firmware (esp32s3)
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    container: espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c
+    # The image already compiles through ccache (IDF_CCACHE_ENABLE=1); these
+    # keep its cache between runs. Saved from main only, so pull requests all
+    # start from one warm cache rather than each adding their own.
+    env:
+      CCACHE_DIR: /github/home/.ccache
+      # IDF writes picolibc.specs into the build directory, and the default
+      # check hashes its mtime: every fresh build would miss.
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 200M
+    container:
+      image: >-
+        ${{ needs.changes.outputs.firmware != 'false'
+        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
     defaults:
       run:
         working-directory: firmware
     steps:
       - uses: actions/checkout@v7.0.1
+        if: needs.changes.outputs.firmware != 'false'
         with:
           # resources/ is a sibling directory in the monorepo, not a
           # submodule; a plain checkout already brings it along.
           submodules: false
 
       - uses: ./.github/actions/trust-workspace
+        if: needs.changes.outputs.firmware != 'false'
+
+      - name: Restore the compiler cache
+        if: needs.changes.outputs.firmware != 'false'
+        id: ccache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: /github/home/.ccache
+          key: ccache-esp32s3-${{ hashFiles('firmware/**', '.github/workflows/firmware-build.yml') }}
+          restore-keys: ccache-esp32s3-
 
       - name: Build
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
+          ccache --zero-stats
           idf.py set-target esp32s3
           idf.py build
+          ccache --show-stats
+
+      - name: Save the compiler cache
+        if: >-
+          needs.changes.outputs.firmware != 'false' && github.ref == 'refs/heads/main'
+          && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: /github/home/.ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       # Cheap, and the only ordinary-CI check that the version machinery works
       # at all: everything else tolerates a versionless image in silence, and
       # the release workflow would be the first to notice - after a tag exists.
       - name: Assert the image carries the workspace's version
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -119,6 +186,7 @@ jobs:
           echo "Image reports $BUILT"
 
       - name: Report image size
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
@@ -131,6 +199,7 @@ jobs:
       # reliably does. See firmware/scripts/check_image_budget.py for the two
       # ceilings and why they are separate.
       - name: Check the image budget
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           python3 scripts/check_image_budget.py \
@@ -139,6 +208,7 @@ jobs:
             build/generated/embedded_index.generated.h
 
       - uses: actions/upload-artifact@v7.0.1
+        if: needs.changes.outputs.firmware != 'false'
         with:
           name: firmware
           path: |
@@ -158,26 +228,61 @@ jobs:
   # parallel and keep the build's signal fast.
   clang-tidy:
     name: firmware static analysis
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    container: espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c
+    container:
+      image: >-
+        ${{ needs.changes.outputs.firmware != 'false'
+        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
     defaults:
       run:
         working-directory: firmware
     steps:
       - uses: actions/checkout@v7.0.1
+        if: needs.changes.outputs.firmware != 'false'
         with:
           submodules: false
 
       - uses: ./.github/actions/trust-workspace
+        if: needs.changes.outputs.firmware != 'false'
 
       # Not in the image's default tool set, and not optional: upstream LLVM
       # has no Xtensa backend, so a plain clang-tidy fails on this firmware
       # with `unknown target triple`. This is Espressif's own build of it.
+      # Keyed on the IDF tool manifest, which pins the esp-clang release.
+      - name: Locate esp-clang
+        if: needs.changes.outputs.firmware != 'false'
+        id: esp-clang
+        shell: bash
+        run: |
+          echo "path=$IDF_TOOLS_PATH/tools/esp-clang" >> "$GITHUB_OUTPUT"
+          echo "key=esp-clang-$(sha256sum "$IDF_PATH/tools/tools.json" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore esp-clang
+        if: needs.changes.outputs.firmware != 'false'
+        id: esp-clang-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ${{ steps.esp-clang.outputs.path }}
+          key: ${{ steps.esp-clang.outputs.key }}
+
       - name: Install esp-clang
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
           python3 "$IDF_PATH/tools/idf_tools.py" install esp-clang
+
+      # From main only, like the compiler cache: a save takes two minutes.
+      - name: Save esp-clang
+        if: >-
+          needs.changes.outputs.firmware != 'false' && github.ref == 'refs/heads/main'
+          && steps.esp-clang-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ${{ steps.esp-clang.outputs.path }}
+          key: ${{ steps.esp-clang.outputs.key }}
 
       # `reconfigure`, not `build`: clang-tidy needs the compilation database
       # and nothing else, and generating it does not require compiling anything.
@@ -188,6 +293,7 @@ jobs:
       # refused - "CMAKE_TOOLCHAIN_FILE does not match currently selected
       # IDF_TARGET". The target comes from sdkconfig.defaults either way.
       - name: Generate a clang compilation database
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
@@ -197,6 +303,7 @@ jobs:
       # that finds bugs, and it starts at zero so it can stay there. A
       # warning-only mode nobody reads would be worse than nothing.
       - name: clang-tidy
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
@@ -208,29 +315,65 @@ jobs:
     # build, and there is no cache to keep separate - the espressif/idf image
     # already ships qemu-xtensa.
     name: firmware boot smoke
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    container: espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c
+    # Compiler cache as in the `firmware` job.
+    env:
+      CCACHE_DIR: /github/home/.ccache
+      # IDF writes picolibc.specs into the build directory, and the default
+      # check hashes its mtime: every fresh build would miss.
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 200M
+    container:
+      image: >-
+        ${{ needs.changes.outputs.firmware != 'false'
+        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
     defaults:
       run:
         working-directory: firmware
     steps:
       - uses: actions/checkout@v7.0.1
+        if: needs.changes.outputs.firmware != 'false'
         with:
           submodules: false
 
       - uses: ./.github/actions/trust-workspace
+        if: needs.changes.outputs.firmware != 'false'
+
+      - name: Restore the compiler cache
+        if: needs.changes.outputs.firmware != 'false'
+        id: ccache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: /github/home/.ccache
+          key: ccache-qemu-${{ hashFiles('firmware/**', '.github/workflows/firmware-build.yml') }}
+          restore-keys: ccache-qemu-
 
       - name: Build the QEMU profile
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
+          ccache --zero-stats
           scripts/run-qemu.sh --build-only
+          ccache --show-stats
+
+      - name: Save the compiler cache
+        if: >-
+          needs.changes.outputs.firmware != 'false' && github.ref == 'refs/heads/main'
+          && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: /github/home/.ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       # Something already on 8080 makes hostfwd fail to bind, and the symptom
       # is identical to a device that never booted (#204, and #110 is the same
       # shape from the other side). Checked before we start, so the failure
       # names itself instead of costing a timeout.
       - name: Check the forwarded port is free
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8080/; then
@@ -240,6 +383,7 @@ jobs:
           echo "127.0.0.1:8080 is free"
 
       - name: Boot QEMU headless
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
@@ -256,6 +400,7 @@ jobs:
       # They need different responses - the first two are real, the third is a
       # re-run - so each is now reported as itself.
       - name: Wait for the API to answer
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           QEMU_PID="$(cat qemu.pid)"
@@ -298,6 +443,7 @@ jobs:
           exit 1
 
       - name: GET /api/v2/version
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           curl -sSf http://127.0.0.1:8080/api/v2/version -o version.json
@@ -310,6 +456,7 @@ jobs:
           EOF
 
       - name: GET /api/v2/programs
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           curl -sSf http://127.0.0.1:8080/api/v2/programs -o programs.json
@@ -324,6 +471,7 @@ jobs:
           EOF
 
       - name: One SSE stateUpdate frame
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           # A stateUpdate is sent on connect (main/net/sse_hub.cpp), so a short
@@ -348,6 +496,7 @@ jobs:
           EOF
 
       - name: GET /api/v2/config/hardware
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           curl -sSf http://127.0.0.1:8080/api/v2/config/hardware -o hardware.json
@@ -365,6 +514,7 @@ jobs:
           EOF
 
       - name: GET /api/v2/diagnostics/info
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           curl -sSf http://127.0.0.1:8080/api/v2/diagnostics/info -o info.json
@@ -378,6 +528,7 @@ jobs:
           EOF
 
       - name: GET / is the API-only 404
+        if: needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           # This job deliberately does not build the webapp, so `webapp/dist` is
@@ -389,7 +540,7 @@ jobs:
           test "${code}" = 404
 
       - name: Stop QEMU
-        if: always()
+        if: always() && needs.changes.outputs.firmware != 'false'
         shell: bash
         run: |
           [ -f qemu.pid ] || exit 0

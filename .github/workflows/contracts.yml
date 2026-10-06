@@ -4,9 +4,8 @@ name: contracts
 on:
   # No `paths:` filter, deliberately. These checks are required by the
   # `protect-main` ruleset, and a required check that never runs blocks the pull
-  # request forever - so every workflow has to report on every PR. The cost is
-  # running the full suite on a docs-only change; the alternative was checks
-  # that render in the merge box without gating anything.
+  # request forever - so every workflow has to report on every PR. A change
+  # these checks cannot see is skipped inside the jobs instead: see `changes`.
   push:
     branches: [main]
   pull_request:
@@ -28,25 +27,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  contracts:
-    name: contract and program validation
+  # Which areas this pull request touches; firmware-build.yml says how the
+  # jobs below use the answer.
+  changes:
+    name: changed areas
     runs-on: ubuntu-latest
+    outputs:
+      firmware: ${{ steps.areas.outputs.firmware }}
+      webapp: ${{ steps.areas.outputs.webapp }}
+      contracts: ${{ steps.areas.outputs.contracts }}
+      e2e: ${{ steps.areas.outputs.e2e }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           submodules: false
+          persist-credentials: false
+          # The merge commit and its first parent: the base it would merge into.
+          fetch-depth: 2
+
+      - id: areas
+        run: python3 .github/scripts/changed_areas.py >> "$GITHUB_OUTPUT"
+
+  contracts:
+    name: contract and program validation
+    needs: changes
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        if: needs.changes.outputs.contracts != 'false'
+        with:
+          submodules: false
 
       - uses: actions/setup-python@v7.0.0
+        if: needs.changes.outputs.contracts != 'false'
         with:
           python-version: '3.14.8'
 
       - uses: actions/setup-node@v7.0.0
+        if: needs.changes.outputs.contracts != 'false'
         with:
           node-version-file: webapp/package.json
 
       # Pinned like every other tool here: an unpinned CLI can turn main red
       # from an upstream rule change with no commit of ours behind it.
       - name: Install check-jsonschema
+        if: needs.changes.outputs.contracts != 'false'
         run: |
           # renovate: datasource=pypi depName=check-jsonschema
           pip install check-jsonschema==0.38.2
@@ -54,17 +80,20 @@ jobs:
       # Lints openapi.yaml and asyncapi.yaml, checks program.schema.json is a
       # valid schema, and validates every shipped program against it.
       - name: Validate the contracts
+        if: needs.changes.outputs.contracts != 'false'
         run: ./contracts/validate.sh
 
       # The program-side rules the contracts do not cover: shipped ids stay out
       # of the upload range, and every audio_ids entry resolves to a clip that
       # exists.
       - name: Validate the shipped programs
+        if: needs.changes.outputs.contracts != 'false'
         run: ./resources/programs/validate_programs.sh
 
       # The same boundary on the audio side, plus every entry naming a file that
       # is actually there.
       - name: Validate the shipped audio
+        if: needs.changes.outputs.contracts != 'false'
         run: ./resources/audios/validate_audios.sh
 
   # Answers "does this PR break the contract?" by diffing openapi.yaml and
@@ -83,7 +112,8 @@ jobs:
   # because "allowed" still means "a human decides on purpose", not "silent".
   breaking-changes:
     name: breaking change detection
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,6 +122,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7.0.1
+        if: needs.changes.outputs.contracts != 'false'
         with:
           submodules: false
           # Need history back to the merge base with main, not just this PR's
@@ -99,10 +130,12 @@ jobs:
           fetch-depth: 0
 
       - uses: actions/setup-node@v7.0.0
+        if: needs.changes.outputs.contracts != 'false'
         with:
           node-version-file: webapp/package.json
 
       - name: Find the merge base with main
+        if: needs.changes.outputs.contracts != 'false'
         id: base
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
