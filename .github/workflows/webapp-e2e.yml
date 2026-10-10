@@ -213,7 +213,7 @@ jobs:
           [ -f qemu.pid ] || exit 0
           kill "$(cat qemu.pid)" 2>/dev/null || true
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: failure()
         with:
           name: e2e-failure
