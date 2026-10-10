@@ -235,7 +235,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: git-cliff --config .github/cliff.toml --latest --unreleased --strip all --output NOTES.md
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-notes
           path: NOTES.md
@@ -509,7 +509,7 @@ jobs:
           cat SHA256SUMS.txt
           echo "sha256=$(sha256sum revolve_now.bin | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-assets
           path: firmware/release

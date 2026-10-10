@@ -76,7 +76,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: steps.diff.outputs.changed == 'true'
         with:
           name: derived-patch
