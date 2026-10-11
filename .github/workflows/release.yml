@@ -399,7 +399,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a -m "$VERSION" "$VERSION"
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: webapp/package.json
           cache: npm

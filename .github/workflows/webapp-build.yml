@@ -62,7 +62,7 @@ jobs:
         with:
           submodules: false
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: needs.changes.outputs.webapp != 'false'
         with:
           node-version-file: webapp/package.json

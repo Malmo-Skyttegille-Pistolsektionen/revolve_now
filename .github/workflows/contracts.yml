@@ -64,7 +64,7 @@ jobs:
         with:
           python-version: '3.14.8'
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: needs.changes.outputs.contracts != 'false'
         with:
           node-version-file: webapp/package.json
@@ -129,7 +129,7 @@ jobs:
           # commits.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: needs.changes.outputs.contracts != 'false'
         with:
           node-version-file: webapp/package.json
