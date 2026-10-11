@@ -93,7 +93,7 @@ jobs:
       - uses: ./.github/actions/trust-workspace
         if: needs.changes.outputs.e2e != 'false'
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: needs.changes.outputs.e2e != 'false'
         with:
           node-version-file: webapp/package.json

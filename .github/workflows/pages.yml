@@ -69,7 +69,7 @@ jobs:
       - name: Build docs
         run: mkdocs build --strict
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: webapp/package.json
           cache: npm
