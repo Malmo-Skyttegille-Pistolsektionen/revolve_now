@@ -32,7 +32,7 @@ jobs:
           submodules: false
       - uses: actions/setup-python@v7.0.0
         with:
-          python-version: '3.14.8'
+          python-version: '3.15.0'
 
       # Inlined rather than using pre-commit/action, which is a four-step
       # composite doing exactly this. Upstream describes it as maintenance-only
@@ -65,7 +65,7 @@ jobs:
 
       - uses: actions/setup-python@v7.0.0
         with:
-          python-version: '3.14.8'
+          python-version: '3.15.0'
 
       # PyYAML is for check_workflow_permissions.py below, rather than
       # whatever the runner image happens to ship.
@@ -112,7 +112,7 @@ jobs:
           submodules: false
       - uses: actions/setup-python@v7.0.0
         with:
-          python-version: '3.14.8'
+          python-version: '3.15.0'
 
       - name: Install pytest
         run: |
