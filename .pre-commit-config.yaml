@@ -42,7 +42,7 @@ repos:
       - id: prettier
         name: prettier (webapp)
         language: node
-        additional_dependencies: [prettier@3.9.9]
+        additional_dependencies: [prettier@3.9.10]
         entry: prettier --write --ignore-unknown --log-level warn --ignore-path webapp/.prettierignore
         files: ^webapp/
         types: [text]
