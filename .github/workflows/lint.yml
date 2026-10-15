@@ -44,7 +44,7 @@ jobs:
       # used: it pushes auto-fix commits, and every commit here has to carry a
       # DCO sign-off (CONTRIBUTING.md) that a bot would not add.
       # renovate: datasource=pypi depName=pre-commit
-      - run: python -m pip install pre-commit==4.6.2
+      - run: python -m pip install pre-commit==4.7.0
 
       - uses: actions/cache@v6.1.0
         with:
