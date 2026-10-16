@@ -101,7 +101,7 @@ jobs:
 
       # An App token, not GITHUB_TOKEN: a push made with GITHUB_TOKEN starts no
       # workflows, so the required checks would never run on the new head.
-      - uses: actions/create-github-app-token@v3.2.0
+      - uses: actions/create-github-app-token@v3.3.0
         id: app
         with:
           app-id: ${{ secrets.RENOVATE_DERIVED_FILES_APP_ID }}
