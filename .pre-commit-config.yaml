@@ -7,15 +7,17 @@
 # second passing is the normal path - re-stage what it changed.
 #
 # Excluded: the vendored third-party trees, which must stay byte-identical to
-# upstream; resources/, which is data; and contracts/history/, which is a
-# frozen record of API v1 and must not be tidied.
+# upstream; resources/, which is data; contracts/history/, which is a
+# frozen record of API v1 and must not be tidied; and generated CAD exports,
+# which must stay byte-identical to what their script writes.
 exclude: |
   (?x)^(
     firmware/lib/psychic_http/.*|
     firmware/lib/arduinojson/.*|
     firmware/lib/dns_server/.*|
     resources/.*|
-    contracts/history/.*
+    contracts/history/.*|
+    hardware/.*\.step
   )$
 
 repos:
