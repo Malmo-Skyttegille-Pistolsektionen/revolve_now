@@ -2922,7 +2922,7 @@
 			(uuid "8555f2a4-1fbd-4f55-9ca5-9d31c1aa7ef5")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/262b06f3-837f-4c1d-b95a-3a1b4cdbc5cf"
 					(reference "D7")
 					(unit 1)
@@ -3106,7 +3106,7 @@
 			(uuid "e0e5c1b4-b346-4cdf-a7da-5dcc9cf44874")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/262b06f3-837f-4c1d-b95a-3a1b4cdbc5cf"
 					(reference "D6")
 					(unit 1)

@@ -1171,7 +1171,7 @@
 			(uuid "1c5bdd48-2bfc-4925-ae51-f6a4179b69b9")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(reference "R37")
 					(unit 1)
@@ -1241,7 +1241,7 @@
 			(uuid "16609cc3-221c-4c70-8b22-d04cd486cbdd")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(reference "R38")
 					(unit 1)
@@ -1311,7 +1311,7 @@
 			(uuid "af856068-8d76-4b5f-ae9c-1626f5cdd5b4")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(reference "R46")
 					(unit 1)
@@ -1374,7 +1374,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "10")
 				)
@@ -1456,7 +1456,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "4")
 				)
@@ -1708,7 +1708,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "2")
 				)
@@ -1770,7 +1770,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "12")
 				)
@@ -1822,7 +1822,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "6")
 				)
@@ -1864,7 +1864,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "7")
 				)
@@ -1916,7 +1916,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "8")
 				)
@@ -1998,7 +1998,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "9")
 				)
@@ -2080,7 +2080,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "3")
 				)
@@ -2132,7 +2132,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "5")
 				)
@@ -2224,7 +2224,7 @@
 			)
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f"
 					(page "11")
 				)

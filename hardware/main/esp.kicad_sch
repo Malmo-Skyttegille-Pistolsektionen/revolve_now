@@ -4238,7 +4238,7 @@
 			(uuid "23646cee-220b-421e-ac6e-1218b06ebc4c")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/23f5ad61-5d74-437e-a103-f5f86d177ff0"
 					(reference "C31")
 					(unit 1)

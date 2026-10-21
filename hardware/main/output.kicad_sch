@@ -2707,7 +2707,7 @@
 			(uuid "a75c3913-d86a-48a2-94d4-8e2048ed1c1b")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R12")
 					(unit 1)
@@ -2885,7 +2885,7 @@
 			(uuid "95ec4f95-579e-4189-b7d1-c928845aabf4")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R30")
 					(unit 1)
@@ -2954,7 +2954,7 @@
 			(uuid "71054087-b2f3-41b5-a609-927a53852864")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R32")
 					(unit 1)
@@ -3458,7 +3458,7 @@
 			(uuid "70df1107-9479-499a-903e-a8beea084fd5")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R15")
 					(unit 1)
@@ -3636,7 +3636,7 @@
 			(uuid "5c11f182-379c-4909-be43-6eb1da9f5a4d")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R28")
 					(unit 1)
@@ -3704,7 +3704,7 @@
 			(uuid "70df1107-9479-499a-903e-a8beea084fd6")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R17")
 					(unit 1)
@@ -3772,7 +3772,7 @@
 			(uuid "70df1107-9479-499a-903e-a8beea084fd7")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R14")
 					(unit 1)
@@ -4036,7 +4036,7 @@
 			(uuid "580d6a47-1598-4cad-a66c-202b6eb3b3b5")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R11")
 					(unit 1)
@@ -4104,7 +4104,7 @@
 			(uuid "70df1107-9479-499a-903e-a8beea084fd8")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R16")
 					(unit 1)
@@ -4328,7 +4328,7 @@
 			(uuid "2e80a4c6-dfcd-4b64-b283-752ea7cddead")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R34")
 					(unit 1)
@@ -4707,7 +4707,7 @@
 			(uuid "cc8733a3-6c3c-437a-b0c2-b81f799c1ee5")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R29")
 					(unit 1)
@@ -4776,7 +4776,7 @@
 			(uuid "38e8f644-dc8a-49cd-950d-88830f4e0cf6")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R31")
 					(unit 1)
@@ -4845,7 +4845,7 @@
 			(uuid "cef1e21f-b020-42a4-9ac7-244018bce969")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R33")
 					(unit 1)
@@ -4913,7 +4913,7 @@
 			(uuid "1beaf559-591f-4fe8-80e6-e7db61b345ce")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/50e31ce3-8843-4665-bf58-28f928780271"
 					(reference "R13")
 					(unit 1)

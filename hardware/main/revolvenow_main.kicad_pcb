@@ -3616,7 +3616,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/abd195d3-aeb6-4cf6-99f7-57aade00cdfc")
 		(sheetname "/")
-		(sheetfile "revolvenow_hardware.kicad_sch")
+		(sheetfile "revolvenow_main.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.254724 -0.5225)
@@ -11190,7 +11190,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/fc2b48d0-5beb-48a6-890c-b0df77703009")
 		(sheetname "/")
-		(sheetfile "revolvenow_hardware.kicad_sch")
+		(sheetfile "revolvenow_main.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.254724 -0.5225)
@@ -31213,7 +31213,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/d627052d-3d72-44b5-bfef-5290855fa681")
 		(sheetname "/")
-		(sheetfile "revolvenow_hardware.kicad_sch")
+		(sheetfile "revolvenow_main.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.254724 -0.5225)

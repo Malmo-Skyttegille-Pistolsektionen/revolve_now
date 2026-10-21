@@ -4757,7 +4757,7 @@
 			(uuid "ad4bd5b9-e570-4f89-980c-310a5497aeba")
 		)
 		(instances
-			(project "revolvenow_hardware"
+			(project "revolvenow_main"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/229aa782-04b5-4ae7-94e3-80d466a70ee7"
 					(reference "R27")
 					(unit 1)
