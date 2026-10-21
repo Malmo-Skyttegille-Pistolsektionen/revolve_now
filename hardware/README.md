@@ -5,6 +5,7 @@ KiCad projects for the Revolve Now boards. Open the `.kicad_pro` in each board d
 | Directory | Board |
 |---|---|
 | `main/` | Main board (ESP32-S3) |
+| `controller/` | Controller board |
 | `lib/` | Symbols, footprints and logos shared by the boards |
 
 Each board keeps its fabrication output per revision in `fab/<rev>/` (gerbers,
