@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           submodules: false
-      - uses: actions/setup-python@v7.0.0
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.15.1'
 
@@ -63,7 +63,7 @@ jobs:
         with:
           submodules: false
 
-      - uses: actions/setup-python@v7.0.0
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.15.1'
 
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           submodules: false
-      - uses: actions/setup-python@v7.0.0
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.15.1'
 
