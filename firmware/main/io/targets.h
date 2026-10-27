@@ -4,9 +4,9 @@
 
 #include "target_bank.h"
 
-// The target hardware: one GPIO per bank, each driving a transistor on its own
-// output. A one-bank device - every device today - behaves exactly as before
-// (#207, D-41).
+// The target hardware: per bank, either one GPIO held at a level or, for a
+// latching relay, a show pin and a hide pin that are pulsed (#636). A one-bank
+// level device behaves exactly as before (#207, D-41).
 namespace targets {
 
 void init();
@@ -38,5 +38,16 @@ int level(size_t bank);
 // against it does not have to know the polarity. Was a compile-time constant
 // before the polarity became configurable.
 int level_shown(size_t bank);
+
+// Whether a bank is pulsed rather than held. On a latching bank level() reads
+// the show pin, which rests released, so it says nothing about the targets.
+bool latching(size_t bank);
+
+// A latching bank's hide pin, or -1 on a level bank.
+int hide_pin(size_t bank);
+
+// What set() last asked a bank for. The only state a latching bank has, since
+// the relay cannot be read back.
+bool shown(size_t bank);
 
 }  // namespace targets

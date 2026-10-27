@@ -45,7 +45,10 @@
             "properties": {
               "gpio": { "$ref": "#/$defs/gpio" },
               "activeLow": { "type": "boolean" },
-              "name": { "type": "string", "maxLength": 16 }
+              "name": { "type": "string", "maxLength": 16 },
+              "drive": { "type": "string", "enum": ["level", "latching"] },
+              "hideGpio": { "$ref": "#/$defs/optionalGpio" },
+              "pulseMs": { "type": "integer", "minimum": 10, "maximum": 1000 }
             }
           }
         },

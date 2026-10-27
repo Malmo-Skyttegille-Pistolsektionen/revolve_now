@@ -53,13 +53,29 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
     size_t bank;  // kNoBank for the LED and the audio pins.
   };
   std::vector<PinUse> in_use;
-  in_use.reserve(config.banks.size() + 11);
+  in_use.reserve(2 * config.banks.size() + 11);
 
   // The bank pins first: they are the ones whose recovery needs a cable.
   for (size_t i = 0; i < config.banks.size(); i++) {
-    const ConfigRefusal pin = validate_pin(config.banks[i].gpio);
+    const TargetBank &bank = config.banks[i];
+    const ConfigRefusal pin = validate_pin(bank.gpio);
     if (pin != ConfigRefusal::kNone) return pin;
-    in_use.push_back({config.banks[i].gpio, i});
+    in_use.push_back({bank.gpio, i});
+
+    // Range-checked on every bank, so whatever is stored is something the
+    // contract can report back; only a latching bank drives its hide pin.
+    if (bank.pulse_ms < kMinPulseMs || bank.pulse_ms > kMaxPulseMs) {
+      return ConfigRefusal::kPulseOutOfRange;
+    }
+    if (bank.drive != BankDrive::kLatching) {
+      if (bank.hide_gpio < kPinUnused || bank.hide_gpio > kMaxGpio) {
+        return ConfigRefusal::kGpioOutOfRange;
+      }
+      continue;
+    }
+    const ConfigRefusal hide = validate_pin(bank.hide_gpio);
+    if (hide != ConfigRefusal::kNone) return hide;
+    in_use.push_back({bank.hide_gpio, i});
   }
 
   // Pins belonging to a peripheral this build does not have are not checked.
@@ -187,7 +203,18 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
              "reached on.";
     case ConfigRefusal::kBankNameTooLong:
       return "A bank name is at most " + std::to_string(kMaxBankNameLength) + " characters.";
+    case ConfigRefusal::kPulseOutOfRange:
+      return "A latching bank's pulse must last between " + std::to_string(kMinPulseMs) + " and " +
+             std::to_string(kMaxPulseMs) + " ms.";
     case ConfigRefusal::kPinCollision:
+      if (detail.names_two_banks() && detail.bank_a == detail.bank_b) {
+        std::string out = "Bank ";
+        out += bank_letter(detail.bank_a);
+        out += "'s show and hide pins are both GPIO ";
+        out += std::to_string(detail.gpio);
+        out += ". A latching bank needs two different pins.";
+        return out;
+      }
       // Two banks are named, because with eight of them the generic sentence
       // no longer tells the operator which field to change.
       if (detail.names_two_banks()) {

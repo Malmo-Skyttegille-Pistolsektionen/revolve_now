@@ -214,6 +214,18 @@
   width: 5rem;
 }
 
+/* A latching bank's show and hide pins, side by side in one cell. */
+.gpioPair {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.gpioTag {
+  font-size: 0.75rem;
+  color: var(--rt-text-muted);
+}
+
 .padCell {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--rt-text-muted);

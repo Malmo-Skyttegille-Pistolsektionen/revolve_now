@@ -56,6 +56,13 @@ stale — the pin numbers beside them are correct, the chip name is not.
 > `targets::init()` is inverted, so the targets face away when they should be
 > face-on (D-31).
 
+**Latching banks** (D-50) are runtime configuration only: Kconfig ships one
+level bank. A latching bank's `gpio` and `hideGpio` both rest released, and
+`targets::init()` pulses the one for the boot state, since the relay kept
+whatever it held at power-off. `level` on the console and `padLevel` read the
+show pin, so for those banks they say nothing; the console prints the last
+command sent instead.
+
 ### Board profiles
 
 `sdkconfig.defaults` is the PoC. The PCB adds `sdkconfig.defaults.pcb-rev1` on

@@ -995,13 +995,15 @@ describe('target banks', () => {
       active: { banks: unknown[] };
       restartRequired: boolean;
     };
-    expect(saved.saved.banks).toEqual(banks);
+    // A bank sent without the latching fields (#636) comes back with their defaults.
+    const stored = banks.map((bank) => ({ ...bank, drive: 'level', hideGpio: -1, pulseMs: 100 }));
+    expect(saved.saved.banks).toEqual(stored);
     expect(saved.active.banks).toHaveLength(1);
     expect(saved.restartRequired).toBe(true);
 
     server.restart();
     const afterRestart = (await (await api('/config/hardware')).json()) as { active: { banks: unknown[] } };
-    expect(afterRestart.active.banks).toEqual(banks);
+    expect(afterRestart.active.banks).toEqual(stored);
   });
 
   // The array replaces what is stored rather than merging into it: a body

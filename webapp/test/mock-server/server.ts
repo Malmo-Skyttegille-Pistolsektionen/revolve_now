@@ -147,6 +147,10 @@ function pinRefusal(gpio: number): string | null {
 /** `rt::kMaxTargetBanks` and `rt::kMaxBankNameLength` in target_bank.h. */
 const MAX_TARGET_BANKS = 8;
 const MAX_BANK_NAME_LENGTH = 16;
+/** `rt::kDefaultPulseMs`, `kMinPulseMs` and `kMaxPulseMs` in target_bank.h (#636). */
+const DEFAULT_PULSE_MS = 100;
+const MIN_PULSE_MS = 10;
+const MAX_PULSE_MS = 1000;
 /** The letter a bank's position gives it, `rt::bank_letter`. */
 const BANK_LETTERS = 'ABCDEFGH';
 
@@ -158,9 +162,23 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
   if (banks.length < 1 || banks.length > MAX_TARGET_BANKS) {
     return `A device drives between one and ${MAX_TARGET_BANKS} target banks.`;
   }
+  const hidePins: number[] = [];
   for (const bank of banks) {
     const refusal = pinRefusal(bank.gpio);
     if (refusal !== null) return refusal;
+    // Range-checked on every bank; only a latching bank drives its hide pin.
+    const pulseMs = bank.pulseMs ?? DEFAULT_PULSE_MS;
+    if (!Number.isInteger(pulseMs) || pulseMs < MIN_PULSE_MS || pulseMs > MAX_PULSE_MS) {
+      return `A latching bank's pulse must last between ${MIN_PULSE_MS} and ${MAX_PULSE_MS} ms.`;
+    }
+    const hideGpio = bank.hideGpio ?? -1;
+    if (bank.drive === 'latching') {
+      const hide = pinRefusal(hideGpio);
+      if (hide !== null) return hide;
+      hidePins.push(hideGpio);
+    } else if (!Number.isInteger(hideGpio) || hideGpio < -1 || hideGpio > 48) {
+      return 'A target GPIO must be between 0 and 48.';
+    }
     if (bank.name.length > MAX_BANK_NAME_LENGTH) {
       return `A bank name is at most ${MAX_BANK_NAME_LENGTH} characters.`;
     }
@@ -191,7 +209,7 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
     }
   }
 
-  const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s, ...eth];
+  const inUse = [...banks.map((bank) => bank.gpio), ...hidePins, config.ledGpio, ...i2s, ...eth];
   if (new Set(inUse).size !== inUse.length) return PIN_COLLISION;
 
   if (!config.wifiEnabled && !config.ethEnabled) {
@@ -224,7 +242,7 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
  */
 export const HARDWARE_DEFAULTS: HardwareConfig = {
   // One bank, which is every device shipped so far (#207, D-41).
-  banks: [{ gpio: 5, activeLow: true, name: '' }],
+  banks: [{ gpio: 5, activeLow: true, name: '', drive: 'level', hideGpio: -1, pulseMs: DEFAULT_PULSE_MS }],
   hostname: 'revolve-now',
   displayName: '',
   targetsShownAtBoot: true,
@@ -717,9 +735,13 @@ const OPEN_WINDOW_HINT =
  * `rt::apply_hardware_patch`'s shape checks: the refusals the firmware answers
  * before it reads a value. A patch it accepts comes back with every bank
  * filled in the way ArduinoJson's `entry["gpio"] | 0` does, so a half-written
- * entry reaches validation as GPIO 0 and is refused there.
+ * entry reaches validation as GPIO 0 and is refused there. The latching fields
+ * (#636) fall back to the bank at the same index in `current` instead.
  */
-function parseHardwarePatch(parsed: Record<string, unknown> | null):
+function parseHardwarePatch(
+  parsed: Record<string, unknown> | null,
+  current: HardwareConfig['banks'],
+):
   | { patch: Partial<HardwareConfig> }
   | {
       type: '/problems/hardware_config_invalid' | '/problems/hardware_config_serial_only';
@@ -762,11 +784,25 @@ function parseHardwarePatch(parsed: Record<string, unknown> | null):
         ofBanks: true,
       };
     }
-    patch.banks = patch.banks.map((bank: Partial<HardwareConfig['banks'][number]>) => ({
-      gpio: typeof bank.gpio === 'number' ? bank.gpio : 0,
-      activeLow: typeof bank.activeLow === 'boolean' ? bank.activeLow : true,
-      name: typeof bank.name === 'string' ? bank.name : '',
-    }));
+    const drives: unknown[] = patch.banks.map((bank: Record<string, unknown>) => bank.drive);
+    if (drives.some((drive) => drive !== undefined && drive !== null && drive !== 'level' && drive !== 'latching')) {
+      return {
+        type: '/problems/hardware_config_invalid',
+        detail: "A bank's 'drive' must be 'level' or 'latching'",
+        ofBanks: true,
+      };
+    }
+    patch.banks = patch.banks.map((bank: Partial<HardwareConfig['banks'][number]>, index) => {
+      const was = current[index];
+      return {
+        gpio: typeof bank.gpio === 'number' ? bank.gpio : 0,
+        activeLow: typeof bank.activeLow === 'boolean' ? bank.activeLow : true,
+        name: typeof bank.name === 'string' ? bank.name : '',
+        drive: bank.drive ?? was?.drive ?? 'level',
+        hideGpio: typeof bank.hideGpio === 'number' ? bank.hideGpio : (was?.hideGpio ?? -1),
+        pulseMs: typeof bank.pulseMs === 'number' ? bank.pulseMs : (was?.pulseMs ?? DEFAULT_PULSE_MS),
+      };
+    });
   }
   return { patch };
 }
@@ -1067,8 +1103,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
    */
   function padLevel(index: number): number {
     const bank = activeHardware.banks[index];
+    const activeLow = bank?.activeLow ?? true;
+    // A latching bank's show pin rests released between pulses (#636).
+    if (bank?.drive === 'latching') return activeLow ? 1 : 0;
     const shown = state.bankShown[index] ?? false;
-    return shown === (bank?.activeLow ?? true) ? 0 : 1;
+    return shown === activeLow ? 0 : 1;
   }
 
   /** Mirrors `rt::Executor::set_targets`: only the named banks move. */
@@ -1406,7 +1445,10 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       if (!options.hardware) {
         report.hardware = { result: 'notRequested' };
       } else {
-        const shape = parseHardwarePatch(isRecord(manifest.hardware) ? manifest.hardware : null);
+        const shape = parseHardwarePatch(
+          isRecord(manifest.hardware) ? manifest.hardware : null,
+          HARDWARE_DEFAULTS.banks,
+        );
         if ('type' in shape) {
           report.hardware = { result: 'refused', problem: problemBody(shape.type, shape.detail) };
         } else {
@@ -1771,6 +1813,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           id: BANK_LETTERS[index],
           gpio: bank.gpio,
           padLevel: padLevel(index),
+          drive: bank.drive ?? 'level',
+          shown: state.bankShown[index] ?? false,
           name: bank.name,
         })),
         controlLockEnabled: isControlLockOn(),
@@ -1908,7 +1952,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       // Absent fields keep what is stored. A body that is not an object, or
       // that names `targetsShownAtBoot`, is refused ahead of the guards; a bad
       // bank after them, in the firmware's order.
-      const shape = parseHardwarePatch(parseJsonObject(await parseBody(req)));
+      const shape = parseHardwarePatch(parseJsonObject(await parseBody(req)), savedHardware.banks);
       if ('type' in shape && !shape.ofBanks) {
         problemResponse(res, shape.type, shape.detail);
         return;

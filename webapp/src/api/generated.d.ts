@@ -1116,12 +1116,35 @@ export interface components {
          * @description The GPIO driving a target bank's circuit. 22-25 do not exist on this chip, 26-32 are the module's own flash and PSRAM, 35-37 are the octal PSRAM's extra data lines on the modules we ship, and 43-44 are the UART0 console; all are refused, because driving one stops the device booting — or takes away the way back from a bad configuration — rather than merely failing to move a target. Every bank needs its own, distinct from the LED's and the audio pins.
          */
         TargetBankGpio: number;
-        /** @description Whether a low level shows a target bank. Per bank, not per device: the de-energised state of each bank's wiring is what has to be its resting state. The prototype drives a BC547B whose low state opens the connection; a board that buffers or inverts the signal wants `false`. */
+        /** @description Whether a low level is the active one. On a `level` bank that is the level that shows it; on a `latching` bank it is the pulse level. Per bank, not per device: the de-energised state of each bank's wiring is what has to be its resting state. The prototype drives a BC547B whose low state opens the connection; a board that buffers or inverts the signal wants `false`. */
         TargetBankActiveLow: boolean;
-        /** @description One independently driven target group: one GPIO, one polarity, one name. Which letter it answers to is its position in `banks`, not anything stored here. */
+        /**
+         * @description How a bank's pins move its targets.
+         *
+         *     - **`level`** — `gpio` is held at the shown or hidden level for as long
+         *       as the state lasts.
+         *     - **`latching`** — a latching relay: `gpio` is pulsed to show the bank
+         *       and `hideGpio` to hide it, each for `pulseMs`. Between pulses both
+         *       rest at the inactive level. The relay cannot be read back, so at
+         *       boot the device sends the pulse for its boot state.
+         * @enum {string}
+         */
+        TargetBankDrive: "level" | "latching";
+        /** @description One independently driven target group: its pins, one polarity, one name. Which letter it answers to is its position in `banks`, not anything stored here. */
         TargetBank: {
             gpio: components["schemas"]["TargetBankGpio"];
             activeLow: components["schemas"]["TargetBankActiveLow"];
+            drive?: components["schemas"]["TargetBankDrive"];
+            /**
+             * Format: int32
+             * @description A `latching` bank's hide pin, checked like `gpio` and distinct from every other pin in use, this bank's `gpio` included. A `level` bank never drives it, so there it is only range-checked; -1 when unset. Omitted from a request, a bank keeps the value it had.
+             */
+            hideGpio?: number;
+            /**
+             * Format: int32
+             * @description How long a `latching` bank's pulse lasts, in milliseconds. Default 100. Omitted from a request, a bank keeps the value it had.
+             */
+            pulseMs?: number;
             /** @description What operators call this bank — `Vänster`, `Bana 3`. Display only, and may be empty, in which case a client shows the letter alone. It lives in the hardware configuration and never in a program, so renaming a bank cannot re-aim one. */
             name: string;
         };
@@ -1788,8 +1811,11 @@ export interface components {
                 id: components["schemas"]["BankLetter"];
                 /** @description The GPIO this bank drives. */
                 gpio: number;
-                /** @description The level actually on that pad. */
+                /** @description The level actually on that pad. On a `latching` bank this is the show pin, which rests released between pulses, so it says nothing about the targets — read `shown` instead. */
                 padLevel: number;
+                drive?: components["schemas"]["TargetBankDrive"];
+                /** @description What the device last told this bank. Remembered, not read: the only state a `latching` bank has, since the relay cannot be read back. Optional: firmware from before latching banks omits it, and `drive`. */
+                shown?: boolean;
                 /** @description The bank's configured name, possibly empty. */
                 name: string;
             }[];

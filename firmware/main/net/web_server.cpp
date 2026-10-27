@@ -722,6 +722,10 @@ std::string diagnostics_info_json() {
     out += std::to_string(targets::pin(i));
     out += ",\"padLevel\":";
     out += std::to_string(targets::level(i));
+    out += ",\"drive\":";
+    out += targets::latching(i) ? "\"latching\"" : "\"level\"";
+    out += ",\"shown\":";
+    out += targets::shown(i) ? "true" : "false";
     out += ",\"name\":";
     out += rt::json_quote(i < active_banks.size() ? active_banks[i].name : std::string());
     out += '}';
