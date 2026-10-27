@@ -172,9 +172,16 @@ to keep in agreement. A `PUT` carrying `banks` replaces the whole array, since
 it is an ordered list and a partial merge of one has no meaning; editing one
 bank therefore means sending them all.
 
-`GET /diagnostics/info` reports `banks` too: `id`, `gpio`, `padLevel` and
-`name` per bank, so the read-back that answers "is the firmware driving what it
-thinks it is" works on a device with more than one line.
+`GET /diagnostics/info` reports `banks` too: `id`, `gpio`, `padLevel`, `drive`,
+`shown` and `name` per bank, so the read-back that answers "is the firmware
+driving what it thinks it is" works on a device with more than one line.
+
+A bank is `level`-driven or a `latching` relay (D-50). A latching bank pulses
+`gpio` to show and `hideGpio` to hide, each for `pulseMs`, with both pins
+released between pulses, and is pulsed to its boot state at every start. Its
+`padLevel` reads the released show pin and so says nothing about the targets;
+`shown` — what the device last sent — is the only state it has. The three
+fields are optional in a `PUT`, and one left out keeps the bank's current value.
 
 `heartbeat` (`{"id": n}`) is emitted every 10 seconds.
 
@@ -353,7 +360,7 @@ incident is diagnosable without a USB cable:
   "programCount": 7, "audioCount": 77,
   "ipAddress": "192.168.1.42",
   "banks": [                        // one entry per bank, lettered by position
-    { "id": "A", "gpio": 5, "padLevel": 1, "name": "Vänster" }
+    { "id": "A", "gpio": 5, "padLevel": 1, "drive": "level", "shown": false, "name": "Vänster" }
   ],
   "controlLockEnabled": false,
   "sseClients": 1,                  // connected /sse/v2 streams
