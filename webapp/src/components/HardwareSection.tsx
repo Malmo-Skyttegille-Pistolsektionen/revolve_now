@@ -250,6 +250,27 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
   /** Marks a field whose stored value is not the compiled default. */
   const overridden = (key: keyof HardwareConfig): boolean => saved[key] !== state.defaults[key];
 
+  /** A bank's pin or pulse length; empty while nothing valid is typed (NO_PIN). */
+  const numberInput = (
+    current: number | undefined,
+    ariaLabel: string,
+    testId: string,
+    onChange: (next: number) => void,
+  ): React.ReactNode => (
+    <input
+      className={clsx(styles.input, styles.gpioInput)}
+      type='text'
+      inputMode='numeric'
+      aria-label={ariaLabel}
+      data-testid={testId}
+      disabled={!canManage || busy}
+      value={current !== undefined && Number.isFinite(current) ? String(current) : ''}
+      onChange={(e) => {
+        onChange(typedNumber(e.target.value));
+      }}
+    />
+  );
+
   const numeric = (field: NumericField): React.ReactNode => (
     <label className={styles.field} key={field.key}>
       <span className={styles.label}>
@@ -402,17 +423,19 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                             : t.banks.padLow;
                     return (
                       <tr key={index} data-testid={`hardware-bank-row-${letter}`}>
-                        <th scope='row' className={styles.bankLetter}>
-                          {letter}
-                          {changed && (
-                            <span className={styles.badge} data-testid={`hardware-bank-changed-${letter}`}>
-                              {t.changed}
-                            </span>
-                          )}
+                        <th scope='row'>
+                          <span className={styles.bankLetter}>
+                            {letter}
+                            {changed && (
+                              <span className={styles.badge} data-testid={`hardware-bank-changed-${letter}`}>
+                                {t.changed}
+                              </span>
+                            )}
+                          </span>
                         </th>
                         <td>
                           <input
-                            className={styles.input}
+                            className={clsx(styles.input, styles.nameInput)}
                             type='text'
                             maxLength={MAX_BANK_NAME}
                             aria-label={t.banks.nameLabel(letter)}
@@ -426,7 +449,7 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                         </td>
                         <td>
                           <select
-                            className={styles.input}
+                            className={clsx(styles.input, styles.driveSelect)}
                             aria-label={t.banks.driveLabel(letter)}
                             data-testid={`hardware-bank-drive-${letter}`}
                             disabled={!canManage || busy}
@@ -453,56 +476,53 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                           </select>
                         </td>
                         <td>
-                          <span className={styles.gpioPair}>
-                            {latching && <span className={styles.gpioTag}>{t.banks.showShort}</span>}
-                            <input
-                              className={clsx(styles.input, styles.gpioInput)}
-                              type='text'
-                              inputMode='numeric'
-                              aria-label={latching ? t.banks.showGpioLabel(letter) : t.banks.gpioLabel(letter)}
-                              data-testid={`hardware-bank-gpio-${letter}`}
-                              disabled={!canManage || busy}
-                              value={Number.isFinite(bank.gpio) ? String(bank.gpio) : ''}
-                              onChange={(e) => {
-                                editBank(index, { gpio: typedNumber(e.target.value) });
-                              }}
-                            />
-                            {latching && (
-                              <>
-                                <span className={styles.gpioTag}>{t.banks.hideShort}</span>
-                                <input
-                                  className={clsx(styles.input, styles.gpioInput)}
-                                  type='text'
-                                  inputMode='numeric'
-                                  aria-label={t.banks.hideGpioLabel(letter)}
-                                  data-testid={`hardware-bank-hide-gpio-${letter}`}
-                                  disabled={!canManage || busy}
-                                  value={Number.isFinite(bank.hideGpio) ? String(bank.hideGpio) : ''}
-                                  onChange={(e) => {
-                                    editBank(index, { hideGpio: typedNumber(e.target.value) });
-                                  }}
-                                />
-                              </>
-                            )}
-                          </span>
+                          {latching ? (
+                            <span className={styles.gpioPair}>
+                              <label className={styles.gpioTagged}>
+                                <span className={styles.gpioTag}>{t.banks.showGpioTag}</span>
+                                {numberInput(
+                                  bank.gpio,
+                                  t.banks.showGpioLabel(letter),
+                                  `hardware-bank-gpio-${letter}`,
+                                  (gpio) => {
+                                    editBank(index, { gpio });
+                                  },
+                                )}
+                              </label>
+                              <label className={styles.gpioTagged}>
+                                <span className={styles.gpioTag}>{t.banks.hideGpioTag}</span>
+                                {numberInput(
+                                  bank.hideGpio,
+                                  t.banks.hideGpioLabel(letter),
+                                  `hardware-bank-hide-gpio-${letter}`,
+                                  (hideGpio) => {
+                                    editBank(index, { hideGpio });
+                                  },
+                                )}
+                              </label>
+                            </span>
+                          ) : (
+                            numberInput(
+                              bank.gpio,
+                              t.banks.gpioLabel(letter),
+                              `hardware-bank-gpio-${letter}`,
+                              (gpio) => {
+                                editBank(index, { gpio });
+                              },
+                            )
+                          )}
                         </td>
                         <td>
-                          {latching ? (
-                            <input
-                              className={clsx(styles.input, styles.gpioInput)}
-                              type='text'
-                              inputMode='numeric'
-                              aria-label={t.banks.pulseLabel(letter)}
-                              data-testid={`hardware-bank-pulse-${letter}`}
-                              disabled={!canManage || busy}
-                              value={Number.isFinite(bank.pulseMs) ? String(bank.pulseMs) : ''}
-                              onChange={(e) => {
-                                editBank(index, { pulseMs: typedNumber(e.target.value) });
-                              }}
-                            />
-                          ) : (
-                            '—'
-                          )}
+                          {latching
+                            ? numberInput(
+                                bank.pulseMs,
+                                t.banks.pulseLabel(letter),
+                                `hardware-bank-pulse-${letter}`,
+                                (pulseMs) => {
+                                  editBank(index, { pulseMs });
+                                },
+                              )
+                            : '—'}
                         </td>
                         <td>
                           <input
