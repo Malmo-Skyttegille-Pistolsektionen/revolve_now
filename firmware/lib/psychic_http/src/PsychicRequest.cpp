@@ -576,6 +576,9 @@ void PsychicRequest::_addParams(const char* params, bool post)
 
 PsychicWebParameter* PsychicRequest::addParam(const char* name, const char* value, bool decode, bool post)
 {
+  // Local patch (see CMakeLists.txt): see PSYCHIC_MAX_PARAMS.
+  if (_params.size() >= PSYCHIC_MAX_PARAMS)
+    return nullptr;
   if (decode) {
     auto dn = urlDecode(name);
     auto dv = urlDecode(value);
@@ -586,6 +589,11 @@ PsychicWebParameter* PsychicRequest::addParam(const char* name, const char* valu
 
 PsychicWebParameter* PsychicRequest::addParam(PsychicWebParameter* param)
 {
+  // Local patch (see CMakeLists.txt): see PSYCHIC_MAX_PARAMS.
+  if (_params.size() >= PSYCHIC_MAX_PARAMS) {
+    delete param;
+    return nullptr;
+  }
   // ESP_LOGD(PH_TAG, "Adding param: '%s' = '%s'", param->name().c_str(), param->value().c_str());
   _params.push_back(param);
   return param;

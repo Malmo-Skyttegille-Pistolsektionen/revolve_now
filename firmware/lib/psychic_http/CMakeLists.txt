@@ -2,7 +2,7 @@
 # its Arduino/ArduinoJson/esp_littlefs submodules are not needed - we're
 # always the pure-ESP-IDF path, no Arduino component in this project).
 #
-# Verbatim apart from three local patches (marked "Local patch" in place), to go
+# Verbatim apart from four local patches (marked "Local patch" in place), to go
 # upstream:
 # - a peer FIN mid-body made httpd_req_recv() return 0, which the body readers
 #   never counted, so they looped forever and the TWDT panicked the device.
@@ -14,6 +14,9 @@
 #   headers and then nothing held the only httpd task indefinitely. A body now
 #   has to keep up a minimum average rate after a grace period
 #   (PSYCHIC_BODY_GRACE_MS in PsychicCore.h).
+# - nothing limited how many parameters a request could carry, and each is a
+#   heap object, so a form body of '&' cost ~70 bytes of heap per byte sent.
+#   Past PSYCHIC_MAX_PARAMS (PsychicCore.h) further parameters are dropped.
 file(GLOB PSYCHIC_HTTP_SRCS "src/*.cpp")
 
 idf_component_register(

@@ -126,7 +126,7 @@ info:
 
     ## Limits
 
-    - Request bodies are capped at 4.5 MiB (`kMaxFirmwareUploadBytes`,
+    - Request bodies are capped at 1 MiB (`kMaxUploadBytes`,
       `firmware/main/config.h`), and uploads at about 6.8 MiB
       (`kMaxRestoreUploadBytes`), sized to the `userdata` partition because a
       restore carries all of it and is the largest legitimate upload.
