@@ -878,8 +878,8 @@ export interface paths {
          *     is assigned. Every failure path removes the staging file, so a
          *     repeated failed upload cannot fill the partition.
          *
-         *     Accepted audio is RIFF/WAVE with a non-zero sample rate and a
-         *     non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
+         *     Accepted audio is RIFF/WAVE with a sample rate from 8 to 192 kHz and
+         *     a non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
          *     16-bit, mono or stereo; or IMA ADPCM (format tag `0x11`), 4-bit, mono,
          *     with a block of 5 to 512 bytes - the encoding of the shipped clips,
          *     and what the web app converts other formats to before uploading.
