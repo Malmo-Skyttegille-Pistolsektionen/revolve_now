@@ -68,8 +68,7 @@ bool parse_wav_header(ByteSource &src, WavInfo &out) {
       } else {
         return false;
       }
-      // A zero rate would divide by zero in the I2S clock config downstream.
-      if (out.sample_rate == 0) return false;
+      if (out.sample_rate < kMinSampleRate || out.sample_rate > kMaxSampleRate) return false;
       have_fmt = true;
 
     } else if (memcmp(header, "fact", 4) == 0) {
