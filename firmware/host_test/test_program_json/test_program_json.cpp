@@ -3,6 +3,7 @@
 //  Ported from tests/unit/dataclasses/test_program.py and
 //  tests/unit/repositories/test_programs.py.
 // ============================================================================
+#include <cstdint>
 #include <cstring>
 #include <string>
 
@@ -496,6 +497,64 @@ void test_an_empty_program_uses_nothing() {
   TEST_ASSERT_FALSE(rt::program_uses_audio(p, 1));
 }
 
+// --- Shape ceilings ------------------------------------------------------
+
+namespace {
+
+std::string repeated(const std::string &item, size_t n) {
+  std::string out;
+  for (size_t i = 0; i < n; i++) out += (i ? "," : "") + item;
+  return out;
+}
+
+bool parses(const std::string &doc) {
+  rt::Program p;
+  return rt::parse_program(doc.c_str(), doc.size(), false, p);
+}
+
+std::string with_series(size_t n) {
+  return R"({"id":5,"series":[)" + repeated(R"({"name":"s","events":[{"duration":1}]})", n) + "]}";
+}
+
+std::string with_events(size_t n) {
+  return R"({"id":5,"series":[{"name":"s","events":[)" + repeated(R"({"duration":1})", n) + "]}]}";
+}
+
+std::string with_audio_ids(size_t n) {
+  return R"({"id":5,"series":[{"name":"s","events":[{"duration":1,"audio_ids":[)" +
+         repeated("1", n) + "]}]}]}";
+}
+
+}  // namespace
+
+// Every stored program is parsed into RAM at boot, so the ceilings hold at
+// upload rather than leaving it to the 1 MiB body cap.
+void test_the_series_ceiling_is_inclusive() {
+  TEST_ASSERT_TRUE(parses(with_series(rt::kMaxProgramSeries)));
+  TEST_ASSERT_FALSE(parses(with_series(rt::kMaxProgramSeries + 1)));
+}
+
+void test_the_events_ceiling_is_inclusive() {
+  TEST_ASSERT_TRUE(parses(with_events(rt::kMaxSeriesEvents)));
+  TEST_ASSERT_FALSE(parses(with_events(rt::kMaxSeriesEvents + 1)));
+}
+
+void test_the_audio_ids_ceiling_is_inclusive() {
+  TEST_ASSERT_TRUE(parses(with_audio_ids(rt::kMaxEventAudioIds)));
+  TEST_ASSERT_FALSE(parses(with_audio_ids(rt::kMaxEventAudioIds + 1)));
+}
+
+// The audit's case: one series of tiny events filling the 1 MiB body.
+void test_a_body_full_of_tiny_events_is_refused() {
+  TEST_ASSERT_FALSE(parses(with_events(33'821)));
+}
+
+// kMaxEventMs exists so Series::total_ms() cannot overflow; that only holds if
+// the event count is bounded too.
+void test_a_full_series_at_the_duration_ceiling_fits_int32() {
+  TEST_ASSERT_TRUE(static_cast<int64_t>(rt::kMaxSeriesEvents) * rt::kMaxEventMs <= INT32_MAX);
+}
+
 // --- Per-bank overrides (#207, D-41) ---------------------------------------
 
 // One event whose `banks` is `body`, as a whole program document.
@@ -687,5 +746,10 @@ int main() {
   RUN_TEST(test_an_unreferenced_id_is_not_used);
   RUN_TEST(test_events_without_audio_do_not_match);
   RUN_TEST(test_an_empty_program_uses_nothing);
+  RUN_TEST(test_the_series_ceiling_is_inclusive);
+  RUN_TEST(test_the_events_ceiling_is_inclusive);
+  RUN_TEST(test_the_audio_ids_ceiling_is_inclusive);
+  RUN_TEST(test_a_body_full_of_tiny_events_is_refused);
+  RUN_TEST(test_a_full_series_at_the_duration_ceiling_fits_int32);
   return UNITY_END();
 }

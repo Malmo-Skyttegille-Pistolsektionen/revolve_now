@@ -102,6 +102,7 @@ bool parse_event(JsonObjectConst src, Event &e) {
 
   if (!is_array_or_absent(src["audio_ids"])) return false;
   JsonArrayConst ids = src["audio_ids"];
+  if (ids.size() > kMaxEventAudioIds) return false;
   for (JsonVariantConst id : ids) {
     if (!is_integer(id)) return false;
     // An integer outside int32 is dropped, not refused: well-formed, just not an
@@ -117,6 +118,7 @@ bool parse_series(JsonObjectConst src, Series &s) {
 
   if (!is_array_or_absent(src["events"])) return false;
   JsonArrayConst events = src["events"];
+  if (events.size() > kMaxSeriesEvents) return false;
   s.events.reserve(events.size());
   for (JsonVariantConst e : events) {
     // A non-object would otherwise read as an event with every field absent:
@@ -164,6 +166,7 @@ bool parse_program(const char *json, size_t len, bool readonly, Program &out, bo
 
   if (!is_array_or_absent(root["series"])) return false;
   JsonArrayConst series = root["series"];
+  if (series.size() > kMaxProgramSeries) return false;
   out.series.reserve(series.size());
   for (JsonVariantConst s : series) {
     if (!s.is<JsonObjectConst>()) return false;

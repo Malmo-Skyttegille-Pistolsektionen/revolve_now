@@ -44,6 +44,11 @@ import type { Event, Program, Series } from '../api/types';
 const MIN_EVENT_DURATION_MS = 1;
 const MAX_EVENT_DURATION_MS = 3_600_000;
 
+/** `kMaxProgramSeries`, `kMaxSeriesEvents`, `kMaxEventAudioIds` in `rt_logic/program.h`. */
+export const MAX_PROGRAM_SERIES = 64;
+export const MAX_SERIES_EVENTS = 128;
+export const MAX_EVENT_AUDIO_IDS = 8;
+
 export interface DocumentIssue {
   /** Where in the document, in the JSON-pointer-ish form the schema uses. */
   path: string;
@@ -218,6 +223,13 @@ function parseEvent(collector: Collector, path: string, raw: unknown): Event | n
       });
       return null;
     }
+    if (raw.audio_ids.length > MAX_EVENT_AUDIO_IDS) {
+      collector.errors.push({
+        path: `${path}/audio_ids`,
+        message: `An event can start at most ${String(MAX_EVENT_AUDIO_IDS)} clips, but this one lists ${String(raw.audio_ids.length)}.`,
+      });
+      return null;
+    }
 
     const ids: number[] = [];
     (raw.audio_ids as number[]).forEach((id, index) => {
@@ -262,6 +274,13 @@ function parseSeries(collector: Collector, path: string, raw: unknown): Series |
     collector.errors.push({
       path: `${path}/events`,
       message: `"events" must be a list, but this is ${describe(raw.events)}.`,
+    });
+    return null;
+  }
+  if (Array.isArray(raw.events) && raw.events.length > MAX_SERIES_EVENTS) {
+    collector.errors.push({
+      path: `${path}/events`,
+      message: `A series can have at most ${String(MAX_SERIES_EVENTS)} events, but this one has ${String(raw.events.length)}.`,
     });
     return null;
   }
@@ -373,6 +392,13 @@ export function parseProgramDocument(text: string): ProgramDocumentResult {
         raw.series === undefined
           ? 'A program needs a "series" list.'
           : `"series" must be a list, but this is ${describe(raw.series)}.`,
+    });
+    return { ok: false, errors: collector.errors };
+  }
+  if (raw.series.length > MAX_PROGRAM_SERIES) {
+    collector.errors.push({
+      path: '/series',
+      message: `A program can have at most ${String(MAX_PROGRAM_SERIES)} series, but this one has ${String(raw.series.length)}.`,
     });
     return { ok: false, errors: collector.errors };
   }
