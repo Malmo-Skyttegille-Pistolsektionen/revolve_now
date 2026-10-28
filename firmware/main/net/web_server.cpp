@@ -172,6 +172,27 @@ esp_err_t bound_body(PsychicRequest *req, PsychicResponse *res, const PsychicMid
   return ESP_FAIL;
 }
 
+// Reads and discards what a handler left of the body, before the close that
+// follows. Closing on unread data sends an RST, which can destroy the response
+// still in the client's receive buffer: a refused restore then read as a
+// network failure rather than the 401 it was. Bounded like any body read, with
+// a shorter grace because the answer has already gone out.
+void drain_unread_body(httpd_req_t *req) {
+  constexpr int64_t kGraceUs = 2'000'000;
+  static char sink[2048];  // the httpd task is the only caller
+  const int64_t start = esp_timer_get_time();
+  uint64_t drained = 0;
+  while (drained <= kMaxRestoreUploadBytes) {
+    const int64_t allowed_us =
+        kGraceUs + static_cast<int64_t>(drained * 1000000 / PSYCHIC_BODY_MIN_RATE);
+    if (esp_timer_get_time() - start > allowed_us) return;
+    const int n = httpd_req_recv(req, sink, sizeof(sink));
+    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (n <= 0) return;  // 0: nothing left to read; below: the peer is gone
+    drained += static_cast<uint64_t>(n);
+  }
+}
+
 // s_server.on() with bound_body in front of the handler.
 void on_bounded(const char *uri, int method, const PsychicHttpRequestCallback &handler) {
   s_server.on(uri, method, handler)->addMiddleware(bound_body);
@@ -1584,9 +1605,9 @@ bool start() {
   // ESP-IDF drains whatever Content-Length a handler leaves unread, with no
   // byte cap and no deadline, on the only httpd task. A GET for a static file,
   // or an upload refused before it was read, carrying a huge Content-Length
-  // and then a slow drip, held every other request off. A failed handler makes
-  // httpd close the socket instead of draining it, and the response has been
-  // sent by then.
+  // and then a slow drip, held every other request off. So the rest is drained
+  // here, bounded, and a failed handler then makes httpd close the socket
+  // instead of draining it itself.
   s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
                             const PsychicMiddlewareNext &next) -> esp_err_t {
     if (req->contentLength() == 0) return next();
@@ -1596,6 +1617,7 @@ bool start() {
     // An unmatched URI would otherwise be answered by onNotFound after this
     // returns, and then drained. No SPA fallback: a page GET has no body.
     if (ret == HTTPD_404_NOT_FOUND) send_problem(res, rt::problem::kRouteNotFound, "Not found");
+    drain_unread_body(req->request());
     return ESP_FAIL;
   });
 
