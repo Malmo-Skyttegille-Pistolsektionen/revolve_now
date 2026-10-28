@@ -126,6 +126,15 @@ esp_err_t MultipartProcessor::process(const char* body)
 
 void MultipartProcessor::_handleUploadByte(uint8_t data, bool last)
 {
+  // Local patch (see CMakeLists.txt): a file part's buffer is freed at its
+  // closing boundary, but a byte after that boundary that is not '-' or '\r'
+  // re-emits the delimiter as file data. That wrote through NULL.
+  if (_itemBuffer == NULL) {
+    if (_multiParseState != PARSE_ERROR)
+      ESP_LOGE(PH_TAG, "Multipart: data after a closed file part");
+    _multiParseState = PARSE_ERROR;
+    return;
+  }
   _itemBuffer[_itemBufferIndex++] = data;
 
   if (last || _itemBufferIndex == FILE_CHUNK_SIZE) {
