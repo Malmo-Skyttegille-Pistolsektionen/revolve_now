@@ -1539,6 +1539,26 @@ bool start() {
     return next();
   });
 
+  // Closes the connection after any request that arrived with a body.
+  //
+  // ESP-IDF drains whatever Content-Length a handler leaves unread, with no
+  // byte cap and no deadline, on the only httpd task. A GET for a static file,
+  // or an upload refused before it was read, carrying a huge Content-Length
+  // and then a slow drip, held every other request off. A failed handler makes
+  // httpd close the socket instead of draining it, and the response has been
+  // sent by then.
+  s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
+                            const PsychicMiddlewareNext &next) -> esp_err_t {
+    if (req->contentLength() == 0) return next();
+    // Said up front, so the client does not reuse the socket and race the close.
+    res->addHeader("Connection", "close");
+    const esp_err_t ret = next();
+    // An unmatched URI would otherwise be answered by onNotFound after this
+    // returns, and then drained. No SPA fallback: a page GET has no body.
+    if (ret == HTTPD_404_NOT_FOUND) send_problem(res, rt::problem::kRouteNotFound, "Not found");
+    return ESP_FAIL;
+  });
+
   s_server.setPort(static_cast<uint16_t>(hardware_store::current().http_port));
 
   // Preflight. Registered as a catch-all because nothing else answers OPTIONS,

@@ -215,10 +215,13 @@ esp_err_t PsychicEventSourceResponse::send()
   // separator
   out += "\r\n";
 
+  // Local patch (see CMakeLists.txt): bounded, so a peer that stops reading
+  // cannot hold the httpd task here. The failure closes its socket.
   int result;
+  int timeouts = 0;
   do {
     result = httpd_send(request(), out.c_str(), out.length());
-  } while (result == HTTPD_SOCK_ERR_TIMEOUT);
+  } while (result == HTTPD_SOCK_ERR_TIMEOUT && ++timeouts < PSYCHIC_SEND_MAX_TIMEOUTS);
 
   if (result < 0)
     ESP_LOGE(PH_TAG, "EventSource send failed with %s", esp_err_to_name(result));

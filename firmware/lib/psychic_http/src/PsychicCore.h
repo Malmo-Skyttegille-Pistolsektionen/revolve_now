@@ -27,10 +27,6 @@
   #define PSYCHIC_WS_MAX_PENDING_FRAMES 8
 #endif
 
-// Local patch (see CMakeLists.txt): once PSYCHIC_BODY_GRACE_MS has passed, a
-// request body must keep up PSYCHIC_BODY_MIN_RATE bytes/s on average or the
-// read fails. The body is read on the only httpd task, so a stalled peer
-// otherwise holds every other request off for as long as its socket lives.
 // Local patch (see CMakeLists.txt): parameters a request may carry, from the
 // query string, a form body and multipart fields together. Each one is a heap
 // object, so an all-'&' body otherwise costs ~70 bytes of heap per byte sent.
@@ -38,6 +34,16 @@
   #define PSYCHIC_MAX_PARAMS 32
 #endif
 
+// Local patch (see CMakeLists.txt): send timeouts in a row before the
+// EventSource handshake gives up, each one send_wait_timeout long.
+#ifndef PSYCHIC_SEND_MAX_TIMEOUTS
+  #define PSYCHIC_SEND_MAX_TIMEOUTS 3
+#endif
+
+// Local patch (see CMakeLists.txt): once PSYCHIC_BODY_GRACE_MS has passed, a
+// request body must keep up PSYCHIC_BODY_MIN_RATE bytes/s on average or the
+// read fails. The body is read on the only httpd task, so a stalled peer
+// otherwise holds every other request off for as long as its socket lives.
 #ifndef PSYCHIC_BODY_GRACE_MS
   #define PSYCHIC_BODY_GRACE_MS 10000
 #endif
