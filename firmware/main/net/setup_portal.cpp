@@ -280,7 +280,7 @@ void send_message(httpd_req_t *req, const char *heading, const std::string &body
   page += body_html;
   page += "<p><a style=\"color:#2d7\" href=\"/\">Back</a></p>";
   httpd_resp_set_type(req, "text/html");
-  httpd_resp_send(req, page.c_str(), page.size());
+  httpd_resp_send(req, page.c_str(), static_cast<ssize_t>(page.size()));
 }
 
 // Polled by the page /save returns, so the operator sees what their press did.
