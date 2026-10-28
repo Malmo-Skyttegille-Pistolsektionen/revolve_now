@@ -532,9 +532,79 @@ describe('the hardware section', () => {
       saved: { banks: { gpio: number; activeLow: boolean; name: string }[] };
     };
     expect(state.saved.banks).toEqual([
-      { gpio: HARDWARE_DEFAULTS.banks[0].gpio, activeLow: true, name: '' },
-      { gpio: 6, activeLow: true, name: 'Höger' },
+      { gpio: HARDWARE_DEFAULTS.banks[0].gpio, activeLow: true, name: '', drive: 'level', hideGpio: -1, pulseMs: 100 },
+      { gpio: 6, activeLow: true, name: 'Höger', drive: 'level', hideGpio: -1, pulseMs: 100 },
     ]);
+  });
+
+  // A latching relay (#636): a show pin, a hide pin and a pulse length.
+  it('saves a latching bank with its hide pin and pulse length', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    expect(screen.queryByTestId('hardware-bank-hide-gpio-A')).toBeNull();
+    await type('hardware-bank-drive-A', 'latching');
+    // No hide pin yet, so nothing the device would refuse can be sent.
+    expect(field('hardware-bank-hide-gpio-A').value).toBe('');
+    expect(field('hardware-bank-pulse-A').value).toBe('100');
+    expect((screen.getByTestId('hardware-save') as HTMLButtonElement).disabled).toBe(true);
+
+    await type('hardware-bank-hide-gpio-A', '6');
+    await type('hardware-bank-pulse-A', '250');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('hardware-notice')).toBeTruthy());
+    const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
+      saved: { banks: unknown[] };
+    };
+    expect(state.saved.banks).toEqual([
+      {
+        gpio: HARDWARE_DEFAULTS.banks[0].gpio,
+        activeLow: true,
+        name: '',
+        drive: 'latching',
+        hideGpio: 6,
+        pulseMs: 250,
+      },
+    ]);
+  });
+
+  it("shows the device's own refusal for a pulse out of range", async () => {
+    await device();
+    renderSection();
+    await open();
+
+    await type('hardware-bank-drive-A', 'latching');
+    await type('hardware-bank-hide-gpio-A', '6');
+    await type('hardware-bank-pulse-A', '5');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('between 10 and 1000 ms'));
+  });
+
+  // A latching relay cannot be read back, so the column says what was sent.
+  it('reports the last command sent for a latching bank instead of its pad', async () => {
+    server = createMockServer({
+      clock: createFakeClock(),
+      port: PORT,
+      seed: {
+        programs: {},
+        audios: [],
+        hardware: {
+          banks: [{ gpio: 5, activeLow: true, name: '', drive: 'latching', hideGpio: 6, pulseMs: 100 }],
+        },
+      },
+    });
+    await server.listen();
+    renderSection();
+    await open();
+
+    await waitFor(() => expect(screen.getByTestId('hardware-bank-pad-A').textContent).toBe('last sent: shown'));
   });
 
   // Two banks on one pad passes every per-pin check and still does not work.

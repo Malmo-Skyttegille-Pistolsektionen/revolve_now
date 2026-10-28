@@ -245,14 +245,16 @@ rt::ConfigRefusal save(const rt::HardwareConfig &config, rt::ValidationDetail *d
     nvs_set_i32(handle, BankKey(i, "gpio").text, config.banks[i].gpio);
     nvs_set_i8(handle, BankKey(i, "alow").text, config.banks[i].active_low ? 1 : 0);
     nvs_set_str(handle, BankKey(i, "name").text, config.banks[i].name.c_str());
+    nvs_set_i32(handle, BankKey(i, "drive").text, static_cast<int32_t>(config.banks[i].drive));
+    nvs_set_i32(handle, BankKey(i, "hide").text, config.banks[i].hide_gpio);
+    nvs_set_i32(handle, BankKey(i, "pulse").text, config.banks[i].pulse_ms);
   }
 
   // The banks a save that reduced the count left behind, so nothing outlives
   // this write.
   for (size_t i = config.banks.size(); i < rt::kMaxTargetBanks; i++) {
-    erase_if_present(handle, BankKey(i, "gpio").text);
-    erase_if_present(handle, BankKey(i, "alow").text);
-    erase_if_present(handle, BankKey(i, "name").text);
+    for (const char *suffix : rt::kBankKeySuffixes)
+      erase_if_present(handle, BankKey(i, suffix).text);
   }
 
   nvs_set_str(handle, hw_key::kHostname, config.hostname.c_str());
@@ -322,7 +324,7 @@ bool reset() {
   // Every bank the cap allows, not only the ones the current count covers - a
   // reset has to leave nothing behind whatever the device was configured for.
   for (size_t i = 0; i < rt::kMaxTargetBanks; i++) {
-    for (const char *suffix : {"gpio", "alow", "name"}) {
+    for (const char *suffix : rt::kBankKeySuffixes) {
       if (!erase_if_present(handle, BankKey(i, suffix).text)) {
         nvs_close(handle);
         return false;

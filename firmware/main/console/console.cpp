@@ -137,9 +137,17 @@ std::string status_text() {
     } else {
       snprintf(label, sizeof(label), "target %c", rt::bank_letter(bank));
     }
-    snprintf(line, sizeof(line), "%-10s %s (gpio %d, level %d)\r\n", label,
-             targets::level(bank) == targets::level_shown(bank) ? "shown" : "hidden",
-             targets::pin(bank), targets::level(bank));
+    if (targets::latching(bank)) {
+      // Nothing to read back from a latching relay: what was last sent is all
+      // there is, and the line says so.
+      snprintf(line, sizeof(line), "%-10s %s (latching, last sent; gpio %d/%d)\r\n", label,
+               targets::shown(bank) ? "shown" : "hidden", targets::pin(bank),
+               targets::hide_pin(bank));
+    } else {
+      snprintf(line, sizeof(line), "%-10s %s (gpio %d, level %d)\r\n", label,
+               targets::level(bank) == targets::level_shown(bank) ? "shown" : "hidden",
+               targets::pin(bank), targets::level(bank));
+    }
     out += line;
   }
 

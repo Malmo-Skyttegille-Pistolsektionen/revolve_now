@@ -44,8 +44,9 @@ constexpr const char *kEthRst = "hw_eth_rst";
 // so a stored copy means "never chosen" and gives way to this build's default.
 constexpr const char *kLegacyDefaultHostname = "rotation-target";
 
-// `hw_bk<i>_gpio`, `hw_bk<i>_alow`, `hw_bk<i>_name` - built rather than spelled
-// out. Eleven characters at a single-digit index, inside NVS's cap of fifteen;
+// `hw_bk<i>_gpio`, `_alow`, `_name`, `_drive`, `_hide`, `_pulse` - built rather
+// than spelled out. Twelve characters at most at a single-digit index, inside
+// NVS's cap of fifteen;
 // the buffer is larger only so the compiler can see it cannot truncate.
 static_assert(kMaxTargetBanks <= 10, "a two-digit bank index would need shorter key names");
 struct BankKey {
@@ -53,6 +54,9 @@ struct BankKey {
 
   BankKey(size_t bank, const char *suffix);
 };
+
+// Every per-bank key, so a writer erasing a bank cannot miss one.
+constexpr const char *kBankKeySuffixes[] = {"gpio", "alow", "name", "drive", "hide", "pulse"};
 
 // Where a stored configuration is read from. One method per stored type,
 // because the store is typed and pretending otherwise costs a `signed char`

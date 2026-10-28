@@ -292,8 +292,54 @@ void test_overrides_carry_only_what_differs_and_never_boot_targets() {
   saved.targets_shown_at_boot = !defaults.targets_shown_at_boot;
   const std::string json = rt::hardware_overrides_json(saved, defaults);
   TEST_ASSERT_EQUAL_STRING(
-      "{\"banks\":[{\"gpio\":5,\"activeLow\":true,\"name\":\"Left\"}],\"i2sMclkGpio\":3}",
+      "{\"banks\":[{\"gpio\":5,\"activeLow\":true,\"name\":\"Left\",\"drive\":\"level\","
+      "\"hideGpio\":-1,\"pulseMs\":100}],\"i2sMclkGpio\":3}",
       json.c_str());
+}
+
+void test_a_latching_bank_survives_a_round_trip() {
+  const HardwareConfig defaults = good_defaults();
+  HardwareConfig saved = defaults;
+  saved.banks[0].drive = rt::BankDrive::kLatching;
+  saved.banks[0].hide_gpio = 6;
+  saved.banks[0].pulse_ms = 250;
+
+  HardwareConfig restored = defaults;
+  TEST_ASSERT_EQUAL(
+      rt::PatchError::kNone,
+      rt::apply_hardware_patch(rt::hardware_overrides_json(saved, defaults), restored));
+  TEST_ASSERT_TRUE(rt::same_config(saved, restored));
+  TEST_ASSERT_TRUE(saved.banks == restored.banks);
+}
+
+// A client from before latching banks (#636) sends banks without the new
+// fields; saving must not turn a latching bank back into a level one.
+void test_a_bank_patch_without_the_latching_fields_keeps_them() {
+  HardwareConfig config = good_defaults();
+  config.banks[0].drive = rt::BankDrive::kLatching;
+  config.banks[0].hide_gpio = 6;
+  config.banks[0].pulse_ms = 250;
+
+  TEST_ASSERT_EQUAL(
+      rt::PatchError::kNone,
+      rt::apply_hardware_patch("{\"banks\":[{\"gpio\":5,\"activeLow\":true,\"name\":\"A\"},"
+                               "{\"gpio\":7,\"activeLow\":true,\"name\":\"B\"}]}",
+                               config));
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLatching, config.banks[0].drive);
+  TEST_ASSERT_EQUAL_INT32(6, config.banks[0].hide_gpio);
+  TEST_ASSERT_EQUAL_INT32(250, config.banks[0].pulse_ms);
+  // A bank the device did not have before starts from the defaults.
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLevel, config.banks[1].drive);
+  TEST_ASSERT_EQUAL_INT32(rt::kDefaultPulseMs, config.banks[1].pulse_ms);
+}
+
+void test_an_unknown_drive_is_refused() {
+  HardwareConfig config = good_defaults();
+  TEST_ASSERT_EQUAL(
+      rt::PatchError::kBankDriveUnknown,
+      rt::apply_hardware_patch("{\"banks\":[{\"gpio\":5,\"activeLow\":true,\"name\":\"\","
+                               "\"drive\":\"toggle\"}]}",
+                               config));
 }
 
 void test_overrides_applied_to_defaults_reproduce_the_saved_config() {
@@ -611,6 +657,9 @@ int main() {
   RUN_TEST(test_overrides_carry_only_what_differs_and_never_boot_targets);
   RUN_TEST(test_overrides_applied_to_defaults_reproduce_the_saved_config);
   RUN_TEST(test_a_patch_naming_boot_targets_is_serial_only);
+  RUN_TEST(test_a_latching_bank_survives_a_round_trip);
+  RUN_TEST(test_a_bank_patch_without_the_latching_fields_keeps_them);
+  RUN_TEST(test_an_unknown_drive_is_refused);
   RUN_TEST(test_a_full_restore_adds_everything_and_renumbers_clips_under_programs);
   RUN_TEST(test_restoring_twice_skips_what_is_already_here);
   RUN_TEST(test_a_clip_with_the_same_title_but_other_bytes_is_added);

@@ -70,11 +70,29 @@ type NumericField = {
  */
 const NO_PIN = Number.NaN;
 
-/** `rt::kMaxTargetBanks` and `rt::kMaxBankNameLength`. */
+/** `rt::kMaxTargetBanks`, `rt::kMaxBankNameLength` and `rt::kDefaultPulseMs`. */
 const MAX_BANKS = 8;
 const MAX_BANK_NAME = 16;
+const DEFAULT_PULSE_MS = 100;
 
 type TargetBank = HardwareConfig['banks'][number];
+
+/** Firmware from before latching banks (#636) omits the fields; these are what it means. */
+const isLatching = (bank: TargetBank): boolean => bank.drive === 'latching';
+const sameBank = (a: TargetBank, b: TargetBank): boolean =>
+  a.gpio === b.gpio &&
+  a.activeLow === b.activeLow &&
+  a.name === b.name &&
+  (a.drive ?? 'level') === (b.drive ?? 'level') &&
+  (a.hideGpio ?? -1) === (b.hideGpio ?? -1) &&
+  (a.pulseMs ?? DEFAULT_PULSE_MS) === (b.pulseMs ?? DEFAULT_PULSE_MS);
+
+/** A typed pin or pulse length, or NO_PIN while the field is empty or not a number. */
+const typedNumber = (text: string): number => {
+  const typed = text.trim();
+  // `Number('')` is 0, which is a pin, and the row would silently claim it.
+  return /^\d+$/.test(typed) ? Number(typed) : NO_PIN;
+};
 
 const LED_FIELDS: NumericField[] = [{ key: 'ledGpio', testId: 'hardware-led-gpio' }];
 
@@ -223,10 +241,35 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
   const busy = save.isPending || reset.isPending;
   // A row still waiting for its pin is not a configuration the device could
   // accept, so Save waits rather than sending a body that comes back 400.
-  const bankPinMissing = banks.some((bank) => !Number.isFinite(bank.gpio));
+  const bankPinMissing = banks.some(
+    (bank) =>
+      !Number.isFinite(bank.gpio) ||
+      (isLatching(bank) && (!Number.isFinite(bank.hideGpio) || !Number.isFinite(bank.pulseMs))),
+  );
 
   /** Marks a field whose stored value is not the compiled default. */
   const overridden = (key: keyof HardwareConfig): boolean => saved[key] !== state.defaults[key];
+
+  /** A bank's pin or pulse length; empty while nothing valid is typed (NO_PIN). */
+  const numberInput = (
+    current: number | undefined,
+    ariaLabel: string,
+    testId: string,
+    onChange: (next: number) => void,
+  ): React.ReactNode => (
+    <input
+      className={clsx(styles.input, styles.gpioInput)}
+      type='text'
+      inputMode='numeric'
+      aria-label={ariaLabel}
+      data-testid={testId}
+      disabled={!canManage || busy}
+      value={current !== undefined && Number.isFinite(current) ? String(current) : ''}
+      onChange={(e) => {
+        onChange(typedNumber(e.target.value));
+      }}
+    />
+  );
 
   const numeric = (field: NumericField): React.ReactNode => (
     <label className={styles.field} key={field.key}>
@@ -340,7 +383,9 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                     <th scope='col'>
                       {t.banks.columnName} <span className={styles.thHint}>{t.banks.columnNameHint}</span>
                     </th>
+                    <th scope='col'>{t.banks.columnDrive}</th>
                     <th scope='col'>{t.banks.columnGpio}</th>
+                    <th scope='col'>{t.banks.columnPulse}</th>
                     <th scope='col'>{t.banks.columnShownWhenLow}</th>
                     <th scope='col'>{t.banks.columnPadNow}</th>
                     <th scope='col'>
@@ -359,25 +404,38 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                     // "Reset to defaults" says what it would undo. A bank the
                     // compiled defaults do not have is changed by existing.
                     const asShipped = defaultBanks[index];
-                    const changed =
-                      asShipped === undefined ||
-                      asShipped.gpio !== bank.gpio ||
-                      asShipped.activeLow !== bank.activeLow ||
-                      asShipped.name !== bank.name;
-                    const pad = diagnostics?.banks?.[index]?.padLevel;
+                    const changed = asShipped === undefined || !sameBank(asShipped, bank);
+                    const latching = isLatching(bank);
+                    const reported = diagnostics?.banks?.[index];
+                    // A latching relay cannot be read back, and its show pin
+                    // rests released: what was last sent is all there is.
+                    // Read from what the device is running, not from the
+                    // draft, so an unsaved switch to pulse does not relabel it.
+                    const padText =
+                      reported === undefined
+                        ? '—'
+                        : reported.drive === 'latching'
+                          ? reported.shown
+                            ? t.banks.lastSentShown
+                            : t.banks.lastSentHidden
+                          : reported.padLevel === 1
+                            ? t.banks.padHigh
+                            : t.banks.padLow;
                     return (
                       <tr key={index} data-testid={`hardware-bank-row-${letter}`}>
-                        <th scope='row' className={styles.bankLetter}>
-                          {letter}
-                          {changed && (
-                            <span className={styles.badge} data-testid={`hardware-bank-changed-${letter}`}>
-                              {t.changed}
-                            </span>
-                          )}
+                        <th scope='row'>
+                          <span className={styles.bankLetter}>
+                            {letter}
+                            {changed && (
+                              <span className={styles.badge} data-testid={`hardware-bank-changed-${letter}`}>
+                                {t.changed}
+                              </span>
+                            )}
+                          </span>
                         </th>
                         <td>
                           <input
-                            className={styles.input}
+                            className={clsx(styles.input, styles.nameInput)}
                             type='text'
                             maxLength={MAX_BANK_NAME}
                             aria-label={t.banks.nameLabel(letter)}
@@ -390,29 +448,86 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                           />
                         </td>
                         <td>
-                          <input
-                            className={clsx(styles.input, styles.gpioInput)}
-                            type='text'
-                            inputMode='numeric'
-                            aria-label={t.banks.gpioLabel(letter)}
-                            data-testid={`hardware-bank-gpio-${letter}`}
+                          <select
+                            className={clsx(styles.input, styles.driveSelect)}
+                            aria-label={t.banks.driveLabel(letter)}
+                            data-testid={`hardware-bank-drive-${letter}`}
                             disabled={!canManage || busy}
-                            value={Number.isFinite(bank.gpio) ? String(bank.gpio) : ''}
+                            value={latching ? 'latching' : 'level'}
                             onChange={(e) => {
-                              // An empty or non-numeric field is "not typed
-                              // yet", never 0 - `Number('')` is 0, which is a
-                              // pin, and the row would silently claim it.
-                              const typed = e.target.value.trim();
-                              editBank(index, {
-                                gpio: /^\d+$/.test(typed) ? Number(typed) : NO_PIN,
-                              });
+                              if (e.target.value === 'latching') {
+                                // No hide pin yet, for the same reason a new
+                                // row has no pin: -1 is not one, and 0 is
+                                // refused.
+                                const hide = bank.hideGpio ?? -1;
+                                editBank(index, {
+                                  drive: 'latching',
+                                  hideGpio: hide >= 0 ? hide : NO_PIN,
+                                  pulseMs: bank.pulseMs ?? DEFAULT_PULSE_MS,
+                                });
+                              } else {
+                                const hide = bank.hideGpio ?? -1;
+                                editBank(index, { drive: 'level', hideGpio: Number.isFinite(hide) ? hide : -1 });
+                              }
                             }}
-                          />
+                          >
+                            <option value='level'>{t.banks.driveLevel}</option>
+                            <option value='latching'>{t.banks.driveLatching}</option>
+                          </select>
+                        </td>
+                        <td>
+                          {latching ? (
+                            <span className={styles.gpioPair}>
+                              <label className={styles.gpioTagged}>
+                                <span className={styles.gpioTag}>{t.banks.showGpioTag}</span>
+                                {numberInput(
+                                  bank.gpio,
+                                  t.banks.showGpioLabel(letter),
+                                  `hardware-bank-gpio-${letter}`,
+                                  (gpio) => {
+                                    editBank(index, { gpio });
+                                  },
+                                )}
+                              </label>
+                              <label className={styles.gpioTagged}>
+                                <span className={styles.gpioTag}>{t.banks.hideGpioTag}</span>
+                                {numberInput(
+                                  bank.hideGpio,
+                                  t.banks.hideGpioLabel(letter),
+                                  `hardware-bank-hide-gpio-${letter}`,
+                                  (hideGpio) => {
+                                    editBank(index, { hideGpio });
+                                  },
+                                )}
+                              </label>
+                            </span>
+                          ) : (
+                            numberInput(
+                              bank.gpio,
+                              t.banks.gpioLabel(letter),
+                              `hardware-bank-gpio-${letter}`,
+                              (gpio) => {
+                                editBank(index, { gpio });
+                              },
+                            )
+                          )}
+                        </td>
+                        <td>
+                          {latching
+                            ? numberInput(
+                                bank.pulseMs,
+                                t.banks.pulseLabel(letter),
+                                `hardware-bank-pulse-${letter}`,
+                                (pulseMs) => {
+                                  editBank(index, { pulseMs });
+                                },
+                              )
+                            : '—'}
                         </td>
                         <td>
                           <input
                             type='checkbox'
-                            aria-label={t.banks.shownWhenLowLabel(letter)}
+                            aria-label={latching ? t.banks.pulseLowLabel(letter) : t.banks.shownWhenLowLabel(letter)}
                             data-testid={`hardware-bank-active-low-${letter}`}
                             disabled={!canManage || busy}
                             checked={bank.activeLow}
@@ -426,7 +541,7 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                               until diagnostics have been fetched, and for a
                               draft row past the last bank the device has. */}
                         <td className={styles.padCell} data-testid={`hardware-bank-pad-${letter}`}>
-                          {pad === undefined ? '—' : pad === 1 ? t.banks.padHigh : t.banks.padLow}
+                          {padText}
                         </td>
                         <td>
                           <button
@@ -473,9 +588,21 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
                     // No pin, not 0: GPIO0 is the BOOT strapping pin and is
                     // always refused, so seeding it would mean a new row is
                     // born holding a value the device will not take. The
-                    // polarity copies the last bank's, which is nearly always
-                    // right - banks on one device are wired the same way.
-                    setBanks([...banks, { gpio: NO_PIN, activeLow: banks[banks.length - 1].activeLow, name: '' }]);
+                    // polarity, drive and pulse copy the last bank's, which is
+                    // nearly always right - banks on one device are wired the
+                    // same way.
+                    const last = banks[banks.length - 1];
+                    setBanks([
+                      ...banks,
+                      {
+                        gpio: NO_PIN,
+                        activeLow: last.activeLow,
+                        name: '',
+                        drive: last.drive ?? 'level',
+                        hideGpio: isLatching(last) ? NO_PIN : -1,
+                        pulseMs: last.pulseMs ?? DEFAULT_PULSE_MS,
+                      },
+                    ]);
                   }}
                 >
                   {t.banks.add(BANK_LETTERS[banks.length])}
@@ -487,6 +614,7 @@ export function HardwareSection({ open, onToggle = () => undefined }: Props): Re
               )}
             </div>
 
+            <span className={styles.hint}>{t.banks.driveHint}</span>
             <span className={styles.hint}>{t.banks.pinsHint}</span>
 
             {/* Shown, not editable. An operator needs to know where the

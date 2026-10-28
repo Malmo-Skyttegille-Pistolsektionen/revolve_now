@@ -56,7 +56,7 @@ styrs på samma sätt bör fungera.
 | Krav | Varför |
 |---|---|
 | Manövreras av en **kontaktslutning** — två anslutningar som kortsluts mot varandra | Det är hela gränssnittet. En anläggning som väntar sig ett seriellt protokoll, en egen buss eller en nätspänningssignal behöver hårdvara emellan |
-| Vara **nivåstyrd**, inte pulsstyrd | Firmwaren håller linjen i ett läge under hela händelsen. En anläggning som växlar vid varje puls skulle röra sig på båda flankerna |
+| Vara **nivåstyrd**, eller ett **låsrelä** med skilda ingångar för visa och dölj — inte en växlare | En nivåstyrd tavelgrupp håller sin linje i ett läge under hela händelsen; en pulsstyrd pulsar en linje för att visa och en annan för att dölja (se [Låsreläer](#latching-relays)). En anläggning som växlar vid varje puls skulle hamna ur takt första gången en puls missas |
 | Ha **två lägen** — framvänd och bortvänd | Programmens ordförråd är visa och dölj. Det finns ingen mellanvinkel att kommendera |
 | Ta **en styrlinje per grupp av tavlor som ska röra sig tillsammans** | Varje linje är en *tavelgrupp*. En tavelgrupp är en kontaktslutning och rör sig som en; en enhet styr upp till åtta |
 | Vara säker **framvänd** utan ström | Tavlorna vilar framvända och stannar så vid uppstart, med avsikt: någon kan befinna sig framför skjutlinjen när ett kort strömsätts, och en tavla som vänds av sig själv kan skada den personen |
@@ -87,6 +87,20 @@ omstart.
 Var tavlorna vilar vid uppstart är **en inställning för alla tavelgrupper**,
 som bara ändras på seriekonsolen: den skyddar den som står framför
 skjutlinjen, och det är ingen fråga per tavelgrupp.
+
+### Låsreläer { #latching-relays }
+
+En tavelgrupp kan i stället styra ett **låsrelä**, som håller sitt läge utan
+ström och byter läge på en kort puls. En sådan grupp tar **två GPIO-stift**: en
+puls på det första visar den, en puls på det andra döljer den, och båda vilar
+släppta däremellan. Ställ in den i [Expertläge](expert-mode.md#hardware) med
+styrningen satt till puls, båda stiften och pulslängden — 100 ms om inte
+reläet kräver något annat. "Aktiv låg nivå" säger då om pulsen är låg.
+
+Ett låsrelä kan inte läsas av, så enheten skickar pulsen för uppstartsläget
+varje gång den startar, och hårdvarusidan visar vad den senast skickade i
+stället för en stiftnivå. Tavelgrupper på samma enhet kan blanda de två
+sorterna.
 
 Vilken nivå som visar tavlorna, och resten av stifttilldelningen, är numera en
 konfigurationsinställning snarare än en bygginställning — men den bestäms

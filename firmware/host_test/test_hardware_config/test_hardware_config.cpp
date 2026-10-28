@@ -427,6 +427,69 @@ void test_bank_letters_run_a_to_h() {
   TEST_ASSERT_EQUAL('?', rt::bank_letter(rt::kMaxTargetBanks));
 }
 
+// --- latching banks (#636) -------------------------------------------------
+
+HardwareConfig latching(int32_t hide_gpio) {
+  HardwareConfig config = banks(2);
+  config.banks[1].drive = rt::BankDrive::kLatching;
+  config.banks[1].hide_gpio = hide_gpio;
+  return config;
+}
+
+void test_a_latching_bank_with_its_own_hide_pin_is_accepted() {
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(latching(13)));
+}
+
+// The hide pin can stop a boot as surely as the show pin can.
+void test_a_latching_bank_hide_pin_is_checked_like_any_other() {
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioReserved, rt::validate(latching(43)));
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioStrapping, rt::validate(latching(0)));
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(latching(rt::kPinUnused)));
+}
+
+// A level bank never drives its hide pin, so a stale value there is neither a
+// refusal nor a collision - but it is range-checked, so GET can report it.
+void test_a_level_bank_hide_pin_is_only_range_checked() {
+  HardwareConfig config = latching(43);
+  config.banks[1].drive = rt::BankDrive::kLevel;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].hide_gpio = config.banks[0].gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].hide_gpio = rt::kMaxGpio + 1;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(config));
+  config.banks[1].hide_gpio = rt::kPinUnused;
+  config.banks[1].pulse_ms = 0;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPulseOutOfRange, rt::validate(config));
+}
+
+void test_a_hide_pin_on_another_bank_is_named_by_letter() {
+  rt::ValidationDetail detail;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(latching(5), {}, &detail));
+  TEST_ASSERT_EQUAL_STRING(
+      "Bank A and bank B are both on GPIO 5. Each bank needs a pin of its own.",
+      rt::refusal_message(ConfigRefusal::kPinCollision, detail).c_str());
+}
+
+void test_show_and_hide_on_one_pin_say_so() {
+  rt::ValidationDetail detail;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(latching(6), {}, &detail));
+  TEST_ASSERT_EQUAL_STRING(
+      "Bank B's show and hide pins are both GPIO 6. A latching bank needs two different pins.",
+      rt::refusal_message(ConfigRefusal::kPinCollision, detail).c_str());
+}
+
+void test_a_pulse_outside_its_range_is_refused() {
+  HardwareConfig config = latching(13);
+  config.banks[1].pulse_ms = rt::kMinPulseMs;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].pulse_ms = rt::kMaxPulseMs;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].pulse_ms = rt::kMinPulseMs - 1;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPulseOutOfRange, rt::validate(config));
+  config.banks[1].pulse_ms = rt::kMaxPulseMs + 1;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPulseOutOfRange, rt::validate(config));
+}
+
 // --- messages --------------------------------------------------------------
 
 void test_every_refusal_has_something_to_say() {
@@ -439,7 +502,7 @@ void test_every_refusal_has_something_to_say() {
       ConfigRefusal::kGpioUsbSerial,       ConfigRefusal::kGpioStrapping,
       ConfigRefusal::kHttpPortOutOfRange,  ConfigRefusal::kWifiRetriesOutOfRange,
       ConfigRefusal::kBankCountOutOfRange, ConfigRefusal::kBankNameTooLong,
-      ConfigRefusal::kNoNetwork,
+      ConfigRefusal::kNoNetwork,           ConfigRefusal::kPulseOutOfRange,
   };
   for (const ConfigRefusal refusal : all) {
     TEST_ASSERT_NOT_EQUAL(0, rt::refusal_message(refusal)[0]);
@@ -480,6 +543,12 @@ int main() {
   RUN_TEST(test_a_collision_between_banks_names_them_by_letter);
   RUN_TEST(test_a_collision_with_the_led_is_not_named_by_letter);
   RUN_TEST(test_bank_letters_run_a_to_h);
+  RUN_TEST(test_a_latching_bank_with_its_own_hide_pin_is_accepted);
+  RUN_TEST(test_a_latching_bank_hide_pin_is_checked_like_any_other);
+  RUN_TEST(test_a_level_bank_hide_pin_is_only_range_checked);
+  RUN_TEST(test_a_hide_pin_on_another_bank_is_named_by_letter);
+  RUN_TEST(test_show_and_hide_on_one_pin_say_so);
+  RUN_TEST(test_a_pulse_outside_its_range_is_refused);
   RUN_TEST(test_every_refusal_has_something_to_say);
   return UNITY_END();
 }

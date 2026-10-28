@@ -187,7 +187,8 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--rt-warn);
-  white-space: nowrap;
+  /* Wraps rather than widening the table past the card (#636). */
+  vertical-align: bottom;
 }
 
 .thHint {
@@ -203,7 +204,8 @@
   font-weight: 700;
   color: var(--rt-ink);
   /* The letter and its "changed" pill on one line, so a row does not grow
-     taller than its inputs when the pill appears. */
+     taller than its inputs when the pill appears. On an inner span, so the
+     cell stays a table cell and centres in a latching bank's taller row. */
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -211,13 +213,44 @@
 }
 
 .gpioInput {
-  width: 5rem;
+  width: 4.25rem;
+}
+
+/* Sixteen characters at most, so the column need not take the 22rem a free
+   text field gets. */
+.nameInput {
+  width: 9rem;
+}
+
+.driveSelect {
+  width: 6.5rem;
+}
+
+/* A latching bank's show and hide pins, stacked in the GPIO column so the row
+   grows taller rather than the table wider. */
+.gpioPair {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.gpioTagged {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.gpioTag {
+  font-size: 0.75rem;
+  color: var(--rt-text-muted);
+  white-space: nowrap;
 }
 
 .padCell {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--rt-text-muted);
-  white-space: nowrap;
+  /* "last sent: hidden" wraps onto two lines rather than widening the table. */
+  max-width: 8rem;
 }
 
 /* Same 2.25rem control height as the buttons above, so the row does not grow a

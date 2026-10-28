@@ -59,6 +59,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-46 | Wired Ethernet beside WiFi, probed at boot, with no onboarding of its own | Decided | 2026-10-06 |
 | D-47 | Updates from GitHub are found and checked by the browser; the device only receives an upload | Decided | 2026-10-06 |
 | D-48 | Backup and restore are the device's; a restore only adds, and never carries WiFi credentials | Decided | 2026-10-06 |
+| D-50 | A bank is level-driven or a pulsed latching relay, chosen per bank | Decided | 2026-10-27 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -2096,6 +2097,44 @@ for it and `POST /ota` bounds itself against the slot.
 window* (D-39's gate) — it would make the backup a file to guard, for no gain
 on the board that needs it. *Replace-all restore* — deleting what is on a board
 to make it a copy is a step nobody should take by uploading a file.
+
+## D-50 — A bank is level-driven or a pulsed latching relay, chosen per bank *(Decided 2026-10-27)*
+
+**Decision:** each bank has a `drive` (#636). `level`, the default and every
+bank before this, holds one pin at the shown or hidden level. `latching` drives
+a latching relay: `gpio` is pulsed to show the bank and `hideGpio` to hide it,
+each for `pulseMs` (default 100, 10–1000), with both pins released between
+pulses. `activeLow` keeps one meaning — which level is active — so on a
+latching bank it is the pulse level.
+
+**Per bank, beside level rather than instead of it.** The relay box is the
+first latching hardware; the PCB rev 1 and the PoC stay level-driven, and one
+device may mix the two. The pulse length is per bank for the same reason the
+polarity is (D-41): it belongs to the relay on that bank.
+
+**At boot a latching bank is pulsed to its boot state.** A latching relay keeps
+whatever it held at power-off and cannot be read back, so the only way to make
+D-31 true is to tell it. Both pins are set released before either is
+configured as an output, so nothing pulses before that deliberate one.
+
+**Show and hide never overlap.** A command arriving mid-pulse releases the
+other pin first, cutting the old pulse short rather than queueing behind it.
+
+**What a latching bank reports is what was last sent.** `padLevel` reads the
+show pin, which rests released, so diagnostics gains `drive` and `shown` and the
+web app shows "last sent" for those banks rather than a pad level that says
+nothing.
+
+**Additive.** The three fields are optional in a request, and an omitted one
+keeps the bank's current value, so a client that predates them cannot turn a
+latching bank back into a level one by saving. A drive a firmware does not
+know, read from NVS, stays `level`.
+
+**Rejected:** *a device-wide drive* — it forbids the mixed device, for no
+saving. *One toggle pin per bank* — `docs/site/hardware.md` already rules out
+hardware that moves on each pulse; a toggled relay drifts out of step with the
+device the first time a pulse is missed. *Holding the coil for the whole state*
+— that is a level bank, and what a latching relay exists to avoid.
 
 ## Open questions
 

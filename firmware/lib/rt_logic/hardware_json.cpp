@@ -35,6 +35,12 @@ std::string banks_json(const std::vector<TargetBank> &banks) {
     out += banks[i].active_low ? "true" : "false";
     out += ",\"name\":";
     out += json_quote(banks[i].name);
+    out += ",\"drive\":";
+    out += banks[i].drive == BankDrive::kLatching ? "\"latching\"" : "\"level\"";
+    out += ",\"hideGpio\":";
+    out += std::to_string(banks[i].hide_gpio);
+    out += ",\"pulseMs\":";
+    out += std::to_string(banks[i].pulse_ms);
     out += '}';
   }
   out += ']';
@@ -130,10 +136,28 @@ PatchError apply_hardware_patch(const char *json, size_t len, HardwareConfig &co
     std::vector<TargetBank> banks;
     for (JsonVariant entry : doc["banks"].as<JsonArray>()) {
       if (!entry.is<JsonObject>()) return PatchError::kBankNotObject;
+      // The fields added with latching banks (#636) fall back to the same
+      // bank's current value, so a client that predates them cannot turn a
+      // latching bank back into a level one by saving.
+      const TargetBank was =
+          banks.size() < config.banks.size() ? config.banks[banks.size()] : TargetBank{};
       TargetBank bank;
       bank.gpio = entry["gpio"] | 0;
       bank.active_low = entry["activeLow"] | true;
       bank.name = entry["name"] | "";
+      bank.drive = was.drive;
+      if (!entry["drive"].isNull()) {
+        const std::string drive = entry["drive"] | "";
+        if (drive == "level") {
+          bank.drive = BankDrive::kLevel;
+        } else if (drive == "latching") {
+          bank.drive = BankDrive::kLatching;
+        } else {
+          return PatchError::kBankDriveUnknown;
+        }
+      }
+      bank.hide_gpio = entry["hideGpio"] | was.hide_gpio;
+      bank.pulse_ms = entry["pulseMs"] | was.pulse_ms;
       banks.push_back(bank);
     }
     config.banks = banks;
@@ -179,6 +203,8 @@ const char *patch_error_message(PatchError error) {
       return "'banks' must be an array of target banks";
     case PatchError::kBankNotObject:
       return "Each entry in 'banks' must be an object with gpio, activeLow and name";
+    case PatchError::kBankDriveUnknown:
+      return "A bank's 'drive' must be 'level' or 'latching'";
   }
   return "";
 }

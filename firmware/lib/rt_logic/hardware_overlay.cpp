@@ -25,6 +25,16 @@ void overlay_banks(ConfigReader &reader, HardwareConfig &out, size_t count) {
     reader.read_bool(BankKey(i, "alow").text, out.banks[i].active_low);
 
     if (reader.read_str(BankKey(i, "name").text, text)) out.banks[i].name = text;
+
+    // A drive this build does not know stays level: a bank downgraded from a
+    // newer firmware holds its pin rather than pulsing pins it cannot name.
+    int32_t drive = 0;
+    if (reader.read_i32(BankKey(i, "drive").text, drive) &&
+        drive == static_cast<int32_t>(BankDrive::kLatching)) {
+      out.banks[i].drive = BankDrive::kLatching;
+    }
+    reader.read_i32(BankKey(i, "hide").text, out.banks[i].hide_gpio);
+    reader.read_i32(BankKey(i, "pulse").text, out.banks[i].pulse_ms);
   }
 }
 

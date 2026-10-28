@@ -1999,15 +1999,30 @@ components:
     TargetBankActiveLow:
       type: boolean
       description: >-
-        Whether a low level shows a target bank. Per bank, not per device: the
-        de-energised state of each bank's wiring is what has to be its resting
-        state. The prototype drives a BC547B whose low state opens the
-        connection; a board that buffers or inverts the signal wants `false`.
+        Whether a low level is the active one. On a `level` bank that is the
+        level that shows it; on a `latching` bank it is the pulse level. Per
+        bank, not per device: the de-energised state of each bank's wiring is
+        what has to be its resting state. The prototype drives a BC547B whose
+        low state opens the connection; a board that buffers or inverts the
+        signal wants `false`.
+
+    TargetBankDrive:
+      type: string
+      enum: [level, latching]
+      description: |
+        How a bank's pins move its targets.
+
+        - **`level`** — `gpio` is held at the shown or hidden level for as long
+          as the state lasts.
+        - **`latching`** — a latching relay: `gpio` is pulsed to show the bank
+          and `hideGpio` to hide it, each for `pulseMs`. Between pulses both
+          rest at the inactive level. The relay cannot be read back, so at
+          boot the device sends the pulse for its boot state.
 
     TargetBank:
       type: object
       description: >-
-        One independently driven target group: one GPIO, one polarity, one
+        One independently driven target group: its pins, one polarity, one
         name. Which letter it answers to is its position in `banks`, not
         anything stored here.
       required: [gpio, activeLow, name]
@@ -2017,6 +2032,26 @@ components:
           $ref: "#/components/schemas/TargetBankGpio"
         activeLow:
           $ref: "#/components/schemas/TargetBankActiveLow"
+        drive:
+          $ref: "#/components/schemas/TargetBankDrive"
+        hideGpio:
+          type: integer
+          format: int32
+          minimum: -1
+          maximum: 48
+          description: >-
+            A `latching` bank's hide pin, checked like `gpio` and distinct from
+            every other pin in use, this bank's `gpio` included. A `level` bank
+            never drives it, so there it is only range-checked; -1 when unset.
+            Omitted from a request, a bank keeps the value it had.
+        pulseMs:
+          type: integer
+          format: int32
+          minimum: 10
+          maximum: 1000
+          description: >-
+            How long a `latching` bank's pulse lasts, in milliseconds. Default
+            100. Omitted from a request, a bank keeps the value it had.
         name:
           type: string
           maxLength: 16
@@ -3345,7 +3380,19 @@ components:
                 description: The GPIO this bank drives.
               padLevel:
                 type: integer
-                description: The level actually on that pad.
+                description: >-
+                  The level actually on that pad. On a `latching` bank this is
+                  the show pin, which rests released between pulses, so it says
+                  nothing about the targets — read `shown` instead.
+              drive:
+                $ref: "#/components/schemas/TargetBankDrive"
+              shown:
+                type: boolean
+                description: >-
+                  What the device last told this bank. Remembered, not read:
+                  the only state a `latching` bank has, since the relay cannot
+                  be read back. Optional: firmware from before latching banks
+                  omits it, and `drive`.
               name:
                 type: string
                 maxLength: 16

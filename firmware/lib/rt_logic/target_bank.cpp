@@ -52,7 +52,10 @@ size_t popcount(BankMask mask, size_t bank_count) {
 bool same_wiring(const std::vector<TargetBank> &a, const std::vector<TargetBank> &b) {
   if (a.size() != b.size()) return false;
   for (size_t i = 0; i < a.size(); ++i) {
-    if (a[i].gpio != b[i].gpio || a[i].active_low != b[i].active_low) return false;
+    if (a[i].gpio != b[i].gpio || a[i].active_low != b[i].active_low || a[i].drive != b[i].drive ||
+        a[i].hide_gpio != b[i].hide_gpio || a[i].pulse_ms != b[i].pulse_ms) {
+      return false;
+    }
   }
   return true;
 }

@@ -249,11 +249,46 @@ void test_a_hostname_somebody_chose_is_kept() {
   TEST_ASSERT_EQUAL_STRING("rotation-target-2", config.hostname.c_str());
 }
 
+// A latching bank (#636) reads its drive, hide pin and pulse back. A device
+// saved before it has none of those keys and stays level, on the default pulse.
+void test_a_latching_bank_reads_its_drive_hide_pin_and_pulse() {
+  FakeStore store;
+  store.ints[rt::hw_key::kBankCount] = 2;
+  store.ints[rt::BankKey(0, "gpio").text] = 5;
+  store.ints[rt::BankKey(1, "gpio").text] = 6;
+  store.ints[rt::BankKey(1, "drive").text] = static_cast<int32_t>(rt::BankDrive::kLatching);
+  store.ints[rt::BankKey(1, "hide").text] = 7;
+  store.ints[rt::BankKey(1, "pulse").text] = 250;
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLevel, config.banks[0].drive);
+  TEST_ASSERT_EQUAL_INT32(rt::kPinUnused, config.banks[0].hide_gpio);
+  TEST_ASSERT_EQUAL_INT32(rt::kDefaultPulseMs, config.banks[0].pulse_ms);
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLatching, config.banks[1].drive);
+  TEST_ASSERT_EQUAL_INT32(7, config.banks[1].hide_gpio);
+  TEST_ASSERT_EQUAL_INT32(250, config.banks[1].pulse_ms);
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+}
+
+// A drive value this build does not know is not trusted to mean latching: the
+// bank holds its one pin rather than pulsing a second it may not have.
+void test_an_unknown_drive_stays_level() {
+  FakeStore store;
+  store.ints[rt::hw_key::kBankCount] = 1;
+  store.ints[rt::BankKey(0, "drive").text] = 7;
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLevel, config.banks[0].drive);
+}
+
 // The keys are 15 characters at most, which is what NVS accepts. A longer one
 // is not a truncated key, it is a write that never happens.
 void test_every_key_fits_what_nvs_accepts() {
   for (size_t i = 0; i < rt::kMaxTargetBanks; i++) {
-    for (const char *suffix : {"gpio", "alow", "name"}) {
+    for (const char *suffix : rt::kBankKeySuffixes) {
       TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(rt::BankKey(i, suffix).text).size());
     }
   }
@@ -278,6 +313,8 @@ int main() {
   RUN_TEST(test_keys_a_device_has_never_seen_keep_their_compiled_default);
   RUN_TEST(test_the_pre_rename_default_hostname_gives_way_to_the_compiled_one);
   RUN_TEST(test_a_hostname_somebody_chose_is_kept);
+  RUN_TEST(test_a_latching_bank_reads_its_drive_hide_pin_and_pulse);
+  RUN_TEST(test_an_unknown_drive_stays_level);
   RUN_TEST(test_every_key_fits_what_nvs_accepts);
   return UNITY_END();
 }

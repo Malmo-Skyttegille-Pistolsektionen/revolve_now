@@ -33,6 +33,7 @@ enum class PatchError {
   kSerialOnly,
   kBanksNotArray,
   kBankNotObject,
+  kBankDriveUnknown,
 };
 
 // Applies a `HardwareConfigPatch` document onto `config`: fields it names are

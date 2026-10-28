@@ -13,8 +13,6 @@
 
 namespace rt {
 
-// An optional pin that is not driven at all.
-constexpr int32_t kPinUnused = -1;
 constexpr int32_t kI2sPinUnused = kPinUnused;
 
 // The configuration a device can be given without rebuilding it (#144).
@@ -122,6 +120,7 @@ enum class ConfigRefusal {
   kBankCountOutOfRange,
   kBankNameTooLong,
   kNoNetwork,
+  kPulseOutOfRange,
 };
 
 // A DNS label is 63 octets; mDNS is no more generous. The setup AP appends
@@ -205,6 +204,7 @@ ConfigRefusal validate_hostname(const std::string &hostname);
 // What a refusal was about, where the enum alone cannot say. Only
 // `kPinCollision` fills it in, and only when both sides are banks: with eight
 // of them, "two of these are on the same GPIO" no longer identifies which two.
+// Both sides naming the same bank means a latching bank's show and hide pins.
 struct ValidationDetail {
   static constexpr size_t kNoBank = static_cast<size_t>(-1);
 
