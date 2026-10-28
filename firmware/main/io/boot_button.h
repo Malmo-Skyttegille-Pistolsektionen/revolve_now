@@ -99,4 +99,10 @@ void on_window_changed(WindowChangedFn callback);
 // simply stop working without explanation.
 int32_t config_window_remaining_s();
 
+// Whether somebody at the board has opened the window with the button - proof
+// of presence for the control lock (D-51). Unlike config_window_open(), false
+// on a build without a button, where nothing can be proven, and not held shut
+// by a run: locking the device mid-run is reasonable, reconfiguring it is not.
+bool presence_window_open();
+
 }  // namespace boot_button

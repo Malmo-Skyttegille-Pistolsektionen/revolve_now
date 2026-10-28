@@ -113,6 +113,7 @@ const PROBLEMS = {
   '/problems/restart_failed': { title: 'Could not start the restart', status: 500 },
   // A flash write failing on the device; the mock never writes flash.
   '/problems/ota_write_failed': { title: 'Could not write the firmware', status: 500 },
+  '/problems/control_lock_store_failed': { title: 'Could not store the control lock', status: 500 },
 } satisfies Record<ProblemType, { title: string; status: number }>;
 
 /**
@@ -1748,6 +1749,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         return;
       }
 
+      // D-51: the lock outlives a restart, so setting it needs somebody at the
+      // board. The raw window, not hardwareWritable(): a run does not hold it
+      // shut, as boot_button::presence_window_open() does not.
+      if (!configWindowOpen) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
+        return;
+      }
+
       try {
         const data = JSON.parse(body);
         if (typeof data.password === 'string' && data.password.length > 0) {
@@ -1801,7 +1810,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
     // POST /control-lock/disable
     if (endpoint === '/control-lock/disable' && req.method === 'POST') {
-      if (!checkControlLockAuth(req, res)) return;
+      // A session, or somebody at the board (D-51).
+      if (!configWindowOpen && !checkControlLockAuth(req, res)) return;
       state.controlLockPassword = null;
       state.controlLockTokens.clear();
       jsonResponse(res, 200, { message: 'Control lock off - anyone on the network can operate the device again' });

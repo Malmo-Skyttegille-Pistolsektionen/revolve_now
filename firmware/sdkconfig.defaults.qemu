@@ -49,3 +49,9 @@ CONFIG_SPIRAM_SPEED_40M=y
 # No USB serial/JTAG peripheral under QEMU, so there is nothing to attach a
 # console to.
 CONFIG_RT_CONSOLE_ENABLED=n
+
+# GPIO0 reads pressed from boot under emulation, so the configuration window
+# never opens and the control lock could never be turned on (D-51). The E2E
+# suite turns it on before every spec. Turning it off without a session still
+# needs the window, so that path stays closed here.
+CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW=n

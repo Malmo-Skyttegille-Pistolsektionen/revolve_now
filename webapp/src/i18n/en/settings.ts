@@ -67,8 +67,12 @@ export const settings = {
     logOut: 'Log out',
     unlocking: 'Unlocking…',
     turnOff: 'Turn the lock off',
+    offInfo:
+      'Turning the lock on needs somebody at the device: press its BOOT button three times within ten seconds first. The lock then stays on through restarts until it is turned off.',
     lockedInfo:
       'Whoever turned the lock on chose this password. Logging in lets you operate the device; turning the lock off returns it to full public access for everyone.',
+    forgotten:
+      'Forgotten the password? Press the BOOT button on the device three times within ten seconds, and this page offers to turn the lock off.',
     enableFailed: 'Could not turn the control lock on.',
     loginFailed: 'Could not log in.',
     disableFailed: 'Could not turn the control lock off.',

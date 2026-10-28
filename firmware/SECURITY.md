@@ -16,24 +16,25 @@ shooters when to fire**. Unauthorised control is a safety concern, not just a
 data one. It is not hardened against a determined attacker with network access,
 and the following are known, deliberate properties rather than oversights.
 
-### The control lock is off after every boot
+### The control lock is opt-in
 
-The control lock is opt-in and lives in RAM only, so a reboot returns the device to
-the unprotected state. **Until a client enables it, every mutating endpoint is
-open** — including `POST /api/v2/targets/show` and `POST /api/v2/programs/start`.
+**Until somebody turns the control lock on, every mutating endpoint is open**
+— including `POST /api/v2/targets/show` and `POST /api/v2/programs/start`. It
+is documented in [`docs/api-v2.md`](docs/api-v2.md#auth).
 
-It is documented in [`docs/api-v2.md`](docs/api-v2.md#auth).
+Once on, it stays on across restarts (D-51): NVS holds a salted PBKDF2 hash of
+the password, never the password, and sessions are RAM-only, so a restart logs
+everybody out but unlocks nothing.
 
-If that posture is not acceptable for a given deployment, the fix is to persist
-the password in NVS and provision it out of band — a change to the contract in
-[`../contracts/`](../contracts/README.md), the firmware and the webapp
-together.
+### Setting it needs somebody at the board
 
-### First caller sets the password
-
-While the control lock is off, `POST /api/v2/control-lock/enable` accepts any non-empty
-password from an unauthenticated caller. Whoever calls first after a reboot
-holds the only valid password until the device is power-cycled.
+`POST /api/v2/control-lock/enable` accepts any non-empty password, but only
+while the configuration window is open (three presses of BOOT), so a caller on
+the network cannot claim the device. Somebody at the board can also turn the
+lock off without the password, which is the way back from a forgotten one; a
+factory reset clears it too. A build without a button cannot prove presence:
+it sets the lock without the window, as before, and turns it off only with a
+session.
 
 ### Other deliberate choices
 

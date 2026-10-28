@@ -193,6 +193,10 @@ bool config_window_open() {
   return now_ms() < s_window_until_ms.load();
 }
 
+bool presence_window_open() {
+  return s_available.load() && now_ms() < s_window_until_ms.load();
+}
+
 int32_t config_window_remaining_s() {
   if (s_blocked != nullptr && s_blocked()) return 0;
   // A window with no button never closes, so there is no countdown to show.

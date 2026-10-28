@@ -60,6 +60,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-47 | Updates from GitHub are found and checked by the browser; the device only receives an upload | Decided | 2026-10-06 |
 | D-48 | Backup and restore are the device's; a restore only adds, and never carries WiFi credentials | Decided | 2026-10-06 |
 | D-50 | A bank is level-driven or a pulsed latching relay, chosen per bank | Decided | 2026-10-27 |
+| D-51 | The control lock survives a restart, and setting it needs the button | Decided | 2026-10-28 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -2146,12 +2147,48 @@ hardware that moves on each pulse; a toggled relay drifts out of step with the
 device the first time a pulse is missed. *Holding the coil for the whole state*
 — that is a level bank, and what a latching relay exists to avoid.
 
+## D-51 — The control lock survives a restart, and setting it needs the button *(Decided 2026-10-28)*
+
+**Decision:** the control lock's password is kept in NVS as a verifier — a
+16-byte random salt and a 32-byte PBKDF2-HMAC-SHA256 key
+(`kControlLockKdfIterations` rounds), never the password — and restored at
+boot. Sessions stay in RAM: after a restart the lock is still on and every
+client logs in again. `POST /control-lock/enable` needs the configuration
+window (three presses of BOOT). `POST /control-lock/disable` takes a session
+**or** an open window.
+
+**Why.** Before this, the lock lived in RAM and the first caller after a boot
+set the password. So anything that rebooted the device unlocked it, and
+whoever asked first afterwards owned it. The security audit found three ways
+to cause such a reboot without logging in (#639, #640, #646). Fixing those
+closed the known ones, not the class. A persisted lock no longer cares how the
+device restarted.
+
+**Why the button to set it.** Persistence alone would make "first caller sets
+the password" permanent rather than until the next power-cycle. The window is
+the proof of presence the device already has (#144, D-39). It is not held shut
+by a run, unlike for hardware configuration: locking the device mid-run is a
+reasonable thing to want.
+
+**Why the button can also turn it off.** A restart is no longer the way back
+from a forgotten password, so somebody at the board has to have one that keeps
+the uploads and the settings. A factory reset still works, and takes the lock
+with it, because it erases the whole NVS partition.
+
+**What a build without a button does.** It has nothing to press, so it can turn
+the lock on without the window, as before, but it can only turn it off with a
+session. The QEMU profile sets `CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW=n`, because
+its GPIO0 reads pressed from boot and the window can never open, and the E2E
+suite turns the lock on before every spec.
+
+**Contract.** A breaking change taken before 1.0.0: `enable` gains a `403`, and
+`disable` accepts a request it used to refuse. Recorded in
+`contracts/README.md` with the other pre-release exceptions.
+
 ## Open questions
 
 - **Are `app` / `x86_linux` used by anyone?** (asked — drives D-03's
   archive-or-keep follow-up)
-- **The control lock is off after every boot** — acceptable security posture, or a
-  cross-component contract change?
 - **CORS:** firmware allowlist vs MicroPython reflect-any — the contract
   must pick one.
 - **Reinstate `GET /status`** as a v2-shaped snapshot for debugging?
