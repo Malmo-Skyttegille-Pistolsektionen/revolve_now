@@ -184,7 +184,8 @@ void drain_unread_body(httpd_req_t *req) {
   uint64_t drained = 0;
   while (drained <= kMaxRestoreUploadBytes) {
     const int64_t allowed_us =
-        kGraceUs + static_cast<int64_t>(drained * 1000000 / PSYCHIC_BODY_MIN_RATE);
+        kGraceUs +
+        static_cast<int64_t>(drained * 1000000 / static_cast<uint64_t>(PSYCHIC_BODY_MIN_RATE));
     if (esp_timer_get_time() - start > allowed_us) return;
     const int n = httpd_req_recv(req, sink, sizeof(sink));
     if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
