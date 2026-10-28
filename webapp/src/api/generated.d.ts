@@ -583,7 +583,7 @@ export interface paths {
          *     whose recovery needs a USB cable:
          *
          *     - a GPIO outside 0–48, or one absent from this chip (22–25)
-         *     - a GPIO wired to the module's own flash or PSRAM (26–32, and 35–37 on
+         *     - a GPIO wired to the module's own flash or PSRAM (26–32, and 33–37 on
          *       this board's octal PSRAM), which stops the device booting rather than
          *       merely failing to drive a target
          *     - a GPIO carrying the serial console on UART0 (43–44), which would
@@ -1113,7 +1113,7 @@ export interface components {
         };
         /**
          * Format: int32
-         * @description The GPIO driving a target bank's circuit. 22-25 do not exist on this chip, 26-32 are the module's own flash and PSRAM, 35-37 are the octal PSRAM's extra data lines on the modules we ship, and 43-44 are the UART0 console; all are refused, because driving one stops the device booting — or takes away the way back from a bad configuration — rather than merely failing to move a target. Every bank needs its own, distinct from the LED's and the audio pins.
+         * @description The GPIO driving a target bank's circuit. 22-25 do not exist on this chip, 26-32 are the module's own flash and PSRAM, 33-37 are the octal PSRAM's extra data lines on the modules we ship, and 43-44 are the UART0 console; all are refused, because driving one stops the device booting — or takes away the way back from a bad configuration — rather than merely failing to move a target. Every bank needs its own, distinct from the LED's and the audio pins.
          */
         TargetBankGpio: number;
         /** @description Whether a low level is the active one. On a `level` bank that is the level that shows it; on a `latching` bank it is the pulse level. Per bank, not per device: the de-energised state of each bank's wiring is what has to be its resting state. The prototype drives a BC547B whose low state opens the connection; a board that buffers or inverts the signal wants `false`. */

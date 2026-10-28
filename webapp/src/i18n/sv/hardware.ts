@@ -163,7 +163,7 @@ export const hardware: Messages['hardware'] = {
     driveHint:
       'Nivå: ett stift hålls i visat eller dolt läge, och aktiv låg nivå betyder att låg nivå visar gruppen. Puls: för ett låsrelä pulsas ett stift för att visa gruppen och ett annat för att dölja den, och aktiv låg nivå betyder att pulsen är låg. Ett låsrelä kan inte läsas av, så stiftets nivå säger ingenting och det senast skickade kommandot visas i stället.',
     pinsHint:
-      'En kontaktslutning per tavelgrupp. Varje grupp behöver ett eget stift: 22–32 och 35–37 avvisas — de saknas på det här chippet eller hör till dess flash och PSRAM, och att driva ett av dem gör att enheten inte startar — liksom 43–44, som bär seriekonsolen.',
+      'En kontaktslutning per tavelgrupp. Varje grupp behöver ett eget stift: 22–37 avvisas — de saknas på det här chippet eller hör till dess flash och PSRAM, och att driva ett av dem gör att enheten inte startar — liksom 43–44, som bär seriekonsolen.',
   },
   bootTargets: {
     label: 'Tavlorna vid uppstart',

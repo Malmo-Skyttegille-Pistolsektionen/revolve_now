@@ -166,7 +166,7 @@ export const hardware = {
     driveHint:
       'Level: one pin is held shown or hidden, and active low means a low level shows the bank. Pulse: for a latching relay, one pin is pulsed to show the bank and another to hide it, and active low means the pulse is a low one. A latching relay cannot be read back, so its pad level says nothing and the last command sent is shown instead.',
     pinsHint:
-      'One contact closure per bank. Each needs its own pin: 22–32 and 35–37 are refused — they are absent from this chip or belong to its flash and PSRAM, and driving one stops the device booting — and so are 43–44, which carry the serial console.',
+      'One contact closure per bank. Each needs its own pin: 22–37 are refused — they are absent from this chip or belong to its flash and PSRAM, and driving one stops the device booting — and so are 43–44, which carry the serial console.',
   },
   bootTargets: {
     label: 'Targets at boot',
