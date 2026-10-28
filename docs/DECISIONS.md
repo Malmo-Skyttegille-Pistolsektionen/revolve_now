@@ -1591,6 +1591,12 @@ has no E2E coverage of its accepted path. The ZIP layout is covered by
 `firmware/host_test/test_zip_writer`, whose expectations were checked against
 Python's `zipfile` and `unzip -t`.
 
+*Re-examined 2026-10-28, in the security audit:* the gate stays the window
+alone. Adding the control lock would again protect nothing while the lock is
+off and block a fault report while it is on. What remains exposed is a LAN
+client watching for somebody at the board to open the window; the five-minute
+window bounds it.
+
 ## D-40 — "Admin mode" is renamed `control-lock`, everywhere *(Decided 2026-08-26)*
 
 **Decision:** the write lock is called **`control-lock`** in every surface it

@@ -69,6 +69,8 @@ margin-top:1.25rem}
 <h1>Revolve Now Setup</h1>
 <p>This device could not join a network. Choose the WiFi it should use.
 It will save the details and restart.</p>
+<p>This setup network's password is public, so others nearby can join it and
+could read what you type. Set up where nobody you do not know is in range.</p>
 <form method="POST" action="/save">
 <label for="pick">Network</label>
 <select id="pick" name="picked">)HTML";
