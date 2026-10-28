@@ -147,6 +147,13 @@ export interface paths {
          * @description Sets the password — any non-empty string, chosen by this call — and
          *     returns the first session token. Refused while the lock is already
          *     on: log in or disable it first.
+         *
+         *     The lock persists across restarts, so this needs the configuration
+         *     window: three presses of the BOOT button, proof that whoever sets the
+         *     password is at the board. Unlike `PUT /config/hardware`, a running
+         *     program does not hold it shut — locking the device mid-run is
+         *     reasonable. A build without a button, and the QEMU profile, skip the
+         *     check, because they cannot open the window at all.
          */
         post: operations["enableControlLockMode"];
         delete?: never;
@@ -210,9 +217,14 @@ export interface paths {
         put?: never;
         /**
          * Turn the control lock off
-         * @description Clears the password and invalidates every issued token. Note this
-         *     turns protection *off* — every endpoint becomes writable by anyone on
-         *     the network again. It is not "log out"; see `/control-lock/logout`.
+         * @description Clears the stored password and invalidates every issued token. Note
+         *     this turns protection *off* — every endpoint becomes writable by anyone
+         *     on the network again. It is not "log out"; see `/control-lock/logout`.
+         *
+         *     Accepted with a session, or without one while the configuration window
+         *     is open: somebody at the board can always turn the lock off, which is
+         *     the way back from a forgotten password now that a restart is not. A
+         *     build without a button has no such way, and needs a session.
          */
         post: operations["disableControlLockMode"];
         delete?: never;
@@ -1527,7 +1539,7 @@ export interface components {
              *     `program_invalid` `backend_issue` code in `asyncapi.yaml`.
              * @enum {string}
              */
-            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/origin_not_allowed" | "/problems/host_not_allowed" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/backup_invalid" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed";
+            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/origin_not_allowed" | "/problems/host_not_allowed" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/backup_invalid" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed" | "/problems/control_lock_store_failed";
             /**
              * @description A short summary of the type, identical for every occurrence of it. Not for display — it does not describe this occurrence.
              * @example Program is read-only
@@ -2073,10 +2085,22 @@ export interface operations {
              */
             401: components["responses"]["Problem"];
             /**
+             * @description - `/problems/hardware_config_window_closed` — nobody has opened the
+             *       configuration window recently. The same type, from the same
+             *       window, as `PUT /config/hardware`.
+             */
+            403: components["responses"]["Problem"];
+            /**
              * @description - `/problems/control_lock_already_enabled` — log in or disable it
              *       first.
              */
             409: components["responses"]["Problem"];
+            /**
+             * @description - `/problems/control_lock_store_failed` — the password could not be
+             *       stored, so the lock was left off rather than on until the next
+             *       restart.
+             */
+            500: components["responses"]["Problem"];
         };
     };
     loginControlLockMode: {
@@ -2143,6 +2167,12 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /**
+             * @description - `/problems/control_lock_store_failed` — the stored password could
+             *       not be cleared, so the lock was left on rather than off until the
+             *       next restart.
+             */
+            500: components["responses"]["Problem"];
         };
     };
     listPrograms: {

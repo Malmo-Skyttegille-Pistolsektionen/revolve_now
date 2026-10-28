@@ -91,7 +91,8 @@ struct ProblemType {
   X(kAudioStoreFailed, "audio_store_failed", "Could not store audio", 500)                      \
   X(kWifiStoreFailed, "wifi_store_failed", "Could not store WiFi credentials", 500)             \
   X(kRestartFailed, "restart_failed", "Could not start the restart", 500)                       \
-  X(kOtaWriteFailed, "ota_write_failed", "Could not write the firmware", 500)
+  X(kOtaWriteFailed, "ota_write_failed", "Could not write the firmware", 500)                   \
+  X(kControlLockStoreFailed, "control_lock_store_failed", "Could not store the control lock", 500)
 
 namespace problem {
 #define RT_PROBLEM_DEFINE(name, slug, title, status) \

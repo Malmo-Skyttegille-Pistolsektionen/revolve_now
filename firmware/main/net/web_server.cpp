@@ -36,8 +36,10 @@
 #include "esp_partition.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "psa/crypto.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "control_lock_store.h"
 #include "ethernet.h"
 #include "hardware_json.h"
 #include "issue_buffer.h"
@@ -134,7 +136,30 @@ int64_t now_ms() {
   return esp_timer_get_time() / 1000;
 }
 
-rt::ControlLock s_control_lock(esp_random_bytes, now_ms);
+// PBKDF2-HMAC-SHA256 through PSA. A failure fills the key with random bytes,
+// so no password can match it: refusing every login is the safe way to fail.
+void derive_lock_key(const std::string &password, const uint8_t *salt, size_t salt_len,
+                     uint8_t *out, size_t out_len) {
+  psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
+  const bool ok =
+      psa_crypto_init() == PSA_SUCCESS &&
+      psa_key_derivation_setup(&op, PSA_ALG_PBKDF2_HMAC(PSA_ALG_SHA_256)) == PSA_SUCCESS &&
+      psa_key_derivation_input_integer(&op, PSA_KEY_DERIVATION_INPUT_COST,
+                                       kControlLockKdfIterations) == PSA_SUCCESS &&
+      psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT, salt, salt_len) ==
+          PSA_SUCCESS &&
+      psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_PASSWORD,
+                                     reinterpret_cast<const uint8_t *>(password.data()),
+                                     password.size()) == PSA_SUCCESS &&
+      psa_key_derivation_output_bytes(&op, out, out_len) == PSA_SUCCESS;
+  psa_key_derivation_abort(&op);
+  if (!ok) {
+    ESP_LOGE(TAG, "Could not derive the control lock key");
+    esp_fill_random(out, out_len);
+  }
+}
+
+rt::ControlLock s_control_lock(esp_random_bytes, now_ms, derive_lock_key);
 
 // --- response helpers ------------------------------------------------------
 
@@ -334,20 +359,38 @@ void register_control_lock_routes() {
         std::string("{\"enabled\":") + (s_control_lock.enabled() ? "true" : "false") + "}");
   });
 
-  s_server.on("/api/v2/control-lock/enable", HTTP_POST,
-              [](PsychicRequest *req, PsychicResponse *res) {
-                if (s_control_lock.enabled()) {
-                  return send_problem(res, rt::problem::kControlLockAlreadyEnabled,
-                                      "The control lock is already on. Log in, or turn it off "
-                                      "before turning it on again.");
-                }
-                const std::string token = s_control_lock.enable(password_from(req));
-                if (token.empty())
-                  return send_problem(res, rt::problem::kInvalidPassword, "Invalid password");
+  s_server.on(
+      "/api/v2/control-lock/enable", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
+        if (s_control_lock.enabled()) {
+          return send_problem(res, rt::problem::kControlLockAlreadyEnabled,
+                              "The control lock is already on. Log in, or turn it off "
+                              "before turning it on again.");
+        }
+    // The lock now outlives a reboot (D-51), so whoever sets it has
+    // to be at the board - otherwise the first caller on the network
+    // would own the device for good. A build with no button cannot
+    // prove that, and would otherwise never be lockable.
+#if CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW
+        if (boot_button::available() && !boot_button::presence_window_open()) {
+          return send_problem(res, rt::problem::kHardwareConfigWindowClosed, rt::kOpenWindowHint);
+        }
+#endif
+        const int64_t started = esp_timer_get_time();
+        const std::string token = s_control_lock.enable(password_from(req));
+        if (token.empty())
+          return send_problem(res, rt::problem::kInvalidPassword, "Invalid password");
+        if (!control_lock_store::save(s_control_lock.verifier())) {
+          // Off rather than on in RAM only, which a reboot would undo
+          // without telling anybody.
+          s_control_lock.disable();
+          return send_problem(res, rt::problem::kControlLockStoreFailed,
+                              "Could not store the control lock - it is still off");
+        }
 
-                ESP_LOGI(TAG, "Control lock on");
-                return send_control_lock_session(res, token);
-              });
+        ESP_LOGI(TAG, "Control lock on (key derived in %d ms)",
+                 static_cast<int>((esp_timer_get_time() - started) / 1000));
+        return send_control_lock_session(res, token);
+      });
 
   s_server.on("/api/v2/control-lock/login", HTTP_POST,
               [](PsychicRequest *req, PsychicResponse *res) {
@@ -379,7 +422,15 @@ void register_control_lock_routes() {
 
   s_server.on("/api/v2/control-lock/disable", HTTP_POST,
               [](PsychicRequest *req, PsychicResponse *res) {
-                if (!require_control_lock(req, res)) return ESP_OK;
+                // A session, or somebody at the board: the way back from a
+                // forgotten password, now that a restart no longer is (D-51).
+                if (!boot_button::presence_window_open() && !require_control_lock(req, res)) {
+                  return ESP_OK;
+                }
+                if (!control_lock_store::erase()) {
+                  return send_problem(res, rt::problem::kControlLockStoreFailed,
+                                      "Could not clear the stored control lock - it is still on");
+                }
                 s_control_lock.disable();
                 ESP_LOGI(TAG, "Control lock off");
                 return send_message(
@@ -1644,6 +1695,15 @@ bool start() {
                          ",\"patch\":" + std::to_string(version.patch) + "}");
   });
 
+  // D-51: the lock survives a restart; its sessions do not.
+  const std::string verifier = control_lock_store::load();
+  if (!verifier.empty()) {
+    if (s_control_lock.restore(verifier)) {
+      ESP_LOGW(TAG, "Control lock on, as it was before the restart - log in to make changes");
+    } else {
+      ESP_LOGE(TAG, "The stored control lock is malformed - starting with the lock off");
+    }
+  }
   register_control_lock_routes();
   register_program_routes();
   register_diagnostics_routes();

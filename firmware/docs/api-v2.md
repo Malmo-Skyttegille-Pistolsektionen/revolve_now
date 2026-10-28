@@ -304,8 +304,8 @@ rewound to event 0 with the targets shown again;
 
 ## Auth
 
-The control lock is off until a client enables it, and it lives in RAM only — a
-reboot returns the device to the unprotected state. The rule is simple enough
+The control lock is off until a client enables it, and once on it survives a
+restart (D-51); its sessions do not. The rule is simple enough
 to state once: **every `GET` is public; every mutating endpoint is protected
 while the control lock is on, except the three that have to work without a session —
 `control-lock/enable`, `control-lock/login` and `control-lock/logout`.**
@@ -313,12 +313,16 @@ while the control lock is on, except the three that have to work without a sessi
 - `Authorization: Bearer <token>`, or `Cookie: control_lock=<token>`. The header is
   checked first; the cookie is the fallback
 - `POST /api/v2/control-lock/enable` sets the password (any non-empty string) and
-  returns a token; `409` if the control lock is already on
+  returns a token; `409` if the control lock is already on, `403
+  hardware_config_window_closed` unless the configuration window is open
+  (a build without a button, and the QEMU profile, skip that check)
 - `POST /api/v2/control-lock/login` exchanges the active password for another
   token; `409` if the control lock is off
 - Both send `Set-Cookie: control_lock=<token>; Path=/; SameSite=Lax`
 - `POST /api/v2/control-lock/disable` clears the password and invalidates every
-  issued token — note this turns protection *off*, it is not "log out"
+  issued token — note this turns protection *off*, it is not "log out". It
+  takes a session, or an open configuration window instead: the way back from
+  a forgotten password
 - `POST /api/v2/control-lock/logout` invalidates only the presenting token and
   clears the cookie, leaving the control lock on. This is what a client leaving a
   shared range laptop wants. It is itself unprotected, and answers `200`

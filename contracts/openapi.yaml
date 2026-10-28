@@ -59,11 +59,17 @@ info:
 
     ## Authentication
 
-    The control lock is off after every boot and lives in RAM only. While it is
-    off,
+    The control lock is off until it is turned on, and **it stays on across
+    restarts** (D-51): the device keeps a salted hash of the password, never
+    the password. Sessions do not survive a restart - after one the lock is
+    still on and every client logs in again. While the lock is off,
     **every endpoint is unauthenticated**, including the ones marked as
-    requiring a session below. A client turns protection on with
-    `POST /api/v2/control-lock/enable`, choosing the password in that call.
+    requiring a session below.
+
+    Turning it on, with `POST /api/v2/control-lock/enable`, needs somebody at
+    the board: the configuration window, three presses of the BOOT button,
+    has to be open. Turning it off needs a session **or** that window, which
+    is the way back from a forgotten password. A factory reset clears it too.
 
     While the lock is on, the protected endpoints accept either credential:
 
@@ -359,6 +365,13 @@ paths:
         Sets the password — any non-empty string, chosen by this call — and
         returns the first session token. Refused while the lock is already
         on: log in or disable it first.
+
+        The lock persists across restarts, so this needs the configuration
+        window: three presses of the BOOT button, proof that whoever sets the
+        password is at the board. Unlike `PUT /config/hardware`, a running
+        program does not hold it shut — locking the device mid-run is
+        reasonable. A build without a button, and the QEMU profile, skip the
+        check, because they cannot open the window at all.
       requestBody:
         required: true
         content:
@@ -373,11 +386,23 @@ paths:
           description: |
             - `/problems/invalid_password` — the password was empty, or the
               body carried none.
+        "403":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/hardware_config_window_closed` — nobody has opened the
+              configuration window recently. The same type, from the same
+              window, as `PUT /config/hardware`.
         "409":
           $ref: "#/components/responses/Problem"
           description: |
             - `/problems/control_lock_already_enabled` — log in or disable it
               first.
+        "500":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/control_lock_store_failed` — the password could not be
+              stored, so the lock was left off rather than on until the next
+              restart.
 
   /control-lock/login:
     post:
@@ -438,9 +463,14 @@ paths:
       summary: Turn the control lock off
       operationId: disableControlLockMode
       description: |
-        Clears the password and invalidates every issued token. Note this
-        turns protection *off* — every endpoint becomes writable by anyone on
-        the network again. It is not "log out"; see `/control-lock/logout`.
+        Clears the stored password and invalidates every issued token. Note
+        this turns protection *off* — every endpoint becomes writable by anyone
+        on the network again. It is not "log out"; see `/control-lock/logout`.
+
+        Accepted with a session, or without one while the configuration window
+        is open: somebody at the board can always turn the lock off, which is
+        the way back from a forgotten password now that a restart is not. A
+        build without a button has no such way, and needs a session.
       security:
         - controlLockBearer: []
         - controlLockCookie: []
@@ -454,6 +484,12 @@ paths:
                 $ref: "#/components/schemas/Message"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/control_lock_store_failed` — the stored password could
+              not be cleared, so the lock was left on rather than off until the
+              next restart.
 
   /programs:
     get:
@@ -2755,6 +2791,7 @@ components:
             - /problems/wifi_store_failed
             - /problems/restart_failed
             - /problems/ota_write_failed
+            - /problems/control_lock_store_failed
         title:
           type: string
           description: >-

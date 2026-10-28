@@ -256,6 +256,16 @@ config RT_SETUP_AP_PASSWORD
         join a network. WPA2 needs at least 8 characters; shorter than that and
         the AP comes up OPEN, which is logged loudly at boot.
 
+config RT_CONTROL_LOCK_NEEDS_WINDOW
+    bool "Turning the control lock on needs the configuration window"
+    default y
+    help
+        The control lock persists across restarts (D-51), so whoever turns it
+        on first has to prove they are at the board: three presses of BOOT.
+        Off only for the QEMU profile, whose GPIO0 reads pressed from boot so
+        the window can never open. Turning the lock off without a token always
+        needs the window, whatever this is set to.
+
 config RT_DEV_ORIGIN
     string "Additional allowed CORS origin"
     default ""

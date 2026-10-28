@@ -72,6 +72,12 @@ budget — exactly as the board has it.
   `git describe`, which that endpoint's strict parse rejects. Not a QEMU
   artefact — the board does the same until versioning lands.
   `diagnostics/info` reports the describe string verbatim.
+- **The control lock turns on without the BOOT button.** GPIO0 reads pressed
+  from boot, so the configuration window never opens, and on the board
+  turning the lock on needs it (D-51). The profile sets
+  `CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW=n` so the E2E suite can still turn it
+  on. Turning it off without a session needs the window everywhere, so that
+  path cannot be exercised here.
 
 Noise that is expected on every boot and safe to ignore:
 

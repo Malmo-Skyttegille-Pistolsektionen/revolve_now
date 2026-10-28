@@ -73,9 +73,14 @@ Två lägen:
 - **Endast visning** — sidan visar fortfarande vad som händer, men att starta,
   stoppa, ladda upp och ta bort kräver alla inloggning.
 
-När du slår på det ombeds du ange ett lösenord. Från och med då håller den
-här webbläsaren en token; **Logga in** i en annan webbläsare frågar efter det
-lösenordet igen.
+När du slår på det ombeds du ange ett lösenord, och någon måste vara vid
+enheten: tryck först på dess **BOOT**-knapp tre gånger inom tio sekunder. Från
+och med då håller den här webbläsaren en token; **Logga in** i en annan
+webbläsare frågar efter det lösenordet igen.
+
+Låset förblir på när enheten startar om, tills någon slår av det. En omstart
+loggar bara ut alla. Har lösenordet glömts bort, tryck på BOOT tre gånger på
+enheten: sidan erbjuder då **Slå av låset** utan det.
 
 Lösenordet skyddar mot misstag snarare än mot den beslutsamme: enheten sitter
 på skjutbanans eget nätverk, och trafiken är okrypterad HTTP.

@@ -22,7 +22,7 @@ endif()
 
 idf_component_register(
     SRCS "app_main.cpp"
-         "config/hardware_store.cpp" "config/factory_reset.cpp"
+         "config/hardware_store.cpp" "config/factory_reset.cpp" "config/control_lock_store.cpp"
          "io/targets.cpp" "io/audio.cpp" "io/rgb_led.cpp" "io/boot_button.cpp"
          "storage/storage.cpp" "storage/embedded_fs.cpp"
          "repositories/programs.cpp" "repositories/audios.cpp"
@@ -39,7 +39,7 @@ idf_component_register(
              nvs_flash esp_netif esp_event esp_timer esp_system
              esp_http_server app_update espcoredump
              esp_driver_gpio esp_driver_i2s
-             joltwallet__littlefs espressif__led_strip espressif__mdns
+             joltwallet__littlefs espressif__led_strip espressif__mdns mbedtls
              esp_wifi dns_server esp_eth esp_driver_usb_serial_jtag
              esp_driver_spi espressif__w5500
 )

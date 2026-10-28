@@ -72,8 +72,14 @@ Two states:
 - **View only** — the page still shows what is happening, but starting,
   stopping, uploading and deleting all require a login.
 
-Turning it on asks for a password to set. From then on this browser holds a
-token; **Login** on another browser asks for that password again.
+Turning it on asks for a password to set, and needs somebody at the device:
+press its **BOOT** button three times within ten seconds first. From then on
+this browser holds a token; **Login** on another browser asks for that password
+again.
+
+The lock stays on when the device restarts, until somebody turns it off. A
+restart only logs everybody out. If the password is forgotten, press BOOT three
+times on the device: the page then offers **Turn the lock off** without it.
 
 The password protects against the accidental rather than the determined: the
 device is on the range's own network, and the traffic is plain HTTP.

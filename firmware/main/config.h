@@ -68,6 +68,11 @@ constexpr size_t kSseOutboxCapacity = 16;
 // Ceiling on an uploaded program document or audio file.
 constexpr size_t kMaxUploadBytes = 1024 * 1024;
 
+// PBKDF2 rounds for the control lock's stored verifier (D-51). A login runs
+// the derivation on the only httpd task, which bounds how high this can go;
+// the log line at enable says how long it took on the board.
+constexpr unsigned kControlLockKdfIterations = 4096;
+
 // Firmware is the one upload that legitimately exceeds the ceiling above: the
 // app image is 3.3 MB (it carries the web app and the shipped audio since
 // #227) and the slot it goes into is 4.5 MB. Sized to the slot, so the limit

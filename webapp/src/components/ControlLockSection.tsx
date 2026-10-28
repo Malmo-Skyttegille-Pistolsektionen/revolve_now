@@ -2,6 +2,7 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import { ApiError } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
+import { useConfigWindow } from '../hooks/useConfigWindow';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT } from '../i18n';
 import styles from './ControlLockSection.module.css';
@@ -27,6 +28,8 @@ export function ControlLockSection(): React.ReactNode {
     isLoginPending,
     isDisablePending,
   } = useControlLockStatus();
+  // Somebody at the board can turn the lock off without the password (D-51).
+  const { open: windowOpen } = useConfigWindow();
   const [password, setPassword] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -114,6 +117,7 @@ export function ControlLockSection(): React.ReactNode {
               {isPending ? s.locking : s.turnOn}
             </button>
           </div>
+          <div className={styles.infoText}>{s.offInfo}</div>
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
         </div>
       </section>
@@ -150,6 +154,19 @@ export function ControlLockSection(): React.ReactNode {
             </button>
           </div>
           <div className={styles.infoText}>{s.lockedInfo}</div>
+          {windowOpen ? (
+            <div className={styles.buttonRow}>
+              <button
+                className={clsx(styles.button, styles.buttonDestructive)}
+                onClick={() => void handleDisable()}
+                disabled={isPending}
+              >
+                {isDisablePending ? s.unlocking : s.turnOff}
+              </button>
+            </div>
+          ) : (
+            <div className={styles.infoText}>{s.forgotten}</div>
+          )}
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
         </div>
       </section>

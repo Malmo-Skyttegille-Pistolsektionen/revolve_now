@@ -69,8 +69,12 @@ export const settings: Messages['settings'] = {
     logOut: 'Logga ut',
     unlocking: 'Låser upp…',
     turnOff: 'Slå av låset',
+    offInfo:
+      'För att slå på låset måste någon vara vid enheten: tryck först på dess BOOT-knapp tre gånger inom tio sekunder. Låset förblir sedan på även efter omstarter, tills det slås av.',
     lockedInfo:
       'Den som slog på låset valde lösenordet. När du loggar in kan du styra enheten; slår du av låset blir den helt öppen för alla igen.',
+    forgotten:
+      'Glömt lösenordet? Tryck på BOOT-knappen på enheten tre gånger inom tio sekunder, så erbjuder sidan att slå av låset.',
     enableFailed: 'Det gick inte att slå på kontrollåset.',
     loginFailed: 'Det gick inte att logga in.',
     disableFailed: 'Det gick inte att slå av kontrollåset.',
