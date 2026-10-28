@@ -32,6 +32,13 @@ export function useControlLockApi() {
       });
     },
 
+    /** Ends this session on the device; the lock stays on. Always 200. */
+    logout: (): Promise<void> => {
+      return request<void>('/control-lock/logout', {
+        method: 'POST',
+      });
+    },
+
     disable: (): Promise<void> => {
       return request<void>('/control-lock/disable', {
         method: 'POST',

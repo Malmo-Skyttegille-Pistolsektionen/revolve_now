@@ -148,10 +148,50 @@ describe('the three states of the control lock', () => {
     });
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));
 
-    act(() => result.current.lock.logout());
+    await act(async () => {
+      await result.current.lock.logout();
+    });
 
     expect(result.current.settings.controlLockToken).toBeNull();
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));
+  });
+
+  // Dropping the token here is not enough: a copy of it, or the cookie, would
+  // keep authorising until it expired.
+  it('logout ends the session on the device, so the old token is refused', async () => {
+    const { result } = renderControlLock();
+    await waitFor(() => expect(result.current.lock.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.lock.enable('competition-2026');
+    });
+    const token = result.current.settings.controlLockToken;
+    expect(token).toEqual(expect.any(String));
+
+    await act(async () => {
+      await result.current.lock.logout();
+    });
+
+    const replayed = await fetch(`http://127.0.0.1:${PORT}/api/v2/targets/toggle`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+    });
+    expect(replayed.status).toBe(401);
+  });
+
+  it('logout still drops the token when the device cannot be reached', async () => {
+    const { result } = renderControlLock();
+    await waitFor(() => expect(result.current.lock.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.lock.enable('competition-2026');
+    });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await act(async () => {
+      await result.current.lock.logout();
+    });
+
+    expect(result.current.settings.controlLockToken).toBeNull();
+    fetchSpy.mockRestore();
   });
 
   it('ON -> OFF: disable clears the token and everyone sees it', async () => {

@@ -1775,6 +1775,17 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       return;
     }
 
+    // POST /control-lock/logout - not itself protected, always 200, as the
+    // firmware has it: the bearer token first, then the cookie.
+    if (endpoint === '/control-lock/logout' && req.method === 'POST') {
+      const auth = req.headers['authorization'];
+      const token = auth?.startsWith('Bearer ') ? auth.slice(7) : parseCookies(req)['control_lock'];
+      if (token) state.controlLockTokens.delete(token);
+      res.setHeader('Set-Cookie', 'control_lock=; Path=/; SameSite=Lax; Max-Age=0');
+      jsonResponse(res, 200, { message: 'Logged out' });
+      return;
+    }
+
     // POST /control-lock/disable
     if (endpoint === '/control-lock/disable' && req.method === 'POST') {
       if (!checkControlLockAuth(req, res)) return;

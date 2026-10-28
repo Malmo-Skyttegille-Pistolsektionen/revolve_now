@@ -73,7 +73,7 @@ export function ControlLockSection(): React.ReactNode {
 
   const handleLogout = (): void => {
     setActionError(null);
-    logout();
+    void logout();
   };
 
   if (isLoading) {
