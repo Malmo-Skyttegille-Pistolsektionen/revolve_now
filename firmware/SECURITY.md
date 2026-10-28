@@ -46,6 +46,10 @@ holds the only valid password until the device is power-cycled.
 - CORS reflects the request `Origin` **only** if it matches the device's own
   mDNS name or IP, or `CONFIG_RT_DEV_ORIGIN`. Anything else gets no CORS
   headers.
+- A write from a foreign `Origin` is refused (`403`), and so is any API request
+  whose `Host` is not the device's name or an IP literal (`421`). The first
+  closes cross-site form posts while the lock is off; the second, DNS
+  rebinding. Responses refuse to be framed.
 - `GET` endpoints, including `/api/v2/diagnostics/info`, are public. They carry
   no credential and no program data.
 - **The setup network is not private.** Its password defaults to the public

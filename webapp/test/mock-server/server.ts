@@ -59,6 +59,8 @@ const PROBLEMS = {
   // auth
   '/problems/control_lock_credentials_required': { title: 'Control lock credentials required', status: 401 },
   '/problems/invalid_password': { title: 'Invalid password', status: 401 },
+  '/problems/origin_not_allowed': { title: 'Origin not allowed', status: 403 },
+  '/problems/host_not_allowed': { title: 'Host not allowed', status: 421 },
   // not found
   '/problems/route_not_found': { title: 'Route not found', status: 404 },
   '/problems/program_not_found': { title: 'Program not found', status: 404 },
