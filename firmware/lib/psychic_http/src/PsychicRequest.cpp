@@ -241,7 +241,13 @@ esp_err_t PsychicRequest::loadBody()
     return _bodyParsed = ESP_FAIL;
   }
 
+  const int64_t startUs = esp_timer_get_time();
   while (remaining > 0) {
+    if (psychicBodyTooSlow(startUs, actuallyReceived)) {
+      ESP_LOGE(PH_TAG, "Body too slow, giving up.");
+      free(buf);
+      return _bodyParsed = ESP_FAIL;
+    }
     int received = httpd_req_recv(this->_req, buf + actuallyReceived, remaining);
 
     if (received == HTTPD_SOCK_ERR_TIMEOUT) {

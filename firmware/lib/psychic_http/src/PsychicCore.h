@@ -27,6 +27,18 @@
   #define PSYCHIC_WS_MAX_PENDING_FRAMES 8
 #endif
 
+// Local patch (see CMakeLists.txt): once PSYCHIC_BODY_GRACE_MS has passed, a
+// request body must keep up PSYCHIC_BODY_MIN_RATE bytes/s on average or the
+// read fails. The body is read on the only httpd task, so a stalled peer
+// otherwise holds every other request off for as long as its socket lives.
+#ifndef PSYCHIC_BODY_GRACE_MS
+  #define PSYCHIC_BODY_GRACE_MS 10000
+#endif
+
+#ifndef PSYCHIC_BODY_MIN_RATE
+  #define PSYCHIC_BODY_MIN_RATE (8 * 1024)
+#endif
+
 #ifdef ARDUINO
   #include "FS.h"
   #include <Arduino.h>
@@ -35,6 +47,7 @@
 #include <ArduinoJson.h>
 #include <algorithm>
 #include <esp_http_server.h>
+#include <esp_timer.h>
 #include <esp_idf_version.h>
 #include <mbedtls/base64.h>
 #include <algorithm>
@@ -73,6 +86,13 @@ std::string urlDecode(const char* encoded);
 // out-of-range substr on attacker-controlled input (e.g. a malformed multipart header) would
 // abort and reboot the device. Use this for any substr whose offset is derived from parsed input.
 // (len is left to std::string::substr, which already clamps it to the remaining length.)
+// Local patch (see CMakeLists.txt): see PSYCHIC_BODY_GRACE_MS.
+inline bool psychicBodyTooSlow(int64_t startUs, uint64_t received)
+{
+  const int64_t allowedUs = (int64_t)PSYCHIC_BODY_GRACE_MS * 1000 + (int64_t)(received * 1000000 / PSYCHIC_BODY_MIN_RATE);
+  return esp_timer_get_time() - startUs > allowedUs;
+}
+
 inline std::string psychicSubstr(const std::string& str, size_t pos, size_t len = std::string::npos)
 {
   if (pos > str.length())

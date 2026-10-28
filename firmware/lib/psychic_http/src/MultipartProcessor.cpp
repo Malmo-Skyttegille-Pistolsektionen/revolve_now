@@ -60,11 +60,19 @@ esp_err_t MultipartProcessor::process()
 
   /* Content length of the request gives the size of the file being uploaded */
   int remaining = _request->contentLength();
+  const int64_t startUs = esp_timer_get_time();
 
   while (remaining > 0) {
 #ifdef ENABLE_ASYNC
     httpd_sess_update_lru_counter(request->server()->server, request->client()->socket());
 #endif
+
+    // Local patch (see CMakeLists.txt): see PSYCHIC_BODY_GRACE_MS.
+    if (psychicBodyTooSlow(startUs, index)) {
+      ESP_LOGE(PH_TAG, "Body too slow, giving up.");
+      err = ESP_FAIL;
+      break;
+    }
 
     /* Receive the file part by part into a buffer */
     if ((received = httpd_req_recv(_request->request(), buf, std::min(remaining, (int)FILE_CHUNK_SIZE))) <= 0) {
