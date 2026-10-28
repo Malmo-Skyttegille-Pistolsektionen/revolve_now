@@ -13,8 +13,8 @@ namespace boot_button {
 // was waiting for. So one task owns the pin and classifies what it sees
 // (`rt::ButtonGesture`), and features ask this module what happened.
 //
-//   - A short press, while the setup portal is up, authorises it to accept
-//     WiFi credentials (#208).
+//   - A short press, while the setup portal is up, commits the WiFi
+//     credentials submitted just before it (#208, rt::SetupClaim).
 //   - Three short presses within ten seconds open the configuration window
 //     (see below).
 //   - A ten-second hold is a factory reset (#222). The LED goes white after
