@@ -43,6 +43,8 @@ struct ProblemType {
   X(kControlLockCredentialsRequired, "control_lock_credentials_required",                       \
     "Control lock credentials required", 401)                                                   \
   X(kInvalidPassword, "invalid_password", "Invalid password", 401)                              \
+  X(kOriginNotAllowed, "origin_not_allowed", "Origin not allowed", 403)                         \
+  X(kHostNotAllowed, "host_not_allowed", "Host not allowed", 421)                               \
   /* not found */                                                                               \
   X(kRouteNotFound, "route_not_found", "Route not found", 404)                                  \
   X(kProgramNotFound, "program_not_found", "Program not found", 404)                            \

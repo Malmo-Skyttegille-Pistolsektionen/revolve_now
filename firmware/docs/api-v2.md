@@ -337,6 +337,16 @@ mDNS name or current IP, or `CONFIG_RT_DEV_ORIGIN`. Any other origin gets no
 CORS headers, so a page the operator happens to be visiting cannot script the
 device or read its responses.
 
+**What CORS cannot stop is checked separately.** A cross-site form post is sent
+without a preflight, and a DNS-rebinding page is same-origin, so neither is
+CORS's to refuse. Every `/api` and `/sse` request must name the device in
+`Host` (its hostname, `<hostname>.local`, an IP literal or `localhost`) or gets
+`421 host_not_allowed`. A write whose `Origin` is neither allowlisted nor the
+origin it was served under gets `403 origin_not_allowed`. Clients that send no
+`Origin` are unaffected. Every response also refuses framing
+(`X-Frame-Options: DENY`, `frame-ancestors 'none'`). The rules are
+`rt::host_allowed` and `rt::same_origin` in `lib/rt_logic/request_host.h`.
+
 Note that `SameSite=Lax` means the cookie is only sent when the webapp is served
 from the device itself. A webapp on another origin authenticates with the bearer
 token instead.

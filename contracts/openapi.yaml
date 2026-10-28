@@ -100,6 +100,25 @@ info:
     Any other origin gets no CORS headers at all, so the browser blocks the
     response.
 
+    ## Requests CORS cannot stop
+
+    CORS stops a foreign page *reading* a response, not a simple request
+    being sent, and it never applies to a DNS-rebinding page, which is
+    same-origin. So every route under `/api` and `/sse` also checks:
+
+    - **`Host`** must be the device's own name (`<CONFIG_RT_HOSTNAME>` or
+      `<CONFIG_RT_HOSTNAME>.local`), an IP literal, or `localhost`, port
+      aside. Anything else answers `421` with `/problems/host_not_allowed`.
+    - **`Origin`**, on a request other than `GET`, `HEAD` or `OPTIONS`, must
+      be one the CORS allowlist above accepts or the origin the request was
+      served under (`http(s)://<Host>`). Anything else, `null` included,
+      answers `403` with `/problems/origin_not_allowed`. A request with no
+      `Origin`, which is what non-browser clients send, is unaffected.
+
+    Every response also carries `X-Frame-Options: DENY` and
+    `Content-Security-Policy: frame-ancestors 'none'`, so no other site can
+    frame the web app.
+
     ## Routes that exist but are not modelled as paths here
 
     Both are catch-alls that would have to be attached to every path to be
@@ -2690,6 +2709,8 @@ components:
             # auth
             - /problems/control_lock_credentials_required
             - /problems/invalid_password
+            - /problems/origin_not_allowed
+            - /problems/host_not_allowed
             # not found
             - /problems/route_not_found
             - /problems/program_not_found

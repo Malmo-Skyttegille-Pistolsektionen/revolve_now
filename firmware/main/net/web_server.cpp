@@ -44,6 +44,7 @@
 #include "json_util.h"
 #include "net_mgr.h"
 #include "problem.h"
+#include "request_host.h"
 #include "restart.h"
 #include "text_parse.h"
 #include "uri_path.h"
@@ -272,6 +273,13 @@ bool origin_allowed(const std::string &origin) {
   if (!dev.empty() && origin == dev) return true;
 
   return false;
+}
+
+// Refuses to be framed, so another site cannot overlay the web app and click
+// it for the operator. Called wherever add_cors_headers is.
+void add_frame_headers(PsychicResponse *res) {
+  res->addHeader("X-Frame-Options", "DENY");
+  res->addHeader("Content-Security-Policy", "frame-ancestors 'none'");
 }
 
 // Reflects an allowlisted Origin. The server middleware calls it for every
@@ -1536,6 +1544,38 @@ bool start() {
   s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
                             const PsychicMiddlewareNext &next) -> esp_err_t {
     add_cors_headers(req, res);
+    add_frame_headers(res);
+    return next();
+  });
+
+  // What CORS cannot stop. A cross-site form or `fetch(..., {mode:
+  // 'no-cors'})` is sent without a preflight and changes state even though its
+  // response is unreadable, and a DNS-rebinding page is same-origin, so CORS
+  // never applies to it. The first carries a foreign Origin on a write; the
+  // second, a foreign name in Host. Clients that send no Origin (curl, the
+  // console docs) are unaffected.
+  s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
+                            const PsychicMiddlewareNext &next) -> esp_err_t {
+    const std::string_view uri = req->uriCStr();
+    const bool api = uri.rfind("/api/", 0) == 0 || uri.rfind("/sse/", 0) == 0;
+    // Copied: header() returns one buffer that the next call overwrites.
+    const std::string host = req->header("Host");
+    if (api && !rt::host_allowed(host, hardware_store::current().hostname)) {
+      ESP_LOGW(TAG, "Refused %s %s for Host '%s'", req->methodStr(), req->uri(), host.c_str());
+      send_problem(res, rt::problem::kHostNotAllowed,
+                   "This device answers only to its own name or address");
+      return ESP_FAIL;
+    }
+    const http_method method = req->method();
+    const bool writes = method != HTTP_GET && method != HTTP_HEAD && method != HTTP_OPTIONS;
+    const std::string origin = req->header("Origin");
+    if (api && writes && !origin.empty() && !origin_allowed(origin) &&
+        !rt::same_origin(origin, host)) {
+      ESP_LOGW(TAG, "Refused %s %s from Origin '%s'", req->methodStr(), req->uri(), origin.c_str());
+      send_problem(res, rt::problem::kOriginNotAllowed,
+                   "Changes are accepted only from pages the device serves");
+      return ESP_FAIL;
+    }
     return next();
   });
 
@@ -1604,6 +1644,9 @@ bool start() {
   // the 404 it is. The headers are therefore set here rather than inherited.
   s_server.onNotFound([](PsychicRequest *req, PsychicResponse *res) {
     add_cors_headers(req, res);
+    // The SPA fallback serves index.html from here, so a deep link such as
+    // /programs would otherwise be frameable.
+    add_frame_headers(res);
 
     // SPA fallback. The webapp routes client-side, so GET /run is a real page
     // with no file behind it and a reload would otherwise answer a JSON 404.
