@@ -1507,12 +1507,14 @@ void register_static_routes() {
 }  // namespace
 
 bool start() {
-  // The server-wide ceiling has to admit the largest legitimate upload, which
-  // is a restore (PsychicHttp's own defaults are 16 KB for a body and 2 MB for
-  // an upload). Every smaller upload bounds itself: firmware against the slot,
+  // The upload ceiling has to admit the largest legitimate upload, which is a
+  // restore (PsychicHttp's own defaults are 16 KB for a body and 2 MB for an
+  // upload). Every smaller upload bounds itself: firmware against the slot,
   // audio against kMaxUploadBytes.
   s_server.maxUploadSize = kMaxRestoreUploadBytes;
-  s_server.maxRequestBodySize = kMaxFirmwareUploadBytes;
+  // Uploads stream; this one is a body PsychicWebHandler mallocs whole before
+  // the route's lock check runs, and no route takes more than a program.
+  s_server.maxRequestBodySize = kMaxUploadBytes;
   // Every connected client holds a socket open indefinitely for /sse/v2 on top
   // of its REST traffic. Bounded by LWIP: httpd requires
   // max_open_sockets <= CONFIG_LWIP_MAX_SOCKETS - 3, and sdkconfig.defaults

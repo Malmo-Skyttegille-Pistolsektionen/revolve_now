@@ -31,6 +31,13 @@
 // request body must keep up PSYCHIC_BODY_MIN_RATE bytes/s on average or the
 // read fails. The body is read on the only httpd task, so a stalled peer
 // otherwise holds every other request off for as long as its socket lives.
+// Local patch (see CMakeLists.txt): parameters a request may carry, from the
+// query string, a form body and multipart fields together. Each one is a heap
+// object, so an all-'&' body otherwise costs ~70 bytes of heap per byte sent.
+#ifndef PSYCHIC_MAX_PARAMS
+  #define PSYCHIC_MAX_PARAMS 32
+#endif
+
 #ifndef PSYCHIC_BODY_GRACE_MS
   #define PSYCHIC_BODY_GRACE_MS 10000
 #endif
