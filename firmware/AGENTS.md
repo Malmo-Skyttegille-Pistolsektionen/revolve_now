@@ -253,7 +253,7 @@ Load-bearing invariants:
   the document.** An uploader must not be able to claim its program is shipped.
 - **One task owns GPIO0** (`io/boot_button.cpp`), because two pollers would
   each swallow the transitions the other waited for. It classifies via
-  `rt::ButtonGesture`: one press authorises the setup portal (#208), three
+  `rt::ButtonGesture`: one press commits a setup-portal submission (#208), three
   within ten seconds open the configuration window (#144), and a ten-second
   hold is a factory reset (#222, D-33). There is no power-on gesture and there
   cannot be — GPIO0 is strapping, so a board held low at reset enters ROM

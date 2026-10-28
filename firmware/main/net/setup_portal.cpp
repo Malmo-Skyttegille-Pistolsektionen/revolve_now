@@ -2,6 +2,7 @@
 #include "setup_portal.h"
 
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -9,11 +10,13 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_timer.h"
 #include "esp_netif.h"
 // Must follow esp_netif.h: dns_server.h uses esp_ip4_addr_t without including
 // the header that declares it, as upstream's does, so the ordering is fixed
 // here rather than by patching the fork further.
 #include "dns_server.h"
+#include "setup_claim.h"
 #include "ssid_choice.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -34,6 +37,16 @@ const char *TAG = "setup";
 // device is reachable or meaningful in this state, and keeping the two apart
 // means no API route can ever be exposed on an open setup AP.
 httpd_handle_t s_httpd = nullptr;
+
+// Written by the httpd task on /save and by the portal task on a press.
+std::mutex s_claim_lock;
+rt::SetupClaim s_claim;
+// What the last press did, for /result. Static strings only.
+const char *s_last_outcome = nullptr;
+
+int64_t now_ms() {
+  return esp_timer_get_time() / 1000;
+}
 
 const char kPageHead[] = R"HTML(<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -75,10 +88,10 @@ autocorrect="off" spellcheck="false">
 <button type="button" id="eye" onclick="reveal()" aria-controls="p" aria-pressed="false"
 aria-label="Show password">Show</button>
 </div>
-<p class="step"><b>Then press the BOOT button on the device</b> before saving.
-It is next to the USB sockets, marked BOOT or FLASH. This is what proves you are
-standing at the device rather than merely in range of it.</p>
-<button type="submit">Save and restart</button></form>
+<p class="step">After saving, <b>press the BOOT button on the device</b> within a
+minute. It is next to the USB sockets, marked BOOT or FLASH. This is what proves you
+are standing at the device rather than merely in range of it.</p>
+<button type="submit">Save</button></form>
 <script>
 // The only scripted behaviour on this page, and nothing depends on it: with
 // JavaScript off the password simply stays hidden and the form still submits.
@@ -237,6 +250,62 @@ esp_err_t redirect(httpd_req_t *req) {
   return httpd_resp_send(req, nullptr, 0);
 }
 
+// Returns what to tell the operator.
+const char *commit(const rt::WifiCredentials &credentials) {
+  if (!wifi_store::save(credentials.ssid, credentials.password)) {
+    ESP_LOGE(TAG, "Could not save the credentials");
+    return "Could not save the network. Submit it again.";
+  }
+  // The one place a save still restarts on its own (D-42): on the setup AP
+  // there is nothing else the operator could be doing. Scheduled before the
+  // page is written, so the page cannot promise a restart that was refused -
+  // the credentials are saved either way, and a power cycle applies them.
+  return device_restart::schedule("credentials saved at the setup portal")
+             ? "Saved. The device is restarting and will join that network."
+             : "Saved, but the device could not restart itself. Switch it off and on again to "
+               "join that network.";
+}
+
+void send_message(httpd_req_t *req, const char *heading, const std::string &body_html,
+                  bool refresh) {
+  std::string page =
+      "<!doctype html><meta charset=\"utf-8\">"
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">";
+  if (refresh) page += "<meta http-equiv=\"refresh\" content=\"2;url=/result\">";
+  page +=
+      "<body style=\"font-family:system-ui,sans-serif;margin:0;padding:1.5rem;"
+      "background:#111;color:#eee\"><h1 style=\"font-size:1.25rem\">";
+  page += heading;
+  page += "</h1>";
+  page += body_html;
+  page += "<p><a style=\"color:#2d7\" href=\"/\">Back</a></p>";
+  httpd_resp_set_type(req, "text/html");
+  httpd_resp_send(req, page.c_str(), page.size());
+}
+
+// Polled by the page /save returns, so the operator sees what their press did.
+esp_err_t result(httpd_req_t *req) {
+  bool pending;
+  const char *outcome;
+  {
+    std::lock_guard<std::mutex> lock(s_claim_lock);
+    pending = s_claim.pending(now_ms());
+    outcome = s_last_outcome;
+  }
+  if (pending) {
+    send_message(req, "Now press the BOOT button",
+                 "<p>Press <b>BOOT</b> on the device - it is next to the USB sockets, and may "
+                 "be marked <b>FLASH</b>. Nothing is saved until you do.</p>",
+                 true);
+  } else if (outcome != nullptr) {
+    send_message(req, "Setup", std::string("<p>") + outcome + "</p>", false);
+  } else {
+    send_message(req, "Nothing is waiting",
+                 "<p>Choose a network and save it, then press BOOT within a minute.</p>", false);
+  }
+  return ESP_OK;
+}
+
 esp_err_t save(httpd_req_t *req) {
   // Bounded: an SSID is at most 32 bytes and a WPA2 passphrase 63, so a body
   // beyond this is not a form we should be reading into RAM.
@@ -256,33 +325,6 @@ esp_err_t save(httpd_req_t *req) {
     received += n;
   }
 
-  // Before the credentials are even read: whoever is submitting has to have
-  // pressed the button. The setup AP's password is compile-time and identical
-  // on every device, and this repository is public, so being *on* this network
-  // proves nothing (#208). A press proves physical access, which is the
-  // property actually wanted - and it cannot be had over the air, by anyone,
-  // at any distance.
-  //
-  // Checked on a build that has the button. Without one there is nothing to
-  // press, and refusing every submission would make the device unrecoverable.
-  if (boot_button::available() && !boot_button::consume_press()) {
-    ESP_LOGW(TAG, "Credential submission refused: no button press");
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req,
-                    "<!doctype html><meta charset=\"utf-8\">"
-                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                    "<body style=\"font-family:system-ui,sans-serif;margin:0;padding:1.5rem;"
-                    "background:#111;color:#eee\">"
-                    "<h1 style=\"font-size:1.25rem\">Press the button first</h1>"
-                    "<p>Press the <b>BOOT</b> button on the device - it is next to the USB "
-                    "sockets, and may be marked <b>FLASH</b> - then go back and save again.</p>"
-                    "<p>Nothing has been saved. This step proves somebody is standing at the "
-                    "device, which is why it cannot be done from the network.</p>"
-                    "<p><a style=\"color:#2d7\" href=\"/\">Back</a></p>",
-                    HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-  }
-
   const std::string ssid =
       rt::chosen_ssid(form_field(body, "picked"), form_field(body, "ssid_manual"));
   const std::string password = form_field(body, "password");
@@ -296,25 +338,55 @@ esp_err_t save(httpd_req_t *req) {
     return ESP_OK;
   }
 
-  if (!wifi_store::save(ssid, password)) {
-    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Could not save");
-    return ESP_FAIL;
+  // Without a button there is nothing to press, and refusing every submission
+  // would make the device unrecoverable.
+  if (!boot_button::available()) {
+    send_message(req, "Setup", std::string("<p>") + commit({ssid, password}) + "</p>", false);
+    return ESP_OK;
   }
 
-  // The one place a save still restarts on its own (D-42): on the setup AP
-  // there is nothing else the operator could be doing. Scheduled before the
-  // page is written, so the page cannot promise a restart that was refused -
-  // the credentials are saved either way, and a power cycle applies them.
-  const bool restarting = device_restart::schedule("credentials saved at the setup portal");
-
-  httpd_resp_set_type(req, "text/html");
-  httpd_resp_send(req,
-                  restarting
-                      ? "<p>Saved. The device is restarting and will join that network.</p>"
-                      : "<p>Saved, but the device could not restart itself. Switch it off and on "
-                        "again to join that network.</p>",
-                  HTTPD_RESP_USE_STRLEN);
+  // The setup AP's password is compile-time and identical on every device, and
+  // this repository is public, so being *on* this network proves nothing
+  // (#208). The press that follows proves somebody is at the device, and
+  // rt::SetupClaim decides which submission it is for.
+  {
+    std::lock_guard<std::mutex> lock(s_claim_lock);
+    s_claim.submit({ssid, password}, now_ms());
+    s_last_outcome = nullptr;
+  }
+  ESP_LOGI(TAG, "Credentials submitted - waiting for a BOOT press");
+  send_message(req, "Now press the BOOT button",
+               "<p>Press <b>BOOT</b> on the device within a minute to save <b>" +
+                   html_escape(ssid) + "</b>. Nothing is saved until you do.</p>",
+               true);
   return ESP_OK;
+}
+
+void on_press() {
+  rt::WifiCredentials credentials;
+  rt::SetupClaim::Outcome outcome;
+  {
+    std::lock_guard<std::mutex> lock(s_claim_lock);
+    outcome = s_claim.press(now_ms(), credentials);
+  }
+  const char *told = nullptr;
+  switch (outcome) {
+    case rt::SetupClaim::Outcome::kNothingPending:
+      ESP_LOGI(TAG, "Button pressed with nothing submitted - ignored");
+      return;
+    case rt::SetupClaim::Outcome::kConflict:
+      ESP_LOGW(TAG, "Different credentials were submitted before the press - nothing saved");
+      told =
+          "Different networks were submitted to this device before the button was pressed, "
+          "so nothing was saved. If that was not you, somebody else is on the setup network. "
+          "Submit yours again and press BOOT.";
+      break;
+    case rt::SetupClaim::Outcome::kCommit:
+      told = commit(credentials);
+      break;
+  }
+  std::lock_guard<std::mutex> lock(s_claim_lock);
+  s_last_outcome = told;
 }
 
 void start_ap() {
@@ -394,10 +466,12 @@ void start_http() {
   static const httpd_uri_t root = {"/", HTTP_GET, serve_page, nullptr, false, false, nullptr};
   static const httpd_uri_t post = {"/save", HTTP_POST, save, nullptr, false, false, nullptr};
   static const httpd_uri_t scan = {"/rescan", HTTP_GET, rescan, nullptr, false, false, nullptr};
+  static const httpd_uri_t res = {"/result", HTTP_GET, result, nullptr, false, false, nullptr};
   static const httpd_uri_t any = {"/*", HTTP_GET, redirect, nullptr, false, false, nullptr};
   httpd_register_uri_handler(s_httpd, &root);
   httpd_register_uri_handler(s_httpd, &post);
   httpd_register_uri_handler(s_httpd, &scan);
+  httpd_register_uri_handler(s_httpd, &res);
   httpd_register_uri_handler(s_httpd, &any);
 }
 
@@ -431,7 +505,12 @@ void run() {
 
   start_http();
 
-  while (true) vTaskDelay(portMAX_DELAY);
+  // Short enough that the press feels immediate; consume_press() keeps a press
+  // for a minute, so none is missed between polls.
+  while (true) {
+    vTaskDelay(pdMS_TO_TICKS(50));
+    if (boot_button::consume_press()) on_press();
+  }
 }
 
 }  // namespace setup_portal
