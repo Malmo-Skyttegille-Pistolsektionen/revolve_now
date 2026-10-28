@@ -47,24 +47,28 @@ captive-portal page should open by itself; if it does not, browse to
 
 Enter the network name and password the device should use.
 
-!!! important "Press the button on the device before saving"
+!!! important "Save first, then press the button on the device"
 
-    The device will not accept network details until somebody presses its
-    **BOOT** button — the small button next to the USB sockets, marked `BOOT` or
-    `FLASH` on some boards. Press it, then press **Save and restart**.
+    The device stores nothing until somebody presses its **BOOT** button — the
+    small button next to the USB sockets, marked `BOOT` or `FLASH` on some
+    boards. Press **Save**, then press the button within a minute. The page
+    waits for the press and says what happened.
 
-    If you save without pressing it first, the page says so and nothing is
-    stored; press the button and save again.
+    A press made before saving does nothing; save, then press the button again.
 
     **Why:** the setup network's password is the same on every device and this
     project's source is public, so being *on* that network does not prove much.
-    Pressing the button proves somebody is standing at the device — which is
-    exactly what cannot be done from a car park. Without it, anyone in radio
-    range of a device that has lost its network could point it at a network of
-    their choosing.
+    Pressing the button proves somebody is standing at the device. If two
+    different networks are submitted before the press — somebody else on the
+    setup network trying their own — nothing is saved and the page says so.
+    Save again and press again.
 
-    The press is good for about a minute, so there is no rush, and a press
-    nobody remembers making cannot authorise anything later.
+!!! warning "The setup network is not private"
+
+    Its password is public, so anyone in radio range can join it, and someone
+    who recorded you joining could read the WiFi password you type into the
+    page. Set the device up where nobody you do not know is in range. If that
+    was not possible, consider changing the club network's password afterwards.
 
 Once saved, the device restarts and joins that network the normal way — the LED
 goes blinking red, then green.

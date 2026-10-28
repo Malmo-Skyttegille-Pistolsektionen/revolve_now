@@ -47,25 +47,30 @@ den inte gör det, surfa till `http://192.168.4.1`.
 
 Ange nätverksnamnet och lösenordet som enheten ska använda.
 
-!!! important "Tryck på knappen på enheten innan du sparar"
+!!! important "Spara först, tryck sedan på knappen på enheten"
 
-    Enheten tar inte emot några nätverksuppgifter förrän någon trycker på dess
-    **BOOT**-knapp — den lilla knappen bredvid USB-uttagen, märkt `BOOT` eller
-    `FLASH` på vissa kort. Tryck på den, och tryck sedan på **Save and
-    restart**.
+    Enheten lagrar ingenting förrän någon trycker på dess **BOOT**-knapp — den
+    lilla knappen bredvid USB-uttagen, märkt `BOOT` eller `FLASH` på vissa
+    kort. Tryck på **Save**, och tryck sedan på knappen inom en minut. Sidan
+    väntar på trycket och berättar vad som hände.
 
-    Om du sparar utan att trycka på den först säger sidan det, och ingenting
-    lagras; tryck på knappen och spara igen.
+    Ett tryck innan du sparar gör ingenting; spara, och tryck sedan på knappen
+    igen.
 
     **Varför:** installationsnätverkets lösenord är detsamma på alla enheter
     och projektets källkod är öppen, så att vara *på* det nätverket bevisar
-    inte mycket. Knapptrycket bevisar att någon står vid enheten — vilket är
-    precis det som inte går att göra från en parkeringsplats. Utan det skulle
-    vem som helst inom radioräckvidd från en enhet som tappat sitt nätverk
-    kunna peka den mot ett nätverk de själva väljer.
+    inte mycket. Knapptrycket bevisar att någon står vid enheten. Om två
+    olika nätverk skickas in före trycket — någon annan på
+    installationsnätverket som försöker med sitt eget — sparas ingenting och
+    sidan säger det. Spara igen och tryck igen.
 
-    Trycket gäller i ungefär en minut, så det är ingen brådska, och ett tryck
-    som ingen minns att de gjort kan inte godkänna något senare.
+!!! warning "Installationsnätverket är inte privat"
+
+    Dess lösenord är offentligt, så vem som helst inom radioräckvidd kan
+    ansluta till det, och den som spelade in när du anslöt kan läsa
+    WiFi-lösenordet du skriver in på sidan. Gör installationen där ingen du
+    inte känner är inom räckhåll. Om det inte gick, överväg att byta
+    klubbnätverkets lösenord efteråt.
 
 När uppgifterna sparats startar enheten om och ansluter till det nätverket på
 vanligt sätt — lampan blir blinkande röd, sedan grön.

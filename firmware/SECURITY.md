@@ -48,6 +48,11 @@ holds the only valid password until the device is power-cycled.
   headers.
 - `GET` endpoints, including `/api/v2/diagnostics/info`, are public. They carry
   no credential and no program data.
+- **The setup network is not private.** Its password defaults to the public
+  `revolvenow` (`CONFIG_RT_SETUP_AP_PASSWORD`), so a WiFi password typed into
+  the portal can be read by anyone who captured the join. The BOOT press
+  (#208) stops a takeover, not eavesdropping; the portal page and the
+  connecting guide say so.
 - **A coredump is served only while the configuration window is open.** It is
   a raw RAM snapshot and can contain the WiFi password in plaintext.
   `diagnostics/info` only reports whether one is present; `GET
