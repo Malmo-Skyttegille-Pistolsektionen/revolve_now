@@ -83,12 +83,12 @@ void test_the_flash_and_psram_pins_are_refused() {
   }
 }
 
-// 35..37 are the octal PSRAM's extra data lines on the N16R8. They read as
+// 33..37 are the octal PSRAM's extra data lines on the N16R8. They read as
 // ordinary pins in the datasheet, which is why they were missed - and driving
 // one crashes the device the moment PSRAM is touched, not at configuration
 // time. Eight banks means eight chances to type one (#207).
 void test_the_octal_psram_pins_are_refused() {
-  for (int32_t gpio = 35; gpio <= 37; gpio++) {
+  for (int32_t gpio = 33; gpio <= 37; gpio++) {
     HardwareConfig config = good();
     config.banks[0].gpio = gpio;
     TEST_ASSERT_EQUAL(ConfigRefusal::kGpioReserved, rt::validate(config));
@@ -126,8 +126,12 @@ void test_the_edges_of_the_usable_range_are_accepted() {
   config.banks[0].gpio = 21;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 
-  config.banks[0].gpio = 33;
+  // 38 is the first pin past the octal PSRAM's; the fixture's Ethernet INT
+  // moves off it for this one check.
+  config.eth_int_gpio = 14;
+  config.banks[0].gpio = 38;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.eth_int_gpio = 38;
 
   config.banks[0].gpio = 1;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));

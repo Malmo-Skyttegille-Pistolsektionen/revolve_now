@@ -128,11 +128,11 @@ function pinRefusal(gpio: number): string | null {
   if (
     (gpio >= 22 && gpio <= 25) ||
     (gpio >= 26 && gpio <= 32) ||
-    (gpio >= 35 && gpio <= 37) ||
+    (gpio >= 33 && gpio <= 37) ||
     gpio === 43 ||
     gpio === 44
   ) {
-    return "That GPIO is wired to the module's flash or PSRAM (26-32, and 35-37 for this board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not exist on this chip (22-25). Driving it stops the device booting or takes away the way back in.";
+    return "That GPIO is wired to the module's flash or PSRAM (26-32, and 33-37 for this board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not exist on this chip (22-25). Driving it stops the device booting or takes away the way back in.";
   }
   if (gpio === 19 || gpio === 20) {
     return 'GPIO 19 and 20 are the USB serial connection. Using one would remove the serial console, which is how this setting is put back if it turns out to be wrong.';

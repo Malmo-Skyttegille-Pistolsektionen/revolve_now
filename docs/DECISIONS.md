@@ -1737,6 +1737,10 @@ back from a bad configuration — the same argument that already refuses 19/20 o
 the other socket. Both are now refused. One pin per board was typed once and
 got lucky; eight is eight chances.
 
+*Amended 2026-10-28:* octal mode takes **33 and 34** as well - ESP-IDF's
+ESP32-S3 GPIO notes list 33-37 as SPIIO4-7 and SPIDQS - so the refused range is
+33-37, leaving 20 pins rather than 22.
+
 **Staged, each stage its own PR.** (1) `rt_logic`, NVS and the pin driver, with
 no contract change — the bank vector, the migration from the pre-bank
 `hw_tgt_*` keys, N pin drivers behind the same latch-before-`gpio_config()`

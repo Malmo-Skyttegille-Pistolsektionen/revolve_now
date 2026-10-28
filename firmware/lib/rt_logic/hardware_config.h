@@ -153,14 +153,14 @@ constexpr int32_t kMaxWifiRetries = 60;
 // target that does not move, it is a device that stops booting and needs a
 // cable. 22..25 do not exist on the ESP32-S3 at all.
 //
-// 35..37 (the octal PSRAM's data lines on the N16R8) and 43/44 (UART0, the
+// 33..37 (the octal PSRAM's data lines on the N16R8) and 43/44 (UART0, the
 // serial console) are refused for the reasons D-41 records.
 //
 // Refused rather than warned about: the recovery from getting this wrong is a
 // USB cable and a reflash, which is exactly what configurability was supposed
 // to remove.
 inline bool gpio_is_reserved(int32_t gpio) {
-  return (gpio >= 22 && gpio <= 25) || (gpio >= 26 && gpio <= 32) || (gpio >= 35 && gpio <= 37) ||
+  return (gpio >= 22 && gpio <= 25) || (gpio >= 26 && gpio <= 32) || (gpio >= 33 && gpio <= 37) ||
          gpio == 43 || gpio == 44;
 }
 
