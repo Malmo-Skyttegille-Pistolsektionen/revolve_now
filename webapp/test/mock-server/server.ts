@@ -301,6 +301,11 @@ const MAX_STARTUP_ISSUES = 8;
 const MIN_DURATION_MS = 1;
 const MAX_DURATION_MS = 3600000;
 
+/** `kMaxProgramSeries`, `kMaxSeriesEvents`, `kMaxEventAudioIds` in rt_logic/program.h. */
+const MAX_PROGRAM_SERIES = 64;
+const MAX_SERIES_EVENTS = 128;
+const MAX_EVENT_AUDIO_IDS = 8;
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(here, '../data');
 
@@ -584,8 +589,14 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
     return list.filter(isRecord);
   };
 
-  const series: Series[] = recordsOf(raw.series).map((entry) => {
-    const events: Event[] = recordsOf(entry.events).map((rawEvent) => {
+  // The shape ceilings in `rt_logic/program.h`, refused like the rest.
+  const atMost = <T>(list: T[], max: number): T[] => {
+    if (list.length > max) refused = true;
+    return list;
+  };
+
+  const series: Series[] = atMost(recordsOf(raw.series), MAX_PROGRAM_SERIES).map((entry) => {
+    const events: Event[] = atMost(recordsOf(entry.events), MAX_SERIES_EVENTS).map((rawEvent) => {
       // Required and an integer, as parse_event has it.
       if (!Number.isInteger(rawEvent.duration)) refused = true;
       const duration = Number.isInteger(rawEvent.duration) ? (rawEvent.duration as number) : 0;
@@ -599,7 +610,7 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
       if (!banks.ok) refused = true;
       else if (banks.banks !== undefined) event.banks = banks.banks;
       if (rawEvent.audio_ids !== undefined && rawEvent.audio_ids !== null) {
-        const ids = listOf(rawEvent.audio_ids);
+        const ids = atMost(listOf(rawEvent.audio_ids), MAX_EVENT_AUDIO_IDS);
         if (!ids.every((v) => Number.isInteger(v))) refused = true;
         // An integer outside int32 is dropped, as `is<int32_t>()` drops it.
         event.audio_ids = ids.filter(

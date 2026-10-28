@@ -17,9 +17,17 @@ namespace rt {
 
 // Ceiling on a single event's duration, and therefore on how far a malformed
 // or hostile program can push Series::total_ms(). One hour is already far
-// beyond any real shooting sequence; 64 events at this ceiling still sum well
-// inside int32.
+// beyond any real shooting sequence; kMaxSeriesEvents events at this ceiling
+// still sum well inside int32.
 constexpr int32_t kMaxEventMs = 60 * 60 * 1000;
+
+// Ceilings on a document's shape. Every stored program is parsed into RAM at
+// boot, before the network is up, so the body cap alone let one upload of
+// tiny events hold tens of thousands of heap blocks. The shipped programs
+// peak at 19 series, 15 events and 3 clips.
+constexpr size_t kMaxProgramSeries = 64;
+constexpr size_t kMaxSeriesEvents = 128;
+constexpr size_t kMaxEventAudioIds = 8;
 
 // Floor on a parsed event duration. locate_event() uses a half-open interval,
 // so a zero-duration event would never be entered at all and its command and

@@ -379,6 +379,42 @@ const CASES: Case[] = [
 
   // --- audio_ids -----------------------------------------------------------
   { name: 'no audio_ids', doc: withEvent(without(anEvent(), 'audio_ids')), schema: 'accepted', validator: 'accepted' },
+  {
+    name: 'eight audio ids',
+    doc: withEvent(anEvent({ audio_ids: [1, 2, 3, 4, 5, 6, 7, 8] })),
+    schema: 'accepted',
+    validator: 'accepted',
+  },
+  {
+    name: 'nine audio ids',
+    doc: withEvent(anEvent({ audio_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9] })),
+    schema: 'refused',
+    validator: 'refused',
+  },
+  {
+    name: '128 events in a series',
+    doc: aProgram({ series: [aSeries({ events: Array.from({ length: 128 }, () => anEvent()) })] }),
+    schema: 'accepted',
+    validator: 'accepted',
+  },
+  {
+    name: '129 events in a series',
+    doc: aProgram({ series: [aSeries({ events: Array.from({ length: 129 }, () => anEvent()) })] }),
+    schema: 'refused',
+    validator: 'refused',
+  },
+  {
+    name: '64 series',
+    doc: aProgram({ series: Array.from({ length: 64 }, () => aSeries()) }),
+    schema: 'accepted',
+    validator: 'accepted',
+  },
+  {
+    name: '65 series',
+    doc: aProgram({ series: Array.from({ length: 65 }, () => aSeries()) }),
+    schema: 'refused',
+    validator: 'refused',
+  },
   { name: 'empty audio_ids', doc: withEvent(anEvent({ audio_ids: [] })), schema: 'accepted', validator: 'accepted' },
   {
     name: 'a fractional audio id',

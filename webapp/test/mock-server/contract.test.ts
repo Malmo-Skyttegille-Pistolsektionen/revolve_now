@@ -403,6 +403,16 @@ describe('program storage', () => {
       ['events not a list', { title: 'Typed', series: [{ name: 'Serie 1', events: {} }] }],
       ['series not a list', { title: 'Typed', series: 'x' }],
       ['series entry not an object', { title: 'Typed', series: [5] }],
+      // The shape ceilings in rt_logic/program.h.
+      ['nine audio ids', withEvent({ duration: 1000, audio_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9] })],
+      [
+        '129 events',
+        { title: 'Typed', series: [{ name: 'Serie 1', events: Array.from({ length: 129 }, () => ({ duration: 1 })) }] },
+      ],
+      [
+        '65 series',
+        { title: 'Typed', series: Array.from({ length: 65 }, () => ({ name: 's', events: [{ duration: 1 }] })) },
+      ],
     ];
     for (const [name, body] of refused) {
       expect((await upload(body)).status, name).toBe(400);

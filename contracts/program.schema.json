@@ -29,6 +29,7 @@
     },
     "series": {
       "type": "array",
+      "maxItems": 64,
       "items": {
         "$ref": "#/$defs/Series"
       }
@@ -54,6 +55,7 @@
         },
         "events": {
           "type": "array",
+          "maxItems": 128,
           "items": {
             "$ref": "#/$defs/Event"
           }
@@ -102,6 +104,7 @@
         },
         "audio_ids": {
           "type": "array",
+          "maxItems": 8,
           "items": {
             "type": "integer"
           },
