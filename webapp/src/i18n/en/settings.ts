@@ -26,6 +26,8 @@ export const settings = {
     storageUsed: (used: string, total: string) => `${used} of ${total} used`,
     backupSummary: 'Uploads and hardware settings, in one file',
     lockOffSummary: 'Anyone on the network can operate the device',
+    expertSummary: 'Pins, WiFi and the fault report, for somebody at the device',
+    expertOpen: 'Open in this browser',
     lockOnSummary: 'Starting and changing things needs the password',
     startupNone: 'Every stored program loaded',
     startupSome: 'A stored program could not be read',
@@ -68,11 +70,11 @@ export const settings = {
     unlocking: 'Unlocking…',
     turnOff: 'Turn the lock off',
     offInfo:
-      'Turning the lock on needs somebody at the device: press its BOOT button three times within ten seconds first. The lock then stays on through restarts until it is turned off.',
+      'Turning the lock on needs somebody at the device: ask below, then press its BOOT button three times. The lock then stays on through restarts until it is turned off.',
     lockedInfo:
       'Whoever turned the lock on chose this password. Logging in lets you operate the device; turning the lock off returns it to full public access for everyone.',
     forgotten:
-      'Forgotten the password? Press the BOOT button on the device three times within ten seconds, and this page offers to turn the lock off.',
+      'Forgotten the password? Ask below, then press the BOOT button on the device three times, and this page offers to turn the lock off.',
     enableFailed: 'Could not turn the control lock on.',
     loginFailed: 'Could not log in.',
     disableFailed: 'Could not turn the control lock off.',
@@ -190,7 +192,7 @@ export const settings = {
       'Adds what the backup holds to this device. Nothing here is deleted, and anything already here is skipped, so restoring twice changes nothing the second time.',
     restoreHardware: 'Hardware settings',
     hardwareNeedsWindow:
-      'Hardware settings are restored only while the configuration window is open — press BOOT on the device three times first. The rest is restored either way.',
+      'Hardware settings are restored only while Expert mode is open in this browser — ask for it under Expert mode, then press BOOT on the device three times. The rest is restored either way.',
     restoreName: 'Device name',
     nameHint:
       'The hostname and display name from the backup. Leave it off when setting up a second board, or two boards will answer to the same name.',
@@ -239,6 +241,23 @@ export const settings = {
     noRepository: 'no repository',
     built: 'Built',
     copyFailed: 'This browser would not let us copy — select the text below',
+  },
+  configWindow: {
+    title: 'Expert mode',
+    explain:
+      'Pins, WiFi, the device name and the fault report change only with somebody at the device. Ask here, then press the BOOT button on the device three times within ten seconds. Expert mode opens for five minutes, in this browser and no other.',
+    ask: 'Ask for Expert mode',
+    asking: 'Asking…',
+    pending:
+      'Now press the BOOT button on the device three times within ten seconds. It is next to the USB sockets, marked BOOT or FLASH.',
+    waiting: (time: string) => `Waiting for the presses: ${time} left.`,
+    conflict:
+      'More than one browser asked at the same time, so the presses opened Expert mode for nobody. Make sure nobody else is asking, then ask again.',
+    elsewhere:
+      'Expert mode is open in another browser. Ask here and press BOOT three times to open it in this one instead.',
+    open: (time: string) => `Expert mode is open in this browser for ${time}.`,
+    goTo: 'Go to Expert mode',
+    failed: 'The device did not take the request.',
   },
   restartPending: {
     before: 'Configuration saved but not applied; restart from ',

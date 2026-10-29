@@ -77,7 +77,8 @@ budget — exactly as the board has it.
   turning the lock on needs it (D-51). The profile sets
   `CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW=n` so the E2E suite can still turn it
   on. Turning it off without a session needs the window everywhere, so that
-  path cannot be exercised here.
+  path cannot be exercised here. For the same reason a
+  `POST /config-window/request` waits there and is never granted (D-52).
 
 Noise that is expected on every boot and safe to ignore:
 

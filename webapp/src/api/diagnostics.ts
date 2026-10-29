@@ -15,8 +15,8 @@ import type { DiagnosticsInfo } from './types';
  * sentence.
  */
 export function useDiagnosticsApi() {
-  const { controlLockToken, logoutControlLock } = useSettings();
-  const client = createAuthenticatedClient(controlLockToken, logoutControlLock);
+  const { controlLockToken, logoutControlLock, configWindowToken } = useSettings();
+  const client = createAuthenticatedClient(controlLockToken, logoutControlLock, configWindowToken);
 
   return {
     info: () => client.request<DiagnosticsInfo>('/diagnostics/info'),

@@ -28,6 +28,8 @@ export const settings: Messages['settings'] = {
     storageUsed: (used: string, total: string) => `${used} av ${total} använt`,
     backupSummary: 'Uppladdningar och hårdvaruinställningar, i en fil',
     lockOffSummary: 'Alla i nätverket kan styra enheten',
+    expertSummary: 'Stift, wifi och felrapporten, för någon vid enheten',
+    expertOpen: 'Öppet i den här webbläsaren',
     lockOnSummary: 'Att starta och ändra kräver lösenordet',
     startupNone: 'Alla sparade program lästes in',
     startupSome: 'Ett sparat program gick inte att läsa',
@@ -70,11 +72,11 @@ export const settings: Messages['settings'] = {
     unlocking: 'Låser upp…',
     turnOff: 'Slå av låset',
     offInfo:
-      'För att slå på låset måste någon vara vid enheten: tryck först på dess BOOT-knapp tre gånger inom tio sekunder. Låset förblir sedan på även efter omstarter, tills det slås av.',
+      'För att slå på låset måste någon vara vid enheten: be om det nedan och tryck sedan på dess BOOT-knapp tre gånger. Låset förblir sedan på även efter omstarter, tills det slås av.',
     lockedInfo:
       'Den som slog på låset valde lösenordet. När du loggar in kan du styra enheten; slår du av låset blir den helt öppen för alla igen.',
     forgotten:
-      'Glömt lösenordet? Tryck på BOOT-knappen på enheten tre gånger inom tio sekunder, så erbjuder sidan att slå av låset.',
+      'Glömt lösenordet? Be om det nedan och tryck sedan på BOOT-knappen på enheten tre gånger, så erbjuder sidan att slå av låset.',
     enableFailed: 'Det gick inte att slå på kontrollåset.',
     loginFailed: 'Det gick inte att logga in.',
     disableFailed: 'Det gick inte att slå av kontrollåset.',
@@ -193,7 +195,7 @@ export const settings: Messages['settings'] = {
       'Lägger till det som finns i säkerhetskopian på enheten. Inget här tas bort, och sådant som redan finns hoppas över, så en andra återställning ändrar ingenting.',
     restoreHardware: 'Hårdvaruinställningar',
     hardwareNeedsWindow:
-      'Hårdvaruinställningar återställs bara medan konfigurationsfönstret är öppet — tryck på BOOT på enheten tre gånger först. Resten återställs ändå.',
+      'Hårdvaruinställningar återställs bara medan expertläget är öppet i den här webbläsaren — be om det under Expertläge och tryck sedan på BOOT på enheten tre gånger. Resten återställs ändå.',
     restoreName: 'Enhetens namn',
     nameHint:
       'Värdnamnet och visningsnamnet från säkerhetskopian. Låt bli när du sätter upp ett andra kort, annars svarar två kort på samma namn.',
@@ -242,6 +244,23 @@ export const settings: Messages['settings'] = {
     noRepository: 'inget repo',
     built: 'Byggd',
     copyFailed: 'Webbläsaren lät oss inte kopiera — markera texten nedan',
+  },
+  configWindow: {
+    title: 'Expertläge',
+    explain:
+      'Stift, wifi, enhetens namn och felrapporten ändras bara med någon vid enheten. Be om det här och tryck sedan på BOOT-knappen på enheten tre gånger inom tio sekunder. Expertläget öppnas i fem minuter, i den här webbläsaren och ingen annan.',
+    ask: 'Be om expertläge',
+    asking: 'Frågar…',
+    pending:
+      'Tryck nu på BOOT-knappen på enheten tre gånger inom tio sekunder. Den sitter bredvid USB-uttagen och är märkt BOOT eller FLASH.',
+    waiting: (time: string) => `Väntar på trycken: ${time} kvar.`,
+    conflict:
+      'Fler än en webbläsare bad samtidigt, så trycken öppnade expertläget för ingen. Se till att ingen annan ber om det och be sedan igen.',
+    elsewhere:
+      'Expertläget är öppet i en annan webbläsare. Be om det här och tryck på BOOT tre gånger för att öppna det i den här i stället.',
+    open: (time: string) => `Expertläget är öppet i den här webbläsaren i ${time}.`,
+    goTo: 'Gå till expertläget',
+    failed: 'Enheten tog inte emot begäran.',
   },
   restartPending: {
     before: 'Konfigurationen är sparad men inte verkställd; starta om från ',

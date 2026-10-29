@@ -107,7 +107,9 @@ per-bank `banks` overrides resolve into what each bank is doing.
 `webapp/src/lib/ima-adpcm.ts`, which encodes uploads in the browser (D-43), is
 a byte-identical port of `firmware/tools/wav_to_adpcm.py`. The mock's
 `restoreArchive` mirrors `rt::backup::RestoreSession` in
-`firmware/lib/rt_logic/backup.cpp` (D-48).
+`firmware/lib/rt_logic/backup.cpp` (D-48), and
+`webapp/test/mock-server/config-window.ts` mirrors `rt::ConfigWindow` in
+`firmware/lib/rt_logic/config_window.h` (D-52).
 
 **`webapp/dist` is embedded in the application image, not rebuilt by it.** The
 firmware build bakes whatever `dist` currently holds. A firmware build after a

@@ -4,13 +4,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SSETypes } from '../api/types';
-import type {
-  BackendIssuePayload,
-  ConfigWindowPayload,
-  HardwareConfigState,
-  LibraryChangedPayload,
-  StateUpdatePayload,
-} from '../api/types';
+import type { BackendIssuePayload, LibraryChangedPayload, StateUpdatePayload } from '../api/types';
 import { getSseBaseUrl } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { backendIssueAtom, sseStatusAtom, stateAtom } from '../lib/sse-store';
@@ -119,26 +113,13 @@ export function useSSE(): void {
         }
       });
 
-      // Whether Expert mode is offered at all (#144). Written straight into the
-      // cache the hook reads rather than invalidated: an invalidation would
-      // cost a round trip to learn what the event already carried, and the
-      // event is the device's own answer.
-      eventSource.addEventListener(SSETypes.ConfigWindow, (event) => {
-        try {
-          const writeWindow = JSON.parse(event.data) as ConfigWindowPayload;
-          const previous = queryClient.getQueryData<HardwareConfigState>(['hardware-config']);
-          if (previous === undefined) {
-            // Nothing cached yet: the event overtook the first fetch, which is
-            // ordinary on a page that has only just loaded. Dropping it would
-            // lose the transition entirely - the next event might be five
-            // minutes away - so refetch instead and take the whole state.
-            void queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
-            return;
-          }
-          queryClient.setQueryData(['hardware-config'], { ...previous, writeWindow });
-        } catch (error) {
-          console.error('[SSE] Failed to parse configWindow', error);
-        }
+      // A window opened, lapsed or was held shut for somebody, or three
+      // presses ended in a conflict (#144). Whether it concerns this browser
+      // only its own token can say (D-52), so both queries that answer for the
+      // token are asked again rather than written from the event.
+      eventSource.addEventListener(SSETypes.ConfigWindow, () => {
+        void queryClient.invalidateQueries({ queryKey: ['config-window'] });
+        void queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
       });
 
       // Parked in an atom rather than shown: the toast is a separate

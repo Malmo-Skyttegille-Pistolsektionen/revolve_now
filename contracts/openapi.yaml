@@ -89,6 +89,32 @@ info:
     empty security requirement alongside the two credentials: with the lock
     disabled, a call with no credentials succeeds.
 
+    ## The configuration window
+
+    Some operations need somebody at the board rather than a password: the
+    troubleshooting bundle, hardware configuration, WiFi, the hardware part
+    of a restore, and the control lock's `enable` and window-based `disable`.
+    The proof is three presses of the BOOT button within ten seconds, and the
+    window it opens **belongs to one client** (D-52):
+
+    1. The client calls `POST /config-window/request` and receives a token.
+    2. Somebody presses BOOT three times within two minutes.
+    3. If exactly one request was waiting, the window opens for five minutes
+       for that token alone. With more than one waiting it opens for nobody,
+       and each of them reads `conflict` from `GET /config-window`.
+
+    The client then sends its token as `X-Config-Window: <token>` on each
+    guarded call, beside any control lock credential. It is a different
+    token from the control lock's and never a cookie, so a cross-site form
+    cannot carry it. A request without it, or with another client's, is
+    refused with `403 /problems/hardware_config_window_closed` exactly as if
+    the window were shut.
+
+    A running program holds the window shut, except for the control lock.
+    A build without a button cannot prove presence: there every client is
+    told the window is open and the hardware routes need no token, but the
+    control lock cannot be turned off without a session.
+
     ## CORS
 
     The firmware answers credentialed cross-origin requests against an
@@ -188,6 +214,10 @@ tags:
     description: Firmware identity.
   - name: diagnostics
     description: Post-incident triage without a USB cable.
+  - name: config-window
+    description: >-
+      Asking for the configuration window that three presses of BOOT open for
+      one client.
   - name: control-lock
     description: Turning write protection on and off, and session handling.
   - name: programs
@@ -272,6 +302,8 @@ paths:
       tags: [diagnostics]
       summary: Download a troubleshooting bundle
       operationId: getDiagnosticsBundle
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Everything post-incident triage needs, in one file somebody can attach
         to a message — a `application/zip` download containing:
@@ -291,7 +323,9 @@ paths:
         endpoint's gate is about. What has to be established is that whoever is
         collecting it is *standing at the board*, so the gate is the
         **configuration window**: three presses of the device's BOOT button
-        within ten seconds, the same gesture that reveals Expert mode. A
+        within ten seconds, the same gesture that reveals Expert mode, opening
+        the window for the one client that asked for it (D-52). Another client
+        on the network cannot use it. A
         running program holds that window shut, so a bundle cannot be pulled
         out from under a sequence that is driving targets.
 
@@ -329,14 +363,67 @@ paths:
         "403":
           $ref: "#/components/responses/Problem"
           description: |
-            `/problems/hardware_config_window_closed` — nobody has completed
-            the three-press sequence recently, so the configuration window is
-            shut, or a program is running. The same refusal, from the same
+            `/problems/hardware_config_window_closed` — this request does
+            not carry a token that holds the configuration window (D-52), or no
+            window is open, or a program is running. The same refusal, from the same
             window, as `PUT /config/hardware`: one window, one problem type,
             whichever endpoint it is guarding.
 
             The only refusal this operation has. There is no `401`: nothing
             here is gated on the control lock.
+
+  /config-window:
+    get:
+      tags: [config-window]
+      summary: Where this client stands with the configuration window
+      operationId: getConfigWindow
+      description: |
+        Answered for the token in `X-Config-Window`, or for no token. Public:
+        it says whether *this* client holds the window, and otherwise only
+        what the `configWindow` event already tells everyone - whether a
+        window is open for somebody.
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
+      responses:
+        "200":
+          description: This client's standing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigWindowStatus"
+
+  /config-window/request:
+    post:
+      tags: [config-window]
+      summary: Ask for the configuration window
+      operationId: requestConfigWindow
+      description: |
+        Starts a request that three presses of BOOT, within two minutes, turn
+        into an open window for this client (D-52). No body. Not behind the
+        control lock: asking proves nothing, the presses do.
+
+        Send the token already held in `X-Config-Window` to ask again without
+        becoming a second request - to keep waiting, or to renew an open
+        window for another five minutes. Without it every call is a new
+        request, and two requests waiting together make the presses a
+        conflict.
+
+        On a build without a button the answer is `open` at once.
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
+      responses:
+        "200":
+          description: The request, waiting for the presses.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigWindowRequest"
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/config_window_busy` — four requests are already
+              waiting. They are never pushed out to make room, because that
+              would let a flood of requests leave its own as the only one.
 
   /control-lock/status:
     get:
@@ -361,6 +448,8 @@ paths:
       tags: [control-lock]
       summary: Turn the control lock on and open a session
       operationId: enableControlLockMode
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Sets the password — any non-empty string, chosen by this call — and
         returns the first session token. Refused while the lock is already
@@ -389,8 +478,8 @@ paths:
         "403":
           $ref: "#/components/responses/Problem"
           description: |
-            - `/problems/hardware_config_window_closed` — nobody has opened the
-              configuration window recently. The same type, from the same
+            - `/problems/hardware_config_window_closed` — this request does
+              not hold the configuration window (D-52). The same type, from the same
               window, as `PUT /config/hardware`.
         "409":
           $ref: "#/components/responses/Problem"
@@ -462,6 +551,8 @@ paths:
       tags: [control-lock]
       summary: Turn the control lock off
       operationId: disableControlLockMode
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Clears the stored password and invalidates every issued token. Note
         this turns protection *off* — every endpoint becomes writable by anyone
@@ -1033,6 +1124,8 @@ paths:
       tags: [config]
       summary: The hardware this device is configured for
       operationId: getHardwareConfig
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Public, like every other `GET`: it carries no credential, and the pin a
         device drives is not a secret from anyone who can already see the
@@ -1059,6 +1152,8 @@ paths:
       tags: [config]
       summary: Store a hardware configuration
       operationId: putHardwareConfig
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Validates, then persists to NVS. **Takes effect at the next restart**,
         and the response says so: nothing here re-drives a pin or renames mDNS
@@ -1117,9 +1212,9 @@ paths:
         "403":
           $ref: "#/components/responses/Problem"
           description: |
-            `/problems/hardware_config_window_closed` — nobody has completed
-            the three-press sequence recently, so the configuration window is
-            shut.
+            `/problems/hardware_config_window_closed` — this request does
+            not carry a token that holds the configuration window (D-52), or no
+            window is open.
 
             Separate from 401, which is about the control lock: this is not a
             question of who you are but of whether somebody is standing at the
@@ -1139,6 +1234,8 @@ paths:
       tags: [config]
       summary: Forget the stored configuration
       operationId: resetHardwareConfig
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Drops every override so the next boot comes up on the compiled
         defaults. The way back from a configuration that does not suit the
@@ -1208,6 +1305,8 @@ paths:
       tags: [wifi]
       summary: Store the credentials for a different network
       operationId: putWifiCredentials
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Saves the credentials to NVS. **Takes effect at the next restart**, the
         same as `PUT /config/hardware`: the station's configuration is read at
@@ -1276,9 +1375,9 @@ paths:
         "403":
           $ref: "#/components/responses/Problem"
           description: |
-            `/problems/hardware_config_window_closed` — nobody has completed
-            the three-press sequence recently, so the configuration window is
-            shut. The same window and the same problem type as
+            `/problems/hardware_config_window_closed` — this request does
+            not carry a token that holds the configuration window (D-52), or no
+            window is open. The same window and the same problem type as
             `PUT /config/hardware` and `GET /diagnostics/bundle`: one window,
             one type, whichever endpoint it is guarding.
         "409":
@@ -1303,6 +1402,8 @@ paths:
       tags: [wifi]
       summary: Scan for networks in range
       operationId: getWifiNetworks
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         An active scan across every channel, one entry per SSID, strongest
         first — the same list the setup portal offers, from the same
@@ -1817,6 +1918,7 @@ paths:
         - controlLockCookie: []
         - {}
       parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
         - name: hardware
           in: query
           required: false
@@ -1921,6 +2023,18 @@ components:
         `SameSite=Lax`.
 
   parameters:
+    ConfigWindowToken:
+      name: X-Config-Window
+      in: header
+      required: false
+      description: >-
+        The token from `POST /config-window/request`, once three presses of
+        BOOT have opened the window for it (D-52). Without it, or with a token
+        that does not hold the window, a guarded call is refused as if the
+        window were shut.
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{32}$"
     ProgramId:
       name: id
       in: path
@@ -2331,10 +2445,60 @@ components:
           description: >-
             The W5500's reset line, or -1 to reset it over SPI instead.
 
+    ConfigWindowState:
+      type: string
+      enum: [closed, pending, open, conflict, elsewhere]
+      description: |
+        - `closed` — this client holds nothing, and no window is open.
+        - `pending` — its request is waiting for three presses of BOOT.
+        - `open` — it holds the open window.
+        - `conflict` — the presses found more than one request waiting and
+          opened the window for nobody. Ask again, from one device only.
+          Reported for two minutes.
+        - `elsewhere` — a window is open, for another client.
+
+        A running program holds the window shut, so while one runs `open` and
+        `elsewhere` read `closed`.
+
+    ConfigWindowStatus:
+      type: object
+      required: [state, remainingSeconds]
+      additionalProperties: false
+      properties:
+        state:
+          $ref: "#/components/schemas/ConfigWindowState"
+        remainingSeconds:
+          type: integer
+          format: int32
+          minimum: 0
+          description: >-
+            Seconds left of the window while `open`, of the request while
+            `pending`, otherwise 0.
+
+    ConfigWindowRequest:
+      type: object
+      required: [token, state, remainingSeconds]
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          description: >-
+            32 hex characters (16 random bytes). Send it as `X-Config-Window`.
+            Not the control lock's token, and not interchangeable with it.
+          pattern: "^[0-9a-f]{32}$"
+        state:
+          $ref: "#/components/schemas/ConfigWindowState"
+        remainingSeconds:
+          type: integer
+          format: int32
+          minimum: 0
+
     ConfigWriteWindow:
       type: object
       description: |
-        Whether the device is currently accepting hardware configuration.
+        Whether the device is currently accepting hardware configuration from
+        the client asking, which is the one whose `X-Config-Window` token
+        holds the window (D-52).
 
         Guarded by a button press rather than a password. The threat is an
         accident - somebody editing a GPIO because it looked interesting - and
@@ -2355,9 +2519,9 @@ components:
         open:
           type: boolean
           description: |
-            Whether `PUT /config/hardware` would be accepted right now. One
-            meaning, so a client can hide the settings entirely rather than
-            offer a form that cannot save.
+            Whether `PUT /config/hardware` from this client would be accepted
+            right now. One meaning, so a client can hide the settings entirely
+            rather than offer a form that cannot save.
 
             False **while a program is running**, as well as when nobody has
             pressed the button. Reconfiguring the machine and operating it are
@@ -2778,6 +2942,7 @@ components:
             - /problems/hardware_config_invalid
             - /problems/hardware_config_serial_only
             - /problems/hardware_config_window_closed
+            - /problems/config_window_busy
             - /problems/wifi_credentials_invalid
             - /problems/bank_unavailable
             - /problems/backup_invalid

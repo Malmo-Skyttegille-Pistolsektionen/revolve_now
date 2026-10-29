@@ -81,6 +81,140 @@ afterEach(async () => {
   await server.close();
 });
 
+/** Replaces the default device with one that has a BOOT button (D-52). */
+async function withButton(): Promise<void> {
+  await server.close();
+  server = createMockServer({ clock, seed: { programs: { 40: PROGRAM_FALT_TRANING }, audios: [], button: true } });
+  base = `http://127.0.0.1:${await server.listen()}/api/v2`;
+}
+
+/** Asks for the window; the token it was given. */
+async function requestWindow(token = ''): Promise<string> {
+  const res = await api('/config-window/request', {
+    method: 'POST',
+    headers: token === '' ? {} : { 'X-Config-Window': token },
+  });
+  expect(res.status).toBe(200);
+  return ((await res.json()) as { token: string }).token;
+}
+
+async function windowState(token: string): Promise<{ state: string; remainingSeconds: number }> {
+  return (await (await api('/config-window', { headers: { 'X-Config-Window': token } })).json()) as {
+    state: string;
+    remainingSeconds: number;
+  };
+}
+
+/**
+ * The configuration window belongs to the client that asked for it (D-52,
+ * #656): `rt::ConfigWindow`, whose host test drives the same cases.
+ */
+describe('the configuration window', () => {
+  beforeEach(withButton);
+
+  const PUT_HARDWARE = { method: 'PUT', body: JSON.stringify({ displayName: 'Range A' }) } as const;
+
+  it('opens for the client that asked, and for nobody else', async () => {
+    const mine = await requestWindow();
+    expect(await windowState(mine)).toEqual({ state: 'pending', remainingSeconds: 120 });
+    expect(server.pressBoot()).toBe('granted');
+
+    expect(await windowState(mine)).toEqual({ state: 'open', remainingSeconds: 300 });
+    expect((await windowState('')).state).toBe('elsewhere');
+
+    expect((await api('/config/hardware', { ...PUT_HARDWARE, headers: { 'X-Config-Window': mine } })).status).toBe(200);
+    // The finding: a client that was not at the board, with no token or a guess.
+    expect((await api('/config/hardware', PUT_HARDWARE)).status).toBe(403);
+    expect(
+      (await api('/config/hardware', { ...PUT_HARDWARE, headers: { 'X-Config-Window': 'f'.repeat(32) } })).status,
+    ).toBe(403);
+    expect((await api('/diagnostics/bundle')).status).toBe(403);
+    expect((await api('/diagnostics/bundle', { headers: { 'X-Config-Window': mine } })).status).toBe(200);
+  });
+
+  it('reports writeWindow for the client asking', async () => {
+    const mine = await requestWindow();
+    server.pressBoot();
+    const read = async (headers: Record<string, string>): Promise<HardwareConfigState['writeWindow']> =>
+      ((await (await api('/config/hardware', { headers })).json()) as HardwareConfigState).writeWindow;
+    expect(await read({ 'X-Config-Window': mine })).toEqual({ open: true, remainingSeconds: 300 });
+    expect(await read({})).toEqual({ open: false, remainingSeconds: 0 });
+  });
+
+  it('opens nothing for presses nobody asked for', async () => {
+    expect(server.pressBoot()).toBe('nothingPending');
+    expect((await windowState('')).state).toBe('closed');
+  });
+
+  // The race #642 closed for the setup portal.
+  it('opens for nobody when two clients asked, and says so to both', async () => {
+    const operator = await requestWindow();
+    const other = await requestWindow();
+    expect(server.pressBoot()).toBe('conflict');
+    expect((await windowState(operator)).state).toBe('conflict');
+    expect((await windowState(other)).state).toBe('conflict');
+    expect((await api('/config/hardware', { ...PUT_HARDWARE, headers: { 'X-Config-Window': other } })).status).toBe(
+      403,
+    );
+  });
+
+  it('treats asking again with the token as the same request', async () => {
+    const mine = await requestWindow();
+    expect(await requestWindow(mine)).toBe(mine);
+    expect(server.pressBoot()).toBe('granted');
+  });
+
+  it('refuses a fifth waiting request rather than pushing one out', async () => {
+    for (let i = 0; i < 4; i++) await requestWindow();
+    await expectProblem(await api('/config-window/request', { method: 'POST' }), {
+      type: '/problems/config_window_busy',
+      title: 'Too many requests for the configuration window',
+      status: 409,
+      detail: 'Too many devices are already asking for the configuration window. Wait two minutes and ask again.',
+    });
+  });
+
+  it('lets a request lapse after two minutes, and the window after five', async () => {
+    const stale = await requestWindow();
+    clock.advance(120_000);
+    expect((await windowState(stale)).state).toBe('closed');
+    expect(server.pressBoot()).toBe('nothingPending');
+
+    const mine = await requestWindow();
+    server.pressBoot();
+    clock.advance(300_000);
+    expect((await windowState(mine)).state).toBe('closed');
+  });
+
+  // The control lock is the one guard a run does not hold shut (D-51).
+  it('turns the lock on and off with the window, and only with this client’s', async () => {
+    const enable = (headers: Record<string, string>): Promise<Response> =>
+      api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'pw' }), headers });
+    expect((await enable({})).status).toBe(403);
+
+    const mine = await requestWindow();
+    server.pressBoot();
+    expect((await enable({ 'X-Config-Window': mine })).status).toBe(200);
+    expect((await api('/control-lock/disable', { method: 'POST' })).status).toBe(401);
+    expect((await api('/control-lock/disable', { method: 'POST', headers: { 'X-Config-Window': mine } })).status).toBe(
+      200,
+    );
+  });
+
+  it('publishes a conflict, so the waiting clients look again', async () => {
+    const sse = await openSSE(server.port);
+    try {
+      await requestWindow();
+      await requestWindow();
+      server.pressBoot();
+      await flushIO();
+      expect(sse.payloads('configWindow')).toEqual([{ open: false, remainingSeconds: 0 }]);
+    } finally {
+      sse.close();
+    }
+  });
+});
+
 describe('libraryChanged (D-24)', () => {
   /** A clip library, which the default seed deliberately does not have. */
   const SEED_AUDIOS: AudioFile[] = [
@@ -532,7 +666,7 @@ describe('restarting the device', () => {
 
   // Deliberately not behind the configuration window (D-42).
   it('works while the configuration window is shut', async () => {
-    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], configWindowOpen: false } });
+    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], button: true } });
     const shutBase = `http://127.0.0.1:${await shut.listen()}/api/v2`;
     try {
       expect((await fetch(`${shutBase}/config/hardware`, { method: 'PUT', body: '{}' })).status).toBe(403);
@@ -698,7 +832,7 @@ describe('WiFi (#263)', () => {
   // the radio off its channel, so it is a read that costs the network it is
   // served over.
   it('refuses a scan while the configuration window is shut', async () => {
-    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], configWindowOpen: false } });
+    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], button: true } });
     const shutBase = `http://127.0.0.1:${await shut.listen()}/api/v2`;
     try {
       await expectProblem(await fetch(`${shutBase}/wifi/networks`), {
@@ -706,7 +840,7 @@ describe('WiFi (#263)', () => {
         title: 'The configuration window is closed',
         status: 403,
         detail:
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
+          'Ask for the configuration window first (Expert mode, in the web app), then press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds, and try again.',
       });
     } finally {
       await shut.close();
@@ -1321,7 +1455,7 @@ describe('restoring a backup', () => {
   });
 
   it('skips the hardware with the window shut, and restores the rest', async () => {
-    server.setConfigWindow(false);
+    await withButton();
     const report = await restore([
       backupJson({ i2sMclkGpio: 3 }),
       json('programs/1000.json', { title: 'Still restored', series: [] }),
@@ -1335,7 +1469,7 @@ describe('restoring a backup', () => {
   });
 
   it('calls hardware already in place unchanged, even with the window shut', async () => {
-    server.setConfigWindow(false);
+    await withButton();
     const report = await restore([backupJson({})]);
     expect(report.hardware).toEqual({ result: 'unchanged' });
   });

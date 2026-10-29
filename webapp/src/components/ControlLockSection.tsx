@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { ApiError } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useConfigWindow } from '../hooks/useConfigWindow';
+import { ConfigWindowRequest } from './ConfigWindowRequest';
 import { useControlLockStatus } from '../hooks/useControlLockStatus';
 import { useT } from '../i18n';
 import styles from './ControlLockSection.module.css';
@@ -117,7 +118,7 @@ export function ControlLockSection(): React.ReactNode {
               {isPending ? s.locking : s.turnOn}
             </button>
           </div>
-          <div className={styles.infoText}>{s.offInfo}</div>
+          <ConfigWindowRequest intro={s.offInfo} />
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
         </div>
       </section>
@@ -165,7 +166,7 @@ export function ControlLockSection(): React.ReactNode {
               </button>
             </div>
           ) : (
-            <div className={styles.infoText}>{s.forgotten}</div>
+            <ConfigWindowRequest intro={s.forgotten} />
           )}
           {actionError && <div className={styles.errorMessage}>{actionError}</div>}
         </div>

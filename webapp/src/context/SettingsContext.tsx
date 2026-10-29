@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   serverBaseUrl: `${STORAGE_PREFIX}server_base_url`,
   startDelaySeconds: `${STORAGE_PREFIX}start_delay_seconds`,
   controlLockToken: `${STORAGE_PREFIX}control_lock_token`,
+  configWindowToken: `${STORAGE_PREFIX}config_window_token`,
   theme: THEME_STORAGE_KEY,
   language: LANGUAGE_STORAGE_KEY,
 } as const;
@@ -85,6 +86,13 @@ export interface SettingsContextType {
   setLanguage: (language: LanguagePreference) => void;
   setControlLockToken: (token: string | null) => void;
   logoutControlLock: () => void;
+  /**
+   * The configuration window token this browser asked with (D-52). Kept in
+   * localStorage so every tab of this browser is the same client, rather than
+   * two tabs asking and turning the presses into a conflict.
+   */
+  configWindowToken: string | null;
+  setConfigWindowToken: (token: string | null) => void;
 }
 
 export const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -127,6 +135,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     return localStorage.getItem(STORAGE_KEYS.controlLockToken);
   });
 
+  // eslint-disable-next-line @eslint-react/use-state
+  const [configWindowToken, setConfigWindowTokenState] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return localStorage.getItem(STORAGE_KEYS.configWindowToken);
+  });
+
   function setServerBaseUrl(url: string): void {
     localStorage.setItem(STORAGE_KEYS.serverBaseUrl, url);
     setSettings((prev) => ({ ...prev, serverBaseUrl: url }));
@@ -157,6 +173,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     setControlLockTokenState(token);
   }
 
+  function setConfigWindowToken(token: string | null): void {
+    if (token) {
+      localStorage.setItem(STORAGE_KEYS.configWindowToken, token);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.configWindowToken);
+    }
+    setConfigWindowTokenState(token);
+  }
+
   function logoutControlLock(): void {
     localStorage.removeItem(STORAGE_KEYS.controlLockToken);
     setControlLockTokenState(null);
@@ -178,6 +203,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
         setSettings((prev) => ({ ...prev, language: parseLanguagePreference(e.newValue) }));
       } else if (e.key === STORAGE_KEYS.controlLockToken) {
         setControlLockTokenState(e.newValue);
+      } else if (e.key === STORAGE_KEYS.configWindowToken) {
+        setConfigWindowTokenState(e.newValue);
       }
     };
 
@@ -203,6 +230,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     setLanguage,
     setControlLockToken,
     logoutControlLock,
+    configWindowToken,
+    setConfigWindowToken,
   };
 
   return <SettingsContext value={value}>{children}</SettingsContext>;

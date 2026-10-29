@@ -254,7 +254,8 @@ Load-bearing invariants:
 - **One task owns GPIO0** (`io/boot_button.cpp`), because two pollers would
   each swallow the transitions the other waited for. It classifies via
   `rt::ButtonGesture`: one press commits a setup-portal submission (#208), three
-  within ten seconds open the configuration window (#144), and a ten-second
+  within ten seconds open the configuration window for the one client that
+  asked for it (#144, `rt::ConfigWindow`, D-52), and a ten-second
   hold is a factory reset (#222, D-33). There is no power-on gesture and there
   cannot be — GPIO0 is strapping, so a board held low at reset enters ROM
   download mode and this firmware never runs.

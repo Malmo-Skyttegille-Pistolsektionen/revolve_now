@@ -20,6 +20,7 @@ newer release or a startup problem, says so in its badge.
 | Backup | device | Save what has been put on the device to a file, and put it back |
 | Network | device | WiFi: which network it is on and how good the link is. Ethernet: the cable link and its address |
 | Control lock | device | Whether control is open to everyone or needs a login |
+| Expert mode | device | Asking for Expert mode, which a press of BOOT on the board then opens in this browser |
 | Storage | device | How much room the flash partitions have |
 | Startup Issues | device | What the device could not read when it booted |
 | About | device | What firmware and web app this is, and exactly which build |
@@ -73,13 +74,15 @@ Two states:
   stopping, uploading and deleting all require a login.
 
 Turning it on asks for a password to set, and needs somebody at the device:
-press its **BOOT** button three times within ten seconds first. From then on
+tap **Ask for Expert mode**, then press its **BOOT** button three times within
+ten seconds. From then on
 this browser holds a token; **Login** on another browser asks for that password
 again.
 
 The lock stays on when the device restarts, until somebody turns it off. A
-restart only logs everybody out. If the password is forgotten, press BOOT three
-times on the device: the page then offers **Turn the lock off** without it.
+restart only logs everybody out. If the password is forgotten, ask on this
+page and press BOOT three times on the device: the page then offers **Turn the
+lock off** without it, in that browser.
 
 The password protects against the accidental rather than the determined: the
 device is on the range's own network, and the traffic is plain HTTP.
@@ -138,8 +141,8 @@ what was already there, and anything the device refused, with the reason.
 Two choices first:
 
 - **Hardware settings** (on by default). They are restored only while the
-  [configuration window](expert-mode.md) is open — press BOOT three times
-  first — because they are the settings whose way back can be a USB cable.
+  [configuration window](expert-mode.md) is open in this browser — ask and
+  press BOOT three times first — because they are the settings whose way back can be a USB cable.
   With the window shut they are skipped and the rest is restored anyway. Like
   any hardware change, they take effect when the device restarts.
 - **Device name** (off by default): the hostname and display name from the
@@ -267,6 +270,12 @@ audio set" is not, and those are the questions that get a fault diagnosed.
 report — which is the only thing it is for. If your browser refuses (some do on
 a plain `http://` address, which is what the device serves), the text appears
 below instead so you can select it by hand.
+
+## Expert mode
+
+Where Expert mode is asked for: tap **Ask for Expert mode**, then press the
+BOOT button on the device three times. The window opens in this browser only.
+[Expert mode](expert-mode.md#getting-in) has the details.
 
 ## Troubleshooting
 

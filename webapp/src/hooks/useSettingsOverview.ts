@@ -6,6 +6,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useT } from '../i18n';
 import { formatBytes } from '../lib/format-bytes';
 import { compareVersions, githubReleasesQuery } from '../lib/release-check';
+import { useConfigWindow } from './useConfigWindow';
 import { useControlLockStatus } from './useControlLockStatus';
 
 /**
@@ -32,6 +33,7 @@ export interface Line {
 export function useSettingsOverview() {
   const t = useT();
   const o = t.settings.overview;
+  const configWindow = useConfigWindow();
   const { settings } = useSettings();
   const { controlLockEnabled } = useControlLockStatus();
   const diagnosticsApi = useDiagnosticsApi();
@@ -83,6 +85,10 @@ export function useSettingsOverview() {
     ? { summary: o.lockOnSummary, status: { label: o.lockOn, tone: 'quiet' } }
     : { summary: o.lockOffSummary, status: { label: o.lockOff, tone: 'quiet' } };
 
+  const expert: Line = configWindow.open
+    ? { summary: o.expertOpen, status: { label: o.expertOpen, tone: 'attention' } }
+    : { summary: o.expertSummary };
+
   const storage: Line = {
     summary:
       diagnostics === undefined
@@ -99,6 +105,7 @@ export function useSettingsOverview() {
     network,
     startup,
     lock,
+    expert,
     storage,
     backup: { summary: o.backupSummary } satisfies Line,
     appearance,

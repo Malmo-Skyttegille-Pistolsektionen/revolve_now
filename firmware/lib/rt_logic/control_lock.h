@@ -61,6 +61,22 @@ inline bool constant_time_equals(const std::string &a, const std::string &b) {
   return diff == 0;
 }
 
+// `kTokenBytes` random bytes, hex-encoded: the control lock's session tokens
+// and the configuration window's (rt::ConfigWindow) alike.
+inline std::string random_token(RandomBytesFn random_bytes) {
+  uint8_t raw[kTokenBytes];
+  random_bytes(raw, sizeof(raw));
+
+  static const char *kHex = "0123456789abcdef";
+  std::string token;
+  token.reserve(kTokenBytes * 2);
+  for (uint8_t b : raw) {
+    token += kHex[b >> 4];
+    token += kHex[b & 0x0f];
+  }
+  return token;
+}
+
 // The control lock is off until a client turns it on with a password of its
 // own choosing; while it is on, mutating endpoints require a session token.
 //
@@ -176,16 +192,7 @@ class ControlLock {
   }
 
   std::string issue_token() {
-    uint8_t raw[kTokenBytes];
-    random_bytes_(raw, sizeof(raw));
-
-    static const char *kHex = "0123456789abcdef";
-    std::string token;
-    token.reserve(kTokenBytes * 2);
-    for (uint8_t b : raw) {
-      token += kHex[b >> 4];
-      token += kHex[b & 0x0f];
-    }
+    std::string token = random_token(random_bytes_);
     if (tokens_.size() >= kMaxTokens) tokens_.pop_front();
     tokens_.push_back(Token{token, now_ms_()});
     return token;

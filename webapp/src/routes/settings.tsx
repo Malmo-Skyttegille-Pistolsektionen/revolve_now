@@ -1,4 +1,4 @@
-import { createFileRoute, useLocation, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { useT } from '../i18n';
 import { ServerUrlSection } from '../components/ServerUrlSection';
 import { ThemeSection } from '../components/ThemeSection';
@@ -12,6 +12,7 @@ import { NetworkSection } from '../components/NetworkSection';
 import { AboutSection } from '../components/AboutSection';
 import { RestartPendingNotice } from '../components/RestartPendingNotice';
 import { SettingsFold, SettingsGroup } from '../components/SettingsFold';
+import { ConfigWindowRequest } from '../components/ConfigWindowRequest';
 import { useSettingsOverview } from '../hooks/useSettingsOverview';
 import styles from './settings.module.css';
 
@@ -83,6 +84,20 @@ function SettingsPage(): React.ReactNode {
             press, not something this page should be able to do. */}
         {fold('network', t.settings.network.title, lines.network, <NetworkSection />)}
         {fold('control-lock', t.settings.controlLock.title, lines.lock, <ControlLockSection />)}
+        {/* Where Expert mode is asked for: its tab appears only once the
+            presses at the board have opened it for this browser (D-52). */}
+        {fold(
+          'expert-mode',
+          t.settings.configWindow.title,
+          lines.expert,
+          <ConfigWindowRequest
+            whenOpen={
+              <Link to='/hardware' className={styles.backLink} data-testid='config-window-go'>
+                {t.settings.configWindow.goTo}
+              </Link>
+            }
+          />,
+        )}
         {fold('storage', t.settings.storage.title, lines.storage, <StorageSection />)}
         {fold('startup-issues', t.settings.startupIssues.title, lines.startup, <StartupIssuesSection />)}
         {fold('about', t.settings.about.title, lines.about, <AboutSection />)}

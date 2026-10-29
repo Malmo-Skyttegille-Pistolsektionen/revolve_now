@@ -36,6 +36,34 @@ factory reset clears it too. A build without a button cannot prove presence:
 it sets the lock without the window, as before, and turns it off only with a
 session.
 
+### The configuration window belongs to one client
+
+Three presses of BOOT open the configuration window for **the one client that
+asked for it** (D-52, #656), not for the network. A client calls `POST
+/api/v2/config-window/request` and gets a 16-byte random token; the presses
+then grant the window to that token, and every window-gated route (the
+troubleshooting bundle, hardware configuration, WiFi, the hardware part of a
+restore, and the control lock's window paths) requires it in
+`X-Config-Window`. Before this, the presses set one device-wide deadline, so
+any LAN client could pull the coredump or change WiFi while somebody at the
+board had the window open.
+
+- **The presses are the last step.** With more than one request waiting they
+  grant nobody, log it and show magenta on the LED; a single grant shows cyan.
+  A client polling with its own requests can therefore turn the operator's
+  presses into a conflict, and keep doing so while it stays on the network,
+  but it cannot take the window over. At most four requests wait at once; a
+  fifth is refused rather than pushing one out.
+- **What it does not stop.** If the operator presses BOOT without having asked
+  first, and another client's request is the only one waiting, that client is
+  granted the window. The web app always asks before telling anyone to press.
+- **What is still public.** The `configWindow` event and `GET
+  /api/v2/config-window` say whether a window is open for *somebody*. Neither
+  carries a token or anything a client can use without one.
+- The token is its own header, never a cookie, so a cross-site form cannot
+  carry it, and it is separate from the control lock's token. A build without
+  a button still leaves the hardware routes open, as before.
+
 ### Other deliberate choices
 
 - The `control_lock` cookie is **not** `HttpOnly` — the webapp reads it back. It is
@@ -58,12 +86,13 @@ session.
   the portal can be read by anyone who captured the join. The BOOT press
   (#208) stops a takeover, not eavesdropping; the portal page and the
   connecting guide say so.
-- **A coredump is served only while the configuration window is open.** It is
-  a raw RAM snapshot and can contain the WiFi password in plaintext.
-  `diagnostics/info` only reports whether one is present; `GET
+- **A coredump is served only to the client holding the configuration
+  window.** It is a raw RAM snapshot and can contain the WiFi password in
+  plaintext. `diagnostics/info` only reports whether one is present; `GET
   /api/v2/diagnostics/bundle` serves it, and refuses unless the BOOT-button
-  gesture has opened the window — so retrieving it still needs someone at the
-  board (D-39 in [`docs/DECISIONS.md`](../docs/DECISIONS.md)).
+  gesture opened the window for this request's token — so retrieving it still
+  needs someone at the board (D-39, D-52 in
+  [`docs/DECISIONS.md`](../docs/DECISIONS.md)).
 - Uploads are capped at 1 MB, streamed to a staging file, validated, and only
   then renamed to an id-derived name — a client-supplied filename never reaches
   the filesystem. A restore is the exception to the size: it carries the whole

@@ -76,16 +76,18 @@ dump.
 
 **To download one:**
 
-1. Press the device's **BOOT** button — the small button next to the USB
+1. In the web app, open **Settings → Expert mode** and tap **Ask for Expert
+   mode**.
+2. Press the device's **BOOT** button — the small button next to the USB
    sockets, marked `BOOT` or `FLASH` — **three times within ten seconds.**
-2. Open the **Expert mode** tab that appears in the web app, and scroll to
+3. Open the **Expert mode** tab that appears in that browser, and scroll to
    **Troubleshooting** at the bottom.
-3. Press **Download troubleshooting bundle** and attach the file to your
+4. Press **Download troubleshooting bundle** and attach the file to your
    message.
 
-The tab is only there for five minutes after those three presses, and it does
-not appear at all while a program is running. If it is missing, press the button
-three times again. [Expert mode](expert-mode.md) covers what else is on it.
+The tab is only there for five minutes after those three presses, only in the
+browser that asked, and it does not appear at all while a program is running.
+If it is missing, ask and press the button three times again. [Expert mode](expert-mode.md) covers what else is on it.
 
 !!! warning "Who you can send it to"
 

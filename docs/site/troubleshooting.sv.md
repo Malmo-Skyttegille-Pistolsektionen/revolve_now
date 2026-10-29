@@ -78,15 +78,17 @@ dumpen.
 
 **Så här laddar du ner ett:**
 
-1. Tryck på enhetens **BOOT**-knapp — den lilla knappen bredvid USB-uttagen,
+1. Öppna **Inställningar → Expertläge** i webbappen och tryck på **Be om
+   expertläge**.
+2. Tryck på enhetens **BOOT**-knapp — den lilla knappen bredvid USB-uttagen,
    märkt `BOOT` eller `FLASH` — **tre gånger inom tio sekunder.**
-2. Öppna fliken **Expertläge** som dyker upp i webbappen och rulla ner till
-   **Felsökning** längst ner.
-3. Tryck på **Ladda ner felsökningspaket** och bifoga filen i ditt meddelande.
+3. Öppna fliken **Expertläge** som dyker upp i den webbläsaren och rulla ner
+   till **Felsökning** längst ner.
+4. Tryck på **Ladda ner felsökningspaket** och bifoga filen i ditt meddelande.
 
-Fliken finns bara kvar i fem minuter efter de tre tryckningarna, och den dyker
-inte upp alls medan ett program körs. Saknas den, tryck på knappen tre gånger
-igen. [Expertläge](expert-mode.md) går igenom vad mer som finns där.
+Fliken finns bara kvar i fem minuter efter de tre tryckningarna, bara i
+webbläsaren som bad om den, och den dyker inte upp alls medan ett program körs.
+Saknas den, be om den och tryck på knappen tre gånger igen. [Expertläge](expert-mode.md) går igenom vad mer som finns där.
 
 !!! warning "Vem du kan skicka det till"
 

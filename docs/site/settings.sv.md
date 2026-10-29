@@ -21,6 +21,7 @@ exempel en nyare version eller ett startproblem, säger det i sin etikett.
 | Säkerhetskopia | enhet | Spara det som lagts på enheten till en fil, och lägg tillbaka det |
 | Nätverk | enhet | WiFi: vilket nätverk den är på och hur bra länken är. Ethernet: kabellänken och dess adress |
 | Kontrollås | enhet | Om styrningen är öppen för alla eller kräver inloggning |
+| Expertläge | enhet | Att be om expertläget, som ett tryck på BOOT på kortet sedan öppnar i den här webbläsaren |
 | Lagring | enhet | Hur mycket plats flashpartitionerna har |
 | Startproblem | enhet | Vad enheten inte kunde läsa när den startade |
 | Om | enhet | Vilken firmware och webbapp det här är, och exakt vilket bygge |
@@ -74,13 +75,15 @@ Två lägen:
   stoppa, ladda upp och ta bort kräver alla inloggning.
 
 När du slår på det ombeds du ange ett lösenord, och någon måste vara vid
-enheten: tryck först på dess **BOOT**-knapp tre gånger inom tio sekunder. Från
+enheten: tryck på **Be om expertläge** och sedan på dess **BOOT**-knapp tre
+gånger inom tio sekunder. Från
 och med då håller den här webbläsaren en token; **Logga in** i en annan
 webbläsare frågar efter det lösenordet igen.
 
 Låset förblir på när enheten startar om, tills någon slår av det. En omstart
-loggar bara ut alla. Har lösenordet glömts bort, tryck på BOOT tre gånger på
-enheten: sidan erbjuder då **Slå av låset** utan det.
+loggar bara ut alla. Har lösenordet glömts bort, be om det på sidan och tryck
+på BOOT tre gånger på enheten: sidan erbjuder då **Slå av låset** utan det, i
+den webbläsaren.
 
 Lösenordet skyddar mot misstag snarare än mot den beslutsamme: enheten sitter
 på skjutbanans eget nätverk, och trafiken är okrypterad HTTP.
@@ -142,8 +145,8 @@ lades till, vad som redan fanns och vad enheten avvisade, med skälet.
 Två val först:
 
 - **Hårdvaruinställningar** (på som standard). De återställs bara medan
-  [konfigurationsfönstret](expert-mode.md) är öppet — tryck på BOOT tre gånger
-  först — eftersom det är de inställningar där vägen tillbaka kan vara en
+  [konfigurationsfönstret](expert-mode.md) är öppet i den här webbläsaren —
+  be om det och tryck på BOOT tre gånger först — eftersom det är de inställningar där vägen tillbaka kan vara en
   USB-kabel. När fönstret är stängt hoppas de över och resten återställs ändå.
   Som alla hårdvaruändringar gäller de först när enheten startar om.
 - **Enhetens namn** (av som standard): värdnamnet och visningsnamnet från
@@ -277,6 +280,12 @@ frågorna som får ett fel diagnostiserat.
 felrapport — vilket är det enda det är till för. Om din webbläsare vägrar
 (vissa gör det på en vanlig `http://`-adress, vilket är vad enheten serverar)
 visas texten nedanför i stället så att du kan markera den för hand.
+
+## Expertläge { #expert-mode }
+
+Här ber du om expertläget: tryck på **Be om expertläge** och sedan på
+BOOT-knappen på enheten tre gånger. Fönstret öppnas bara i den här
+webbläsaren. [Expertläge](expert-mode.md#getting-in) har detaljerna.
 
 ## Felsökning { #troubleshooting }
 
