@@ -75,7 +75,7 @@ jobs:
         if: needs.changes.outputs.contracts != 'false'
         run: |
           # renovate: datasource=pypi depName=check-jsonschema
-          pip install check-jsonschema==0.38.2
+          pip install check-jsonschema==0.39.0
 
       # Lints openapi.yaml and asyncapi.yaml, checks program.schema.json is a
       # valid schema, and validates every shipped program against it.
