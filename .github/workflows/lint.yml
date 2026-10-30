@@ -117,7 +117,7 @@ jobs:
       - name: Install pytest
         run: |
           # renovate: datasource=pypi depName=pytest
-          python -m pip install pytest==9.1.1
+          python -m pip install pytest==9.2.0
           # renovate: datasource=pypi depName=pyyaml
           python -m pip install pyyaml==6.0.3
 
