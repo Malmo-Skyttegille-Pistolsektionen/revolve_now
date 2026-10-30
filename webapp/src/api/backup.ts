@@ -14,8 +14,8 @@ export interface RestoreOptions {
  * archive; this side only moves the file and shows what the device reports.
  */
 export function useBackupApi() {
-  const { controlLockToken, logoutControlLock } = useSettings();
-  const client = createAuthenticatedClient(controlLockToken, logoutControlLock);
+  const { controlLockToken, logoutControlLock, configWindowToken } = useSettings();
+  const client = createAuthenticatedClient(controlLockToken, logoutControlLock, configWindowToken);
 
   return {
     download: (): Promise<DownloadedFile> => client.requestFile('/backup'),

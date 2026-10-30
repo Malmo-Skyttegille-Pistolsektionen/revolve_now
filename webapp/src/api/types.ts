@@ -25,6 +25,9 @@ export type WifiNetwork = components['schemas']['WifiNetwork'];
 export type WifiCredentials = components['schemas']['WifiCredentials'];
 export type RestoreReport = components['schemas']['RestoreReport'];
 export type RestoreItem = components['schemas']['RestoreItem'];
+export type ConfigWindowState = components['schemas']['ConfigWindowState'];
+export type ConfigWindowStatus = components['schemas']['ConfigWindowStatus'];
+export type ConfigWindowRequest = components['schemas']['ConfigWindowRequest'];
 
 /**
  * Every problem type the contract knows about, as a union of the `type` URIs —
@@ -61,7 +64,10 @@ export const SSETypes = {
   ConfigWindow: 'configWindow',
 } as const;
 
-/** Same shape as `writeWindow` in `GET /config/hardware`, deliberately. */
+/**
+ * Same shape as `writeWindow` in `GET /config/hardware`, but about the window
+ * whoever holds it (D-52) - a cue to ask `GET /config-window`, not an answer.
+ */
 export type ConfigWindowPayload = HardwareConfigState['writeWindow'];
 
 /**

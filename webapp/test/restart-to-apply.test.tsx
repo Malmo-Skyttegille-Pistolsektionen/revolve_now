@@ -20,7 +20,7 @@ import { RestartPendingNotice } from '../src/components/RestartPendingNotice';
 import { HardwarePage } from '../src/routes/hardware';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
-import { enableControlLockElsewhere, requestElsewhere } from './other-client';
+import { enableControlLockElsewhere, openWindowElsewhere, requestElsewhere } from './other-client';
 import { sseStatusAtom, stateAtom } from '../src/lib/sse-store';
 
 // Distinct per suite - vitest runs files in parallel, so a shared port is an
@@ -30,11 +30,11 @@ const PORT = 18100;
 let server: MockServer;
 let queryClient: QueryClient;
 
-async function device(options: { restartFails?: boolean } = {}): Promise<void> {
+async function device(options: { restartFails?: boolean; button?: boolean } = {}): Promise<void> {
   server = createMockServer({
     clock: createFakeClock(),
     port: PORT,
-    seed: { programs: {}, audios: [], restartFails: options.restartFails },
+    seed: { programs: {}, audios: [], restartFails: options.restartFails, button: options.button },
   });
   await server.listen();
 }
@@ -77,10 +77,14 @@ function renderApp(at: '/hardware' | '/settings'): void {
 }
 
 /** Save something the device will not be running until it restarts. */
-async function saveHardware(gpio = 7): Promise<void> {
-  const { status } = await requestElsewhere(PORT, 'PUT', '/api/v2/config/hardware', {
-    banks: [{ gpio, activeLow: true, name: '' }],
-  });
+async function saveHardware(gpio = 7, windowToken = ''): Promise<void> {
+  const { status } = await requestElsewhere(
+    PORT,
+    'PUT',
+    '/api/v2/config/hardware',
+    { banks: [{ gpio, activeLow: true, name: '' }] },
+    windowToken === '' ? {} : { 'X-Config-Window': windowToken },
+  );
   expect(status).toBe(200);
 }
 
@@ -138,13 +142,13 @@ describe('restart to apply (#341)', () => {
 
   // A pending restart is a fact about the device, not about the window (D-42).
   it('survives the configuration window lapsing, unlike the sections', async () => {
-    await device();
-    await saveHardware();
-    server.setConfigWindow(false);
+    await device({ button: true });
+    await saveHardware(7, await openWindowElsewhere(PORT, () => server.pressBoot()));
+    server.closeConfigWindow();
     renderApp('/hardware');
 
     expect(await screen.findByTestId('restart-to-apply')).toBeTruthy();
-    await screen.findByTestId('config-window-shut');
+    await screen.findByTestId('config-window-closed');
     // The forms are gone - there is nothing the device would accept from them.
     expect(screen.queryByTestId('wifi-config-section')).toBeNull();
     expect(screen.queryByTestId('hardware-section')).toBeNull();

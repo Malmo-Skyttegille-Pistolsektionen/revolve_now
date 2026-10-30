@@ -87,7 +87,9 @@ export interface paths {
          *     endpoint's gate is about. What has to be established is that whoever is
          *     collecting it is *standing at the board*, so the gate is the
          *     **configuration window**: three presses of the device's BOOT button
-         *     within ten seconds, the same gesture that reveals Expert mode. A
+         *     within ten seconds, the same gesture that reveals Expert mode, opening
+         *     the window for the one client that asked for it (D-52). Another client
+         *     on the network cannot use it. A
          *     running program holds that window shut, so a bundle cannot be pulled
          *     out from under a sequence that is driving targets.
          *
@@ -110,6 +112,59 @@ export interface paths {
         get: operations["getDiagnosticsBundle"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/config-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where this client stands with the configuration window
+         * @description Answered for the token in `X-Config-Window`, or for no token. Public:
+         *     it says whether *this* client holds the window, and otherwise only
+         *     what the `configWindow` event already tells everyone - whether a
+         *     window is open for somebody.
+         */
+        get: operations["getConfigWindow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/config-window/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for the configuration window
+         * @description Starts a request that three presses of BOOT, within two minutes, turn
+         *     into an open window for this client (D-52). No body. Not behind the
+         *     control lock: asking proves nothing, the presses do.
+         *
+         *     Send the token already held in `X-Config-Window` to ask again without
+         *     becoming a second request - to keep waiting, or to renew an open
+         *     window for another five minutes. Without it every call is a new
+         *     request, and two requests waiting together make the presses a
+         *     conflict.
+         *
+         *     On a build without a button the answer is `open` at once.
+         */
+        post: operations["requestConfigWindow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1293,7 +1348,38 @@ export interface components {
             ethRstGpio: number;
         };
         /**
-         * @description Whether the device is currently accepting hardware configuration.
+         * @description - `closed` — this client holds nothing, and no window is open.
+         *     - `pending` — its request is waiting for three presses of BOOT.
+         *     - `open` — it holds the open window.
+         *     - `conflict` — the presses found more than one request waiting and
+         *       opened the window for nobody. Ask again, from one device only.
+         *       Reported for two minutes.
+         *     - `elsewhere` — a window is open, for another client.
+         *
+         *     A running program holds the window shut, so while one runs `open` and
+         *     `elsewhere` read `closed`.
+         * @enum {string}
+         */
+        ConfigWindowState: "closed" | "pending" | "open" | "conflict" | "elsewhere";
+        ConfigWindowStatus: {
+            state: components["schemas"]["ConfigWindowState"];
+            /**
+             * Format: int32
+             * @description Seconds left of the window while `open`, of the request while `pending`, otherwise 0.
+             */
+            remainingSeconds: number;
+        };
+        ConfigWindowRequest: {
+            /** @description 32 hex characters (16 random bytes). Send it as `X-Config-Window`. Not the control lock's token, and not interchangeable with it. */
+            token: string;
+            state: components["schemas"]["ConfigWindowState"];
+            /** Format: int32 */
+            remainingSeconds: number;
+        };
+        /**
+         * @description Whether the device is currently accepting hardware configuration from
+         *     the client asking, which is the one whose `X-Config-Window` token
+         *     holds the window (D-52).
          *
          *     Guarded by a button press rather than a password. The threat is an
          *     accident - somebody editing a GPIO because it looked interesting - and
@@ -1311,9 +1397,9 @@ export interface components {
          */
         ConfigWriteWindow: {
             /**
-             * @description Whether `PUT /config/hardware` would be accepted right now. One
-             *     meaning, so a client can hide the settings entirely rather than
-             *     offer a form that cannot save.
+             * @description Whether `PUT /config/hardware` from this client would be accepted
+             *     right now. One meaning, so a client can hide the settings entirely
+             *     rather than offer a form that cannot save.
              *
              *     False **while a program is running**, as well as when nobody has
              *     pressed the button. Reconfiguring the machine and operating it are
@@ -1539,7 +1625,7 @@ export interface components {
              *     `program_invalid` `backend_issue` code in `asyncapi.yaml`.
              * @enum {string}
              */
-            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/origin_not_allowed" | "/problems/host_not_allowed" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/backup_invalid" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed" | "/problems/control_lock_store_failed";
+            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/origin_not_allowed" | "/problems/host_not_allowed" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/config_window_busy" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/backup_invalid" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed" | "/problems/control_lock_store_failed";
             /**
              * @description A short summary of the type, identical for every occurrence of it. Not for display — it does not describe this occurrence.
              * @example Program is read-only
@@ -1940,6 +2026,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+        ConfigWindowToken: string;
         /** @description Program id. Must be a plain decimal integer within `int32`; anything else is a `404` rather than being read as id 0. */
         ProgramId: number;
         /** @description Audio clip id. Must be a plain decimal integer within `int32`. */
@@ -2013,7 +2101,10 @@ export interface operations {
     getDiagnosticsBundle: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2031,9 +2122,9 @@ export interface operations {
                 };
             };
             /**
-             * @description `/problems/hardware_config_window_closed` — nobody has completed
-             *     the three-press sequence recently, so the configuration window is
-             *     shut, or a program is running. The same refusal, from the same
+             * @description `/problems/hardware_config_window_closed` — this request does
+             *     not carry a token that holds the configuration window (D-52), or no
+             *     window is open, or a program is running. The same refusal, from the same
              *     window, as `PUT /config/hardware`: one window, one problem type,
              *     whichever endpoint it is guarding.
              *
@@ -2041,6 +2132,58 @@ export interface operations {
              *     here is gated on the control lock.
              */
             403: components["responses"]["Problem"];
+        };
+    };
+    getConfigWindow: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description This client's standing. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigWindowStatus"];
+                };
+            };
+        };
+    };
+    requestConfigWindow: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request, waiting for the presses. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigWindowRequest"];
+                };
+            };
+            /**
+             * @description - `/problems/config_window_busy` — four requests are already
+             *       waiting. They are never pushed out to make room, because that
+             *       would let a flood of requests leave its own as the only one.
+             */
+            409: components["responses"]["Problem"];
         };
     };
     getControlLockStatus: {
@@ -2068,7 +2211,10 @@ export interface operations {
     enableControlLockMode: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2085,8 +2231,8 @@ export interface operations {
              */
             401: components["responses"]["Problem"];
             /**
-             * @description - `/problems/hardware_config_window_closed` — nobody has opened the
-             *       configuration window recently. The same type, from the same
+             * @description - `/problems/hardware_config_window_closed` — this request does
+             *       not hold the configuration window (D-52). The same type, from the same
              *       window, as `PUT /config/hardware`.
              */
             403: components["responses"]["Problem"];
@@ -2151,7 +2297,10 @@ export interface operations {
     disableControlLockMode: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2622,7 +2771,10 @@ export interface operations {
     getHardwareConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2642,7 +2794,10 @@ export interface operations {
     putHardwareConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2671,9 +2826,9 @@ export interface operations {
             400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
-             * @description `/problems/hardware_config_window_closed` — nobody has completed
-             *     the three-press sequence recently, so the configuration window is
-             *     shut.
+             * @description `/problems/hardware_config_window_closed` — this request does
+             *     not carry a token that holds the configuration window (D-52), or no
+             *     window is open.
              *
              *     Separate from 401, which is about the control lock: this is not a
              *     question of who you are but of whether somebody is standing at the
@@ -2694,7 +2849,10 @@ export interface operations {
     resetHardwareConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2746,7 +2904,10 @@ export interface operations {
     putWifiCredentials: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2773,9 +2934,9 @@ export interface operations {
             400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
-             * @description `/problems/hardware_config_window_closed` — nobody has completed
-             *     the three-press sequence recently, so the configuration window is
-             *     shut. The same window and the same problem type as
+             * @description `/problems/hardware_config_window_closed` — this request does
+             *     not carry a token that holds the configuration window (D-52), or no
+             *     window is open. The same window and the same problem type as
              *     `PUT /config/hardware` and `GET /diagnostics/bundle`: one window,
              *     one type, whichever endpoint it is guarding.
              */
@@ -2801,7 +2962,10 @@ export interface operations {
     getWifiNetworks: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -3141,7 +3305,10 @@ export interface operations {
                 /** @description Restore the hostname and display name as well. Ignored when `hardware` is `false`. */
                 name?: boolean;
             };
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };

@@ -54,4 +54,10 @@ void status_portal();
 // factory reset is counting down and letting go now abandons it.
 void hold_armed();
 
+// What three presses did, shown for a moment and then given back with
+// restore(): cyan opened the configuration window for the client that asked,
+// magenta found more than one client asking and opened it for nobody (#656).
+void window_granted();
+void window_conflict();
+
 }  // namespace rgb_led

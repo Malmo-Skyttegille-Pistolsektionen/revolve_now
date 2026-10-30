@@ -86,9 +86,9 @@ The other case is: **the network it knows still exists, and you want it on a
 different one anyway.** The device joins ours quite happily and never offers
 the portal, so there is nothing to configure it through.
 
-For that, use [Expert mode](expert-mode.md#wifi) — press the device's BOOT
-button three times within ten seconds, and the web app offers the same form the
-setup portal does. Saving stores the network; the device moves onto it when you
+For that, use [Expert mode](expert-mode.md#wifi) — ask for it on Settings,
+press the device's BOOT button three times within ten seconds, and the web app
+offers the same form the setup portal does. Saving stores the network; the device moves onto it when you
 press [**Restart to apply**](expert-mode.md#restart-to-apply), and keeps
 everything else: its programs, its clips, and its hardware settings.
 

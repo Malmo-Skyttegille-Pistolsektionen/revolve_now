@@ -142,16 +142,25 @@ function filenameFrom(disposition: string | null): string | null {
   return match ? match[1] : null;
 }
 
+/** The header the configuration window token travels in (D-52). */
+export const CONFIG_WINDOW_HEADER = 'X-Config-Window';
+
 async function send(
   endpoint: string,
   options?: RequestInit,
   controlLockToken?: string | null,
   onAuthError?: () => void,
+  configWindowToken?: string | null,
 ): Promise<Response> {
   const headers: Record<string, string> = {};
 
   if (controlLockToken) {
     headers['Authorization'] = `Bearer ${controlLockToken}`;
+  }
+
+  // Its own header, never the lock's: the two are different credentials.
+  if (configWindowToken) {
+    headers[CONFIG_WINDOW_HEADER] = configWindowToken;
   }
 
   if (options?.body && typeof options.body === 'string') {
@@ -185,8 +194,9 @@ async function request<T>(
   options?: RequestInit,
   controlLockToken?: string | null,
   onAuthError?: () => void,
+  configWindowToken?: string | null,
 ): Promise<T> {
-  const response = await send(endpoint, options, controlLockToken, onAuthError);
+  const response = await send(endpoint, options, controlLockToken, onAuthError, configWindowToken);
   const text = await response.text();
   return text ? JSON.parse(text) : ({} as T);
 }
@@ -196,22 +206,28 @@ async function requestFile(
   options?: RequestInit,
   controlLockToken?: string | null,
   onAuthError?: () => void,
+  configWindowToken?: string | null,
 ): Promise<DownloadedFile> {
-  const response = await send(endpoint, options, controlLockToken, onAuthError);
+  const response = await send(endpoint, options, controlLockToken, onAuthError, configWindowToken);
   return {
     blob: await response.blob(),
     filename: filenameFrom(response.headers.get('Content-Disposition')),
   };
 }
 
-// For use inside React components with proper auth error handling
-export function createAuthenticatedClient(controlLockToken: string | null, onAuthError: () => void) {
+// For use inside React components with proper auth error handling.
+// `configWindowToken` is passed only by the APIs whose routes the window guards.
+export function createAuthenticatedClient(
+  controlLockToken: string | null,
+  onAuthError: () => void,
+  configWindowToken: string | null = null,
+) {
   return {
     request: async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
-      return request<T>(endpoint, options, controlLockToken, onAuthError);
+      return request<T>(endpoint, options, controlLockToken, onAuthError, configWindowToken);
     },
     requestFile: async (endpoint: string, options?: RequestInit): Promise<DownloadedFile> => {
-      return requestFile(endpoint, options, controlLockToken, onAuthError);
+      return requestFile(endpoint, options, controlLockToken, onAuthError, configWindowToken);
     },
   };
 }

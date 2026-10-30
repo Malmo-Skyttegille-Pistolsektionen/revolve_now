@@ -21,7 +21,8 @@ let server: MockServer;
 let queryClient: QueryClient;
 
 interface DeviceOptions {
-  configWindowOpen?: boolean;
+  /** A board whose window opens for one client (D-52); without, it is open to all. */
+  button?: boolean;
   wifi?: Partial<WifiStatus>;
   wifiNetworks?: WifiNetwork[];
 }
@@ -33,7 +34,7 @@ async function device(options: DeviceOptions = {}): Promise<void> {
     seed: {
       programs: {},
       audios: [],
-      configWindowOpen: options.configWindowOpen ?? true,
+      button: options.button,
       wifi: options.wifi,
       wifiNetworks: options.wifiNetworks,
     },
@@ -187,7 +188,7 @@ describe('changing the network from Expert mode', () => {
   it('reports what the device said when it refuses', async () => {
     // The window shut - somebody bookmarked this page, or five minutes passed
     // while the form was open.
-    await device({ configWindowOpen: false });
+    await device({ button: true });
     renderSection();
 
     fireEvent.change(await screen.findByTestId('wifi-config-manual'), { target: { value: 'Elsewhere' } });

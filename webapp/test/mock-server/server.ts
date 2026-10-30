@@ -20,6 +20,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type {
+  ConfigWindowStatus,
   HardwareConfig,
   HardwareConfigState,
   Program,
@@ -42,6 +43,7 @@ import type {
 import type { EventLocation } from '../../src/lib/run-position';
 import { locateEvent, seriesTotalMs } from '../../src/lib/run-position';
 import type { Clock } from './clock';
+import { ConfigWindowModel, type Press } from './config-window';
 import { realClock } from './clock';
 import { readStoredZip, writeStoredZip, type ZipEntry } from './zip';
 
@@ -93,6 +95,10 @@ const PROBLEMS = {
   '/problems/hardware_config_window_closed': {
     title: 'The configuration window is closed',
     status: 403,
+  },
+  '/problems/config_window_busy': {
+    title: 'Too many requests for the configuration window',
+    status: 409,
   },
   '/problems/hardware_config_serial_only': {
     title: 'That setting changes only from the serial console',
@@ -380,8 +386,13 @@ export interface MockSeed {
    * array when it names that.
    */
   hardware?: Partial<HardwareConfig>;
-  /** Whether the button-opened configuration window is open (#144). */
-  configWindowOpen?: boolean;
+  /**
+   * Whether the device has a BOOT button (#144, D-52). With one, the
+   * configuration window opens only for the client that asked, once a test
+   * calls `pressBoot()`. Without - the default, and what the dev server wants -
+   * every client may configure, as on a firmware built without the button.
+   */
+  button?: boolean;
   /**
    * What the boot scan complained about, served by `GET /diagnostics/info`
    * (D-25). Defaults to none, which is what a clean boot reports.
@@ -707,11 +718,15 @@ export interface MockServer {
    */
   restart(): void;
   /**
-   * Open or shut the button window without a button. The firmware's lapses
-   * after five minutes, which is a thing a page has to survive - so a test
-   * needs to be able to shut one that was open (#341).
+   * Three presses of BOOT: opens the window for the one client waiting, or for
+   * nobody when several are (D-52). Only on a device seeded with `button`.
    */
-  setConfigWindow(open: boolean): void;
+  pressBoot(): Press;
+  /**
+   * Shut the window and forget every request. The firmware's lapses after
+   * five minutes, which a page has to survive (#341).
+   */
+  closeConfigWindow(): void;
   /** Bind a real socket (for tests that want to speak HTTP). Resolves to the bound port. */
   listen(): Promise<number>;
   /** Stop timers, drop SSE clients, close the socket if one was opened. */
@@ -743,7 +758,7 @@ interface SSEClient {
 
 /** `rt::kOpenWindowHint` in firmware/lib/rt_logic/problem.h. */
 const OPEN_WINDOW_HINT =
-  'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.';
+  'Ask for the configuration window first (Expert mode, in the web app), then press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds, and try again.';
 
 /**
  * `rt::apply_hardware_patch`'s shape checks: the refusals the firmware answers
@@ -868,10 +883,10 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   const bootConfig = (): HardwareConfig => ({ ...HARDWARE_DEFAULTS, ...(seed.hardware ?? {}) });
   let activeHardware: HardwareConfig = bootConfig();
   let savedHardware: HardwareConfig = { ...activeHardware };
-  // The firmware opens this with a button press and reports it so the app can
-  // decide whether to offer the settings at all. There is no button here, so a
-  // test drives it directly; open by default, matching a build with no button.
-  let configWindowOpen = seed.configWindowOpen ?? true;
+  // boot_button's window (D-52): bound to the client that asked, on a device
+  // with a button. Without one every client may configure.
+  const hasButton = seed.button ?? false;
+  const configWindow = new ConfigWindowModel();
 
   // The same two copies as the hardware configuration, for the same reason: a
   // save stores, and the station keeps the association it booted with until
@@ -901,12 +916,35 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   /** Mirrors `executor::is_running()` on the device. */
   const isRunning = (): boolean => state.programState?.running === true;
 
+  /** The `X-Config-Window` token a request carries, or ''. */
+  const windowToken = (req: IncomingMessage): string => {
+    const value = req.headers['x-config-window'];
+    return typeof value === 'string' ? value : '';
+  };
+
   /**
-   * Mirrors what the firmware reports as `writeWindow.open`: the button window
-   * AND no run in progress, so the two cannot disagree about whether a save
-   * would be accepted.
+   * `boot_button::config_window_open(token)`: this client holds the window and
+   * no run holds it shut. What `writeWindow.open` reports and every hardware,
+   * WiFi and bundle route checks, so the two cannot disagree.
    */
-  const hardwareWritable = (): boolean => configWindowOpen && !isRunning();
+  const hardwareWritable = (req: IncomingMessage): boolean =>
+    !isRunning() && (!hasButton || configWindow.holds(windowToken(req), clock.now()));
+
+  /** `boot_button::presence_window_open(token)`: not held shut by a run. */
+  const presenceWindowOpen = (req: IncomingMessage): boolean =>
+    hasButton && configWindow.holds(windowToken(req), clock.now());
+
+  /** `boot_button::window_status(token)`. */
+  function windowStatus(token: string): ConfigWindowStatus {
+    if (!hasButton) {
+      return isRunning() ? { state: 'closed', remainingSeconds: 0 } : { state: 'open', remainingSeconds: 300 };
+    }
+    const { state: windowState, remainingMs } = configWindow.state(token, clock.now());
+    if (isRunning() && (windowState === 'open' || windowState === 'elsewhere')) {
+      return { state: 'closed', remainingSeconds: 0 };
+    }
+    return { state: windowState, remainingSeconds: Math.floor(remainingMs / 1000) };
+  }
 
   /**
    * What a reboot does: adopt everything that was saved. One function, called
@@ -1158,16 +1196,20 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   }
 
   /**
-   * `sse_hub::broadcast_config_window` (#144). The firmware sends this on the
-   * transition only, so the mock does too - and the transition includes a run
-   * starting or stopping, because the run is part of the answer.
+   * `sse_hub::broadcast_config_window` (#144), from boot_button's task: on a
+   * change to whether a window is open for anybody, to its deadline, or on a
+   * press outcome (D-52). Only a device with a button has that task.
    */
-  let lastPublishedWindowOpen: boolean | null = null;
+  let lastPublished = { open: false, until: 0, outcomes: 0 };
+  let pressOutcomes = 0;
   function broadcastConfigWindowIfChanged(): void {
-    const open = hardwareWritable();
-    if (open === lastPublishedWindowOpen) return;
-    lastPublishedWindowOpen = open;
-    const payload = { open, remainingSeconds: open ? 300 : 0 };
+    if (!hasButton) return;
+    const now = clock.now();
+    const open = !isRunning() && configWindow.open(now);
+    const next = { open, until: configWindow.until(), outcomes: pressOutcomes };
+    if (JSON.stringify(next) === JSON.stringify(lastPublished)) return;
+    lastPublished = next;
+    const payload = { open, remainingSeconds: open ? Math.floor((configWindow.until() - now) / 1000) : 0 };
     const message = `event: configWindow\ndata: ${JSON.stringify(payload)}\n\n`;
     clients.forEach(({ res }) => res.write(message));
   }
@@ -1367,7 +1409,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
    */
   function restoreArchive(
     zip: Buffer,
-    options: { hardware: boolean; name: boolean },
+    options: { hardware: boolean; name: boolean; windowOpen: boolean },
   ): { problem: { type: ProblemType; detail: string } } | { report: RestoreReport } {
     const { entries, error } = readStoredZip(zip);
     const DAMAGED = 'The entry does not match its checksum - the file is damaged. Download a new backup.';
@@ -1476,7 +1518,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           // Compared before the window, so a board already set up that way needs no press.
           if (JSON.stringify(candidate) === JSON.stringify(savedHardware)) {
             report.hardware = { result: 'unchanged' };
-          } else if (!configWindowOpen) {
+          } else if (!options.windowOpen) {
             report.hardware = {
               result: 'skipped',
               problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
@@ -1736,6 +1778,27 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       return;
     }
 
+    // --- The configuration window (D-52) ---
+
+    if (endpoint === '/config-window' && req.method === 'GET') {
+      jsonResponse(res, 200, windowStatus(windowToken(req)));
+      return;
+    }
+
+    if (endpoint === '/config-window/request' && req.method === 'POST') {
+      const token = configWindow.request(windowToken(req), clock.now());
+      if (token === null) {
+        problemResponse(
+          res,
+          '/problems/config_window_busy',
+          'Too many devices are already asking for the configuration window. Wait two minutes and ask again.',
+        );
+        return;
+      }
+      jsonResponse(res, 200, { ...windowStatus(token), token });
+      return;
+    }
+
     // POST /control-lock/enable
     if (endpoint === '/control-lock/enable' && req.method === 'POST') {
       const body = await parseBody(req);
@@ -1750,9 +1813,9 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       }
 
       // D-51: the lock outlives a restart, so setting it needs somebody at the
-      // board. The raw window, not hardwareWritable(): a run does not hold it
-      // shut, as boot_button::presence_window_open() does not.
-      if (!configWindowOpen) {
+      // board - this client's window (D-52). Not held shut by a run, as
+      // boot_button::presence_window_open() is not. No button, no check.
+      if (hasButton && !presenceWindowOpen(req)) {
         problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
@@ -1811,7 +1874,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     // POST /control-lock/disable
     if (endpoint === '/control-lock/disable' && req.method === 'POST') {
       // A session, or somebody at the board (D-51).
-      if (!configWindowOpen && !checkControlLockAuth(req, res)) return;
+      if (!presenceWindowOpen(req) && !checkControlLockAuth(req, res)) return;
       state.controlLockPassword = null;
       state.controlLockTokens.clear();
       jsonResponse(res, 200, { message: 'Control lock off - anyone on the network can operate the device again' });
@@ -1870,10 +1933,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     //
     // The configuration window and nothing else - notably NOT the control
     // lock, which is write protection and irrelevant to a read.
-    // `hardwareWritable` rather
-    // than `configWindowOpen` because the firmware's `config_window_open()` is
-    // held shut by a run, and the two must agree about a device that would
-    // refuse.
+    // `hardwareWritable`, as the firmware's `config_window_open(token)`: held
+    // shut by a run, and open only for the client the presses chose (D-52).
     //
     // The body is an *empty* archive - the 22-byte end-of-central-directory
     // record and nothing else, which is a real zip every reader accepts.
@@ -1881,12 +1942,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     // Reimplementing the entry layout here would be a second copy of a format
     // whose real test is firmware/host_test/test_zip_writer.
     if (endpoint === '/diagnostics/bundle' && req.method === 'GET') {
-      if (!hardwareWritable()) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
@@ -1947,7 +2004,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         if (value === 'false' || value === '0') return false;
         return fallback;
       };
-      const outcome = restoreArchive(upload.content, { hardware: flag('hardware', true), name: flag('name', false) });
+      const outcome = restoreArchive(upload.content, {
+        hardware: flag('hardware', true),
+        name: flag('name', false),
+        windowOpen: hardwareWritable(req),
+      });
       if ('problem' in outcome) {
         problemResponse(res, outcome.problem.type, outcome.problem.detail);
         return;
@@ -1969,11 +2030,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         // "differs from the defaults", not "a key was written" - saving a
         // value equal to its default leaves nothing for a reset to undo.
         overridden: JSON.stringify(savedHardware) !== JSON.stringify(HARDWARE_DEFAULTS),
-        // Mirrors the firmware: one meaning, "would a PUT be accepted now", so
-        // a run closes the window and the app hides Expert mode.
+        // Mirrors the firmware: one meaning, "would a PUT from this client be
+        // accepted now", so a run closes the window and the app hides Expert mode.
         writeWindow: {
-          open: hardwareWritable(),
-          remainingSeconds: hardwareWritable() ? 300 : 0,
+          open: hardwareWritable(req),
+          remainingSeconds: hardwareWritable(req) ? windowStatus(windowToken(req)).remainingSeconds : 0,
         },
         restartRequired: JSON.stringify(activeHardware) !== JSON.stringify(savedHardware),
       };
@@ -2004,7 +2065,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
       // Expert mode is a place, not a per-field rule: the whole endpoint is
       // behind the window, hostname included.
-      if (!configWindowOpen) {
+      if (!hardwareWritable(req)) {
         problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
@@ -2044,12 +2105,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         );
         return;
       }
-      if (!configWindowOpen) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
       savedHardware = { ...HARDWARE_DEFAULTS };
@@ -2084,12 +2141,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         );
         return;
       }
-      if (!hardwareWritable()) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
       jsonResponse(res, 200, { networks: wifiNetworks });
@@ -2132,12 +2185,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         );
         return;
       }
-      if (!configWindowOpen) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
@@ -2882,8 +2931,17 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       boot();
     },
 
-    setConfigWindow(open: boolean): void {
-      configWindowOpen = open;
+    pressBoot(): Press {
+      if (!hasButton) throw new Error('pressBoot() needs a mock seeded with `button: true`');
+      const outcome = configWindow.press(clock.now());
+      pressOutcomes++;
+      broadcastConfigWindowIfChanged();
+      return outcome;
+    },
+
+    closeConfigWindow(): void {
+      configWindow.reset();
+      broadcastConfigWindowIfChanged();
     },
 
     listen(): Promise<number> {

@@ -73,6 +73,11 @@ constexpr size_t kMaxUploadBytes = 1024 * 1024;
 // the log line at enable says how long it took on the board.
 constexpr unsigned kControlLockKdfIterations = 4096;
 
+// The header a client presents its configuration window token in (D-52). A
+// macro as well, so the CORS allow-list literal is built from it.
+#define RT_CONFIG_WINDOW_HEADER "X-Config-Window"
+constexpr const char *kConfigWindowHeader = RT_CONFIG_WINDOW_HEADER;
+
 // Firmware is the one upload that legitimately exceeds the ceiling above: the
 // app image is 3.3 MB (it carries the web app and the shipped audio since
 // #227) and the slot it goes into is 4.5 MB. Sized to the slot, so the limit

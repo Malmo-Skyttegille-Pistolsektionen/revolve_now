@@ -20,11 +20,12 @@ let server: MockServer;
 let queryClient: QueryClient;
 let saved: { filename: string; blob: Blob }[];
 
-async function device(configWindowOpen = true): Promise<void> {
+/** `button`: a board whose window opens for one client (D-52), shut here. */
+async function device(button = false): Promise<void> {
   server = createMockServer({
     clock: createFakeClock(),
     port: PORT,
-    seed: { programs: {}, audios: [], configWindowOpen },
+    seed: { programs: {}, audios: [], button },
   });
   await server.listen();
 }
@@ -113,7 +114,7 @@ describe('the backup section', () => {
   });
 
   it('says why the hardware was skipped, with the device’s own sentence', async () => {
-    await device(false);
+    await device(true);
     renderSection();
 
     // Offered anyway, with the reason it will be skipped.

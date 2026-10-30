@@ -9,16 +9,31 @@ svarar.
 
 ## Komma in { #getting-in }
 
-**Tryck på BOOT-knappen på enheten tre gånger inom tio sekunder.** Den sitter
-intill USB-uttagen och kan vara märkt `FLASH`. En flik **Expertläge** dyker upp
-i webbappen och stannar i fem minuter; tryck tre gånger igen för fem nya.
+1. Öppna **Inställningar → Expertläge** i webbappen och tryck på **Be om
+   expertläge**.
+2. Inom två minuter, **tryck på BOOT-knappen på enheten tre gånger inom tio
+   sekunder.** Den sitter intill USB-uttagen och kan vara märkt `FLASH`.
+
+En flik **Expertläge** dyker upp **bara i den webbläsaren**, och stannar i fem
+minuter. Statuslampan lyser cyan en stund när det fungerade.
+
+Om fler än en webbläsare bad samtidigt öppnar trycken expertläget för ingen:
+lampan lyser magenta och sidan säger det. Se till att ingen annan ber om det
+och be sedan igen. Be och tryck igen för fem nya minuter.
 
 ![Sidan Expertläge, med konfigurationsfönstret öppet](img/expert-mode.png)
 
 Tre tryck i stället för ett så att det inte kan hända av misstag, och en knapp
 i stället för ett lösenord eftersom det som ska fastställas är att **någon
 står vid enheten**. Det är inget någon kan göra från andra sidan skjutbanan,
-på något avstånd, med någon behörighet — vilket är hela poängen.
+på något avstånd, med någon behörighet — vilket är hela poängen. Och det
+öppnas för webbläsaren som bad om det i stället för för alla i nätverket, så
+en telefon i rummet bredvid kan inte använda ett fönster du öppnade.
+
+!!! tip "Be först, tryck sedan"
+
+    Tryck som ingen bett om öppnar ingenting. Be alltid i webbappen innan du
+    trycker, så att fönstret går till dig.
 
 !!! note "Det öppnar inte under en körning"
 
@@ -26,8 +41,8 @@ på något avstånd, med någon behörighet — vilket är hela poängen.
     och att använda den är olika jobb, och de här inställningarna börjar ändå
     inte gälla förrän enheten startar om. Stoppa körningen först.
 
-Om fliken inte finns där har ingen tryckt på knappen nyligen. Om den försvinner
-medan du skriver tog de fem minuterna slut — tryck tre gånger igen och
+Om fliken inte finns där håller den här webbläsaren inte fönstret. Om den
+försvinner medan du skriver tog de fem minuterna slut — be och tryck igen, och
 fortsätt.
 
 Sidan börjar med en kort status — om en omstart väntar, hur många

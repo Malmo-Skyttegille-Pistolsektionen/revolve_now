@@ -8,8 +8,10 @@ import { SettingsFold, SettingsGroup } from '../components/SettingsFold';
 import { WifiConfigSection } from '../components/WifiConfigSection';
 import { TroubleshootingSection } from '../components/TroubleshootingSection';
 import { RestartToApply } from '../components/RestartToApply';
+import { ConfigWindowRequest } from '../components/ConfigWindowRequest';
 import { useConfigWindow } from '../hooks/useConfigWindow';
 import { useT } from '../i18n';
+import { formatRemaining } from '../lib/format-remaining';
 import styles from './settings.module.css';
 
 /**
@@ -86,29 +88,15 @@ export function HardwarePage(): React.ReactNode {
       {/* The countdown lives here rather than in the tab: it answers "how long
           have I got", which is a question asked while typing a pin number, not
           while looking at the navigation. */}
-      {open ? (
-        <p className={styles.window} data-testid='config-window'>
-          {t.unlockedBefore}
-          <strong>{formatRemaining(remainingSeconds)}</strong>
-          {t.unlockedPress}
-          <strong>BOOT</strong>
-          {t.unlockedAfter}
-        </p>
-      ) : (
-        <p className={styles.windowShut} data-testid='config-window-shut'>
-          {t.lockedBefore}
-          <strong>{t.locked}</strong>
-          {t.lockedPress}
-          <strong>BOOT</strong>
-          {t.lockedOnDevice}
-          <strong>{t.lockedThreeTimes}</strong>
-          {t.lockedWhere}
-          <code>BOOT</code>
-          {t.lockedOr}
-          <code>FLASH</code>
-          {t.lockedAfter}
-        </p>
-      )}
+      <ConfigWindowRequest
+        whenOpen={
+          <p className={styles.window} data-testid='config-window'>
+            {t.unlockedBefore}
+            <strong>{formatRemaining(remainingSeconds)}</strong>
+            {t.unlockedAfter}
+          </p>
+        }
+      />
 
       {/* Not rendered while the window is shut. Both contracts say a client
           should decide whether to *offer* these settings rather than let
@@ -166,10 +154,4 @@ export function HardwarePage(): React.ReactNode {
       )}
     </div>
   );
-}
-
-function formatRemaining(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${String(minutes)}:${String(rest).padStart(2, '0')}`;
 }

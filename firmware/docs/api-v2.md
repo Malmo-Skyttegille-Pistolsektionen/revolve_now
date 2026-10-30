@@ -302,6 +302,31 @@ was rounded down to a whole second as well, and a pause 250 ms into a series
 rewound to event 0 with the targets shown again;
 `host_test/test_executor` now asserts it stays in the event it paused in.
 
+## The configuration window
+
+Three presses of BOOT prove somebody is at the board, and the window they open
+belongs to **one client** (D-52, `rt::ConfigWindow`):
+
+- `POST /api/v2/config-window/request` — no body; answers `{token, state,
+  remainingSeconds}` with `state: "pending"`. Send the held token in
+  `X-Config-Window` to ask again as the same request (to keep waiting, or to
+  renew an open window). `409 config_window_busy` when four are already
+  waiting.
+- Three presses within two minutes grant the window, for five minutes, to the
+  one request waiting. With several waiting they grant nobody: `conflict`.
+- `GET /api/v2/config-window` — this token's `state`: `closed`, `pending`,
+  `open`, `conflict` or `elsewhere` (open for another client). A run reports
+  `open` and `elsewhere` as `closed`.
+- The guarded routes take the token in `X-Config-Window`. Without it, or with
+  another client's, they answer `403 hardware_config_window_closed`, as if the
+  window were shut.
+- The `configWindow` SSE event says whether a window is open for somebody; a
+  client asks `GET /config-window` on each one to learn whether it is theirs.
+
+A build without a button tells every client `open`, and its hardware routes
+need no token. Under QEMU GPIO0 reads stuck, so a request waits and is never
+granted.
+
 ## Auth
 
 The control lock is off until a client enables it, and once on it survives a
@@ -323,6 +348,8 @@ while the control lock is on, except the three that have to work without a sessi
   issued token — note this turns protection *off*, it is not "log out". It
   takes a session, or an open configuration window instead: the way back from
   a forgotten password
+- "The configuration window" below means the window held by this request's
+  `X-Config-Window` token (D-52)
 - `POST /api/v2/control-lock/logout` invalidates only the presenting token and
   clears the cookie, leaving the control lock on. This is what a client leaving a
   shared range laptop wants. It is itself unprotected, and answers `200`
@@ -432,8 +459,9 @@ byte — and `coredump.bin`, the raw coredump partition, when there is one. One
 file to attach to a message; the diagnostics are what makes the dump decodable
 once the board has been reflashed (D-39, #201).
 
-Behind an open configuration window — three presses of the BOOT button within
-ten seconds, the gesture Expert mode is behind — and behind nothing else. This
+Behind the configuration window — three presses of the BOOT button within
+ten seconds, the gesture Expert mode is behind, opening it for the client that
+asked (D-52) — and behind nothing else. This
 is the one response that can carry the WiFi password, so what has to be
 established is that whoever collects it is standing at the board. A run holds
 that window shut, so `403 /problems/hardware_config_window_closed` is also the

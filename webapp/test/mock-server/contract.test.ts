@@ -829,6 +829,51 @@ describe('hardware configuration', () => {
 });
 
 /**
+ * The configuration window belongs to the client that asked (D-52, #656). QEMU
+ * has a button whose pin reads stuck, so a request waits there and is never
+ * granted - the mock is seeded with a button to match. One request only: the
+ * device keeps it for two minutes, and four waiting would refuse a fifth.
+ */
+describe('the configuration window', () => {
+  setUpTarget({ ...SEED, button: true });
+
+  const asking = (token: string): RequestInit => ({ headers: { 'X-Config-Window': token } });
+
+  it('hands a request a token that waits for the presses, and opens nothing by itself', async () => {
+    const asked = await api('/config-window/request', { method: 'POST' });
+    expect(asked.status).toBe(200);
+    const request = (await asked.json()) as { token: string; state: string; remainingSeconds: number };
+    expect(request.token).toMatch(/^[0-9a-f]{32}$/);
+    expect(request.state).toBe('pending');
+    expect(request.remainingSeconds).toBeGreaterThan(0);
+    expect(request.remainingSeconds).toBeLessThanOrEqual(120);
+
+    // Asking again with it is the same request.
+    const again = (await (
+      await api('/config-window/request', { method: 'POST', ...asking(request.token) })
+    ).json()) as {
+      token: string;
+    };
+    expect(again.token).toBe(request.token);
+
+    expect(((await (await api('/config-window', asking(request.token))).json()) as { state: string }).state).toBe(
+      'pending',
+    );
+    expect(await (await api('/config-window')).json()).toEqual({ state: 'closed', remainingSeconds: 0 });
+
+    // A pending token is not a window.
+    const refused = await api('/config/hardware', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Config-Window': request.token },
+      body: JSON.stringify({ displayName: 'Range A' }),
+    });
+    expect(refused.status).toBe(403);
+    expect(((await refused.json()) as { type: string }).type).toBe('/problems/hardware_config_window_closed');
+    expect((await api('/diagnostics/bundle', asking(request.token))).status).toBe(403);
+  });
+});
+
+/**
  * Where the targets rest at boot changes only from the serial console (D-31,
  * #144). The firmware checks this ahead of the configuration window, so it
  * holds on a device whose window is shut.

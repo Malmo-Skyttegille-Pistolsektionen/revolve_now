@@ -25,6 +25,8 @@ void status_online() {}
 void status_serving() {}
 void status_portal() {}
 void hold_armed() {}
+void window_granted() {}
+void window_conflict() {}
 void restore() {}
 
 #else
@@ -140,6 +142,15 @@ void hold_armed() {
   // Deliberately not recorded in s_status: this is borrowed, and restore() has
   // to be able to undo it.
   white();
+}
+
+// Borrowed like hold_armed(); boot_button gives the LED back after a moment.
+void window_granted() {
+  set(0, 40, 40);
+}
+
+void window_conflict() {
+  set(60, 0, 60);
 }
 
 void restore() {

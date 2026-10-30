@@ -233,10 +233,17 @@ bool refuse_if_running(PsychicResponse *res, const char *what) {
   return true;
 }
 
-// Refuses unless the configuration window (three presses of BOOT) is open.
+// The configuration window token a request carries (D-52), or empty. Its own
+// header, never the control lock's: the two are different credentials.
+std::string window_token(PsychicRequest *req) {
+  const char *raw = req->header(kConfigWindowHeader);
+  return raw != nullptr ? raw : "";
+}
+
+// Refuses unless this request holds the open configuration window.
 // True once it has answered the request.
-bool refuse_if_window_closed(PsychicResponse *res) {
-  if (boot_button::config_window_open()) return false;
+bool refuse_if_window_closed(PsychicRequest *req, PsychicResponse *res) {
+  if (boot_button::config_window_open(window_token(req))) return false;
   send_problem(res, rt::problem::kHardwareConfigWindowClosed, rt::kOpenWindowHint);
   return true;
 }
@@ -338,7 +345,8 @@ void add_cors_headers(PsychicRequest *req, PsychicResponse *res) {
   res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
   res->addHeader("Access-Control-Allow-Credentials", "true");
   res->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res->addHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res->addHeader("Access-Control-Allow-Headers",
+                 "Authorization, Content-Type, " RT_CONFIG_WINDOW_HEADER);
   res->addHeader("Access-Control-Max-Age", "600");
   res->addHeader("Vary", "Origin");
 }
@@ -371,7 +379,7 @@ void register_control_lock_routes() {
     // would own the device for good. A build with no button cannot
     // prove that, and would otherwise never be lockable.
 #if CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW
-        if (boot_button::available() && !boot_button::presence_window_open()) {
+        if (boot_button::available() && !boot_button::presence_window_open(window_token(req))) {
           return send_problem(res, rt::problem::kHardwareConfigWindowClosed, rt::kOpenWindowHint);
         }
 #endif
@@ -424,7 +432,8 @@ void register_control_lock_routes() {
               [](PsychicRequest *req, PsychicResponse *res) {
                 // A session, or somebody at the board: the way back from a
                 // forgotten password, now that a restart no longer is (D-51).
-                if (!boot_button::presence_window_open() && !require_control_lock(req, res)) {
+                if (!boot_button::presence_window_open(window_token(req)) &&
+                    !require_control_lock(req, res)) {
                   return ESP_OK;
                 }
                 if (!control_lock_store::erase()) {
@@ -435,6 +444,51 @@ void register_control_lock_routes() {
                 ESP_LOGI(TAG, "Control lock off");
                 return send_message(
                     res, "Control lock off - anyone on the network can operate the device again");
+              });
+}
+
+const char *window_state_name(rt::ConfigWindow::State state) {
+  switch (state) {
+    case rt::ConfigWindow::State::kPending:
+      return "pending";
+    case rt::ConfigWindow::State::kOpen:
+      return "open";
+    case rt::ConfigWindow::State::kConflict:
+      return "conflict";
+    case rt::ConfigWindow::State::kElsewhere:
+      return "elsewhere";
+    case rt::ConfigWindow::State::kClosed:
+      break;
+  }
+  return "closed";
+}
+
+std::string window_status_json(const std::string &token) {
+  const boot_button::WindowStatus status = boot_button::window_status(token);
+  return std::string("{\"state\":\"") + window_state_name(status.state) +
+         "\",\"remainingSeconds\":" + std::to_string(status.remaining_s) + "}";
+}
+
+// The configuration window, bound to the client that asked for it (D-52).
+// Neither route is behind the control lock: asking proves nothing by itself,
+// the presses at the board do.
+void register_config_window_routes() {
+  s_server.on("/api/v2/config-window", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
+    return send_json(res, 200, window_status_json(window_token(req)));
+  });
+
+  s_server.on("/api/v2/config-window/request", HTTP_POST,
+              [](PsychicRequest *req, PsychicResponse *res) {
+                const std::string token = boot_button::request_window(window_token(req));
+                if (token.empty()) {
+                  return send_problem(res, rt::problem::kConfigWindowBusy,
+                                      "Too many devices are already asking for the configuration "
+                                      "window. Wait two minutes and ask again.");
+                }
+                std::string out = window_status_json(token);
+                out.pop_back();
+                out += ",\"token\":" + rt::json_quote(token) + "}";
+                return send_json(res, 200, out);
               });
 }
 
@@ -910,76 +964,77 @@ void register_diagnostics_routes() {
   // would add nothing in the state that matters, while in the state it is on
   // it would stop a club member collecting a fault report during the event
   // where a fault matters most. It is a lock on writing, and this is a read.
-  s_server.on("/api/v2/diagnostics/bundle", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
-    if (refuse_if_window_closed(res)) return ESP_OK;
+  s_server.on(
+      "/api/v2/diagnostics/bundle", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
+        if (refuse_if_window_closed(req, res)) return ESP_OK;
 
-    const std::string info = diagnostics_info_json();
+        const std::string info = diagnostics_info_json();
 
-    const esp_partition_t *part = nullptr;
-    size_t dump_offset = 0, dump_size = 0;
-    bool with_dump = coredump_extent(&part, &dump_offset, &dump_size);
+        const esp_partition_t *part = nullptr;
+        size_t dump_offset = 0, dump_size = 0;
+        bool with_dump = coredump_extent(&part, &dump_offset, &dump_size);
 
-    // A stored entry carries its CRC in the header that precedes it, and
-    // nothing here can seek backwards, so the dump is read once to sum and
-    // once to send. On flash that is a few milliseconds; buffering 128 KB to
-    // avoid it is memory this device does not have.
-    std::vector<uint8_t> buffer(kBundleChunkBytes);
-    uint32_t dump_crc = 0;
-    for (size_t read = 0; with_dump && read < dump_size; read += kBundleChunkBytes) {
-      const size_t want = std::min(kBundleChunkBytes, dump_size - read);
-      if (esp_partition_read(part, dump_offset + read, buffer.data(), want) != ESP_OK) {
-        // Still worth having without it: the diagnostics are most of what
-        // a triage needs, and a download that fails outright leaves the
-        // operator with nothing at all.
-        ESP_LOGW(TAG, "Could not read the coredump - serving the bundle without it");
-        with_dump = false;
-        break;
-      }
-      dump_crc = rt::crc32(dump_crc, buffer.data(), want);
-    }
-
-    const std::string name = rt::filename_safe(hardware_store::current().hostname) + "-" +
-                             rt::filename_safe(esp_app_get_description()->version) + "-" +
-                             rt::filename_safe(diagnostics::reset_reason_name(esp_reset_reason())) +
-                             ".zip";
-    // No date in it: this device never learns one. The browser adds that
-    // on the way to the Downloads folder.
-    const std::string disposition = "attachment; filename=\"" + name + "\"";
-
-    res->setCode(200);
-    res->setContentType("application/zip");
-    res->addHeader("Content-Disposition", disposition.c_str());
-    res->sendHeaders();
-
-    rt::ZipWriter zip(send_bundle_chunk, res);
-    const uint8_t *json = reinterpret_cast<const uint8_t *>(info.data());
-    zip.begin("diagnostics.json", static_cast<uint32_t>(info.size()),
-              rt::crc32(0, json, info.size()));
-    zip.write(json, info.size());
-
-    if (with_dump) {
-      // Named for what it is: the coredump *partition*, not a bare ELF.
-      // `idf.py coredump-info` reads it as it stands, and calling it `.elf`
-      // invites somebody to open it with something that will not.
-      zip.begin("coredump.bin", static_cast<uint32_t>(dump_size), dump_crc);
-      for (size_t sent = 0; zip.ok() && sent < dump_size; sent += kBundleChunkBytes) {
-        const size_t want = std::min(kBundleChunkBytes, dump_size - sent);
-        if (esp_partition_read(part, dump_offset + sent, buffer.data(), want) != ESP_OK) {
-          break;
+        // A stored entry carries its CRC in the header that precedes it, and
+        // nothing here can seek backwards, so the dump is read once to sum and
+        // once to send. On flash that is a few milliseconds; buffering 128 KB to
+        // avoid it is memory this device does not have.
+        std::vector<uint8_t> buffer(kBundleChunkBytes);
+        uint32_t dump_crc = 0;
+        for (size_t read = 0; with_dump && read < dump_size; read += kBundleChunkBytes) {
+          const size_t want = std::min(kBundleChunkBytes, dump_size - read);
+          if (esp_partition_read(part, dump_offset + read, buffer.data(), want) != ESP_OK) {
+            // Still worth having without it: the diagnostics are most of what
+            // a triage needs, and a download that fails outright leaves the
+            // operator with nothing at all.
+            ESP_LOGW(TAG, "Could not read the coredump - serving the bundle without it");
+            with_dump = false;
+            break;
+          }
+          dump_crc = rt::crc32(dump_crc, buffer.data(), want);
         }
-        zip.write(buffer.data(), want);
-      }
-    }
 
-    zip.finish();
-    if (!zip.ok()) {
-      // Nothing to answer with: the 200 and its headers are long gone. The
-      // client sees a short archive and says so; this is the only place the
-      // reason can be recorded.
-      ESP_LOGW(TAG, "Bundle download did not complete");
-    }
-    return res->finishChunking();
-  });
+        const std::string name =
+            rt::filename_safe(hardware_store::current().hostname) + "-" +
+            rt::filename_safe(esp_app_get_description()->version) + "-" +
+            rt::filename_safe(diagnostics::reset_reason_name(esp_reset_reason())) + ".zip";
+        // No date in it: this device never learns one. The browser adds that
+        // on the way to the Downloads folder.
+        const std::string disposition = "attachment; filename=\"" + name + "\"";
+
+        res->setCode(200);
+        res->setContentType("application/zip");
+        res->addHeader("Content-Disposition", disposition.c_str());
+        res->sendHeaders();
+
+        rt::ZipWriter zip(send_bundle_chunk, res);
+        const uint8_t *json = reinterpret_cast<const uint8_t *>(info.data());
+        zip.begin("diagnostics.json", static_cast<uint32_t>(info.size()),
+                  rt::crc32(0, json, info.size()));
+        zip.write(json, info.size());
+
+        if (with_dump) {
+          // Named for what it is: the coredump *partition*, not a bare ELF.
+          // `idf.py coredump-info` reads it as it stands, and calling it `.elf`
+          // invites somebody to open it with something that will not.
+          zip.begin("coredump.bin", static_cast<uint32_t>(dump_size), dump_crc);
+          for (size_t sent = 0; zip.ok() && sent < dump_size; sent += kBundleChunkBytes) {
+            const size_t want = std::min(kBundleChunkBytes, dump_size - sent);
+            if (esp_partition_read(part, dump_offset + sent, buffer.data(), want) != ESP_OK) {
+              break;
+            }
+            zip.write(buffer.data(), want);
+          }
+        }
+
+        zip.finish();
+        if (!zip.ok()) {
+          // Nothing to answer with: the 200 and its headers are long gone. The
+          // client sees a short archive and says so; this is the only place the
+          // reason can be recorded.
+          ESP_LOGW(TAG, "Bundle download did not complete");
+        }
+        return res->finishChunking();
+      });
 }
 
 // What a /targets/* request asked for. `named` false is the bodyless call -
@@ -1267,7 +1322,7 @@ bool s_webapp_bundled = false;
 // --- Hardware configuration (#144) ----------------------------------------
 
 void register_config_routes() {
-  s_server.on("/api/v2/config/hardware", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
+  s_server.on("/api/v2/config/hardware", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
     // `active` is what boot latched; `saved` is what NVS holds now. They differ
     // exactly between a write and the restart that adopts it, which is the one
     // thing a client must not hide - a pin change that appears to have done
@@ -1284,14 +1339,15 @@ void register_config_routes() {
     out += rt::hardware_config_json(defaults);
     out += ",\"overridden\":";
     out += hardware_store::overridden() ? "true" : "false";
-    // One meaning: "would a PUT be accepted right now". The run is already part
-    // of that answer - boot_button owns the composite - so this does not
-    // recompute it and cannot drift from the guard on the write below.
-    const bool window_open = boot_button::config_window_open();
+    // One meaning: "would a PUT from this client be accepted right now". The
+    // run is already part of that answer - boot_button owns the composite - so
+    // this does not recompute it and cannot drift from the guard on the write.
+    const std::string token = window_token(req);
+    const bool window_open = boot_button::config_window_open(token);
     out += ",\"writeWindow\":{\"open\":";
     out += window_open ? "true" : "false";
     out += ",\"remainingSeconds\":";
-    out += std::to_string(window_open ? boot_button::config_window_remaining_s() : 0);
+    out += std::to_string(window_open ? boot_button::window_status(token).remaining_s : 0);
     out += "}";
     out += ",\"restartRequired\":";
     out += rt::same_config(active, saved) ? "false" : "true";
@@ -1334,7 +1390,7 @@ void register_config_routes() {
     // behind the window. Hostname belongs inside it as much as the pins do -
     // a wrong pin leaves the web app reachable to fix it from, a wrong
     // hostname changes mDNS and does not.
-    if (refuse_if_window_closed(res)) return ESP_OK;
+    if (refuse_if_window_closed(req, res)) return ESP_OK;
 
     if (shape != rt::PatchError::kNone) {
       return send_problem(res, rt::problem::kHardwareConfigInvalid, rt::patch_error_message(shape));
@@ -1359,7 +1415,7 @@ void register_config_routes() {
         // guarding the PUT and leaving this open protected nothing - one
         // click undid it.
         if (refuse_if_running(res, "resetting the hardware configuration")) return ESP_OK;
-        if (refuse_if_window_closed(res)) return ESP_OK;
+        if (refuse_if_window_closed(req, res)) return ESP_OK;
 
         hardware_store::reset();
         return send_message(res, "Hardware configuration reset - restart the device to apply it");
@@ -1470,8 +1526,8 @@ void register_wifi_routes() {
   // the radio off its channel for about two seconds, so this is a read that
   // costs the network it is served over. Only somebody standing at the device
   // with a reason should be spending that.
-  s_server.on("/api/v2/wifi/networks", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
-    if (refuse_if_window_closed(res)) return ESP_OK;
+  s_server.on("/api/v2/wifi/networks", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
+    if (refuse_if_window_closed(req, res)) return ESP_OK;
 
     const std::vector<wifi_scan::AccessPoint> found =
         wifi_scan::strongest_per_ssid(wifi_scan::scan());
@@ -1519,7 +1575,7 @@ void register_wifi_routes() {
     // is compile-time, identical on every device and published. What has to be
     // established is that somebody is standing at the device, and three
     // presses of BOOT is that same proof.
-    if (refuse_if_window_closed(res)) return ESP_OK;
+    if (refuse_if_window_closed(req, res)) return ESP_OK;
 
     const std::string ssid = doc["ssid"] | "";
     const std::string password = doc["password"] | "";
@@ -1705,6 +1761,7 @@ bool start() {
     }
   }
   register_control_lock_routes();
+  register_config_window_routes();
   register_program_routes();
   register_diagnostics_routes();
   register_target_routes();

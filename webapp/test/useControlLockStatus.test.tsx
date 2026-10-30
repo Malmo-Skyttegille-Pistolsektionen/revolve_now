@@ -35,6 +35,8 @@ function renderControlLock() {
 
 // One server for the file, reset between tests: rebinding the same port each
 // time leaves the page's keep-alive socket pointing at a dead listener.
+// A device without a button, so the lock turns on without the window: the
+// window's part in it (D-51, D-52) is in control-lock-section.test.tsx.
 beforeAll(async () => {
   server = createMockServer({ clock: createFakeClock(), port: PORT, seed: { programs: {}, audios: [] } });
   await server.listen();
@@ -46,8 +48,6 @@ afterAll(async () => {
 
 beforeEach(() => {
   server.reset();
-  // reset() leaves the window as the last test set it.
-  server.setConfigWindow(true);
   localStorage.clear();
   document.cookie = 'control_lock=; Path=/; Max-Age=0';
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -212,40 +212,11 @@ describe('the three states of the control lock', () => {
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(false));
   });
 
-  // D-51: the lock outlives a restart, so setting it needs somebody at the board.
-  it('enable is refused while the configuration window is shut', async () => {
-    server.setConfigWindow(false);
-    const { result } = renderControlLock();
-    await waitFor(() => expect(result.current.lock.isLoading).toBe(false));
-
-    await expect(result.current.lock.enable('competition-2026')).rejects.toThrow(/BOOT/);
-
-    expect(result.current.settings.controlLockToken).toBeNull();
-    await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(false));
-  });
-
-  // ...and somebody at the board can always turn it off: the way back from a
-  // forgotten password, now that a restart is not.
-  it('disable needs no session while the configuration window is open', async () => {
-    await enableControlLockElsewhere(PORT, 'competition-2026');
-    const { result } = renderControlLock();
-    await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));
-    expect(result.current.settings.controlLockToken).toBeNull();
-
-    await act(async () => {
-      await result.current.lock.disable();
-    });
-
-    await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(false));
-  });
-
   it('drops a token the server no longer knows, on the 401 it comes back with', async () => {
     // The password-changed case from docs/control-lock-auth-flow.md: the lock was
     // cycled off and on elsewhere, so this client's token is stale.
     localStorage.setItem('rt_settings_control_lock_token', 'a-token-from-a-previous-session');
     await enableControlLockElsewhere(PORT, 'competition-2026');
-    // Shut, or disable would be accepted without a session (D-51).
-    server.setConfigWindow(false);
 
     const { result } = renderControlLock();
     await waitFor(() => expect(result.current.lock.controlLockEnabled).toBe(true));

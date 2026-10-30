@@ -88,8 +88,8 @@ Det andra fallet är: **nätverket den känner till finns fortfarande, och du vi
 ändå ha den på ett annat.** Enheten ansluter glatt till vårt och erbjuder aldrig
 portalen, så det finns inget att konfigurera den genom.
 
-Använd då [Expertläge](expert-mode.md#wifi) — tryck på enhetens BOOT-knapp tre
-gånger inom tio sekunder, så visar webbappen samma formulär som
+Använd då [Expertläge](expert-mode.md#wifi) — be om det under Inställningar,
+tryck på enhetens BOOT-knapp tre gånger inom tio sekunder, så visar webbappen samma formulär som
 installationsportalen gör. Att spara lagrar nätverket; enheten går över till
 det när du trycker på [**Starta om för att
 verkställa**](expert-mode.md#restart-to-apply), och behåller allt annat: sina

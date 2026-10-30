@@ -54,6 +54,14 @@ fastklämd eller kortsluten. Enheten märker det — den vägrar agera på en kn
 den aldrig har sett släppas, så den återställer inte sig själv — men knappen
 fungerar inte förrän felet är åtgärdat. Den seriella loggen säger det rakt ut.
 
+## Cyan eller magenta — efter tre tryck { #cyan-or-magenta-after-three-presses }
+
+Tre tryck på BOOT visar en stund vad de gjorde: **cyan** —
+[expertläget](expert-mode.md#getting-in) öppnades för webbläsaren som bad om
+det; **magenta** — fler än en webbläsare bad, så det öppnades för ingen. Be
+igen från en webbläsare och tryck igen. Ingen färg alls betyder att ingen hade
+bett om det.
+
 ## Tre saker värda att säga, för ingen av dem går att gissa { #three-things-worth-saying-because-none-is-guessable }
 
 - **Blinkande kontra fast rött är den viktiga skillnaden.** Före
@@ -62,8 +70,8 @@ fungerar inte förrän felet är åtgärdat. Den seriella loggen säger det rakt
   såg likadana ut — vilket är precis den fråga du har på skjutbanan.
 - **Gult är en felindikator, inte ett steg.** Det finns för att synas bara när
   något är fel.
-- **Vitt är den enda färgen som svarar dig i stället för att rapportera om
-  enheten.** Varje annan färg är något att läsa av; vitt är återkoppling på
+- **Vitt, cyan och magenta svarar dig i stället för att rapportera om
+  enheten.** Varje annan färg är något att läsa av; de här är återkoppling på
   något du gör med den just nu.
 
 Lampan är avsiktligt svag: enheten står på en skjutbana i mörker, och en stark

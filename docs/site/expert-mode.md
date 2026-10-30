@@ -8,10 +8,18 @@ does not produce a warning, it produces a device that no longer answers.
 
 ## Getting in
 
-**Press the BOOT button on the device three times within ten seconds.** It is
-next to the USB sockets and may be marked `FLASH`. An **Expert mode** tab
-appears in the web app and stays for five minutes; press three times again for
-a fresh five.
+1. In the web app, open **Settings → Expert mode** and tap **Ask for Expert
+   mode**.
+2. Within two minutes, **press the BOOT button on the device three times
+   within ten seconds.** It is next to the USB sockets and may be marked
+   `FLASH`.
+
+An **Expert mode** tab appears **in that browser only**, and stays for five
+minutes. The status LED shows cyan for a moment when it worked.
+
+If more than one browser asked at the same time, the presses open Expert mode
+for nobody: the LED shows magenta and the page says so. Make sure nobody else
+is asking, then ask again. Ask and press again for a fresh five minutes.
 
 ![The Expert mode page, with the configuration window open](img/expert-mode.png)
 
@@ -19,6 +27,13 @@ Three presses rather than one so it cannot happen by accident, and a button
 rather than a password because the thing being established is that **somebody
 is standing at the device**. That is not something anyone can do from across
 the range, at any distance, with any credential — which is the whole point.
+And it opens for the browser that asked rather than for everyone on the
+network, so a phone in the next room cannot use a window you opened.
+
+!!! tip "Ask first, then press"
+
+    Presses that nobody asked for open nothing. Always ask in the web app
+    before pressing, so the window goes to you.
 
 !!! note "It will not open during a run"
 
@@ -26,8 +41,8 @@ the range, at any distance, with any credential — which is the whole point.
     and operating it are different jobs, and these settings only take effect
     when the device restarts anyway. Stop the run first.
 
-If the tab is not there, nobody has pressed the button recently. If it vanishes
-while you are typing, the five minutes ran out — press three times again and
+If the tab is not there, this browser does not hold the window. If it vanishes
+while you are typing, the five minutes ran out — ask and press again, and
 carry on.
 
 The page opens with a short status — whether a restart is pending, how many

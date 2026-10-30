@@ -383,7 +383,7 @@ describe('the hardware section', () => {
     server = createMockServer({
       clock: createFakeClock(),
       port: PORT,
-      seed: { programs: {}, audios: [], configWindowOpen: false },
+      seed: { programs: {}, audios: [], button: true },
     });
     await server.listen();
     renderSection();

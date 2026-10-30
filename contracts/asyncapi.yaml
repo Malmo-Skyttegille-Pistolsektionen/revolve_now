@@ -334,14 +334,22 @@ components:
       name: configWindow
       title: The hardware configuration window opened or closed
       summary: >-
-        Whether the device is accepting hardware configuration right now. Sent
-        when the answer changes, so a client can show or hide Expert mode
-        without asking repeatedly.
+        Whether a configuration window is open, for whichever client holds it.
+        Sent when that changes, or when three presses end in a conflict, so a
+        client knows to ask `GET /api/v2/config-window` where it stands.
       description: |
         Hardware configuration (#144) is guarded by a window that **three short
         presses of the device's BOOT button within ten seconds** open for five
         minutes. The presses are the proof that somebody is standing at the
         device; the window is how long that proof lasts.
+
+        **The window belongs to one client** (D-52): the one that asked with
+        `POST /api/v2/config-window/request` before the presses. This event is
+        broadcast to everyone, so it says only whether a window is open for
+        *somebody*. A client learns whether it is theirs from
+        `GET /api/v2/config-window` with its token, and should ask on every
+        `configWindow` it receives. The event carries no token and nothing
+        another client could use.
 
         Three rather than one because one is something a person can do by
         accident — brushing the board while wiring, or pressing to see what it
@@ -350,27 +358,26 @@ components:
 
         **Emitted whenever the effective answer changes, whatever caused it:**
 
-        - the third press within ten seconds opens it, or restarts the five
-          minutes if it is already open
+        - the third press within ten seconds opens it for the one client
+          waiting, or restarts the five minutes for the client that asked
+          again
+        - the third press finds more than one client waiting and opens it for
+          nobody; the payload is unchanged, and is sent so that the waiting
+          clients look and find `conflict`
         - the five minutes lapse
         - a program starts, which closes it — configuration is refused during a
           run, because reconfiguring the machine and operating it are different
           activities and these values only take effect at the next restart
         - a program stops, which reopens it if time remains
 
-        The last two mean this is not simply a mirror of the button: it is the
-        answer to "would a `PUT /config/hardware` be accepted", which is the
-        only question a client actually has.
-
         **Not sent on connect.** Like every other message on this channel it is
         a change notification, not a snapshot. A client takes its initial value
-        from `GET /api/v2/config/hardware`, whose `writeWindow` object is this
-        payload's exact shape, and follows this event thereafter.
+        from `GET /api/v2/config-window`, and asks again after each event.
 
         `remainingSeconds` is the value at the moment of sending. A client may
         count down between events, but the device is authoritative: hide the
-        section when a `configWindow` says `open: false`, not when a local
-        counter reaches zero. The two disagree whenever a browser tab has been
+        section when the device says the window is not this client's, not when
+        a local counter reaches zero. The two disagree whenever a browser tab has been
         asleep.
 
         **Advisory.** A client that ignores this shows a stale tab, and the
@@ -608,19 +615,19 @@ components:
     ConfigWindow:
       type: object
       description: >-
-        The same shape as `writeWindow` in `GET /api/v2/config/hardware`, so a
-        client stores one value from two sources rather than reconciling two.
+        The same shape as `writeWindow` in `GET /api/v2/config/hardware`, but
+        about the window whoever holds it, where `writeWindow` is about the
+        client asking (D-52).
       required: [open, remainingSeconds]
       additionalProperties: false
       properties:
         open:
           type: boolean
           description: >-
-            Whether `PUT /api/v2/config/hardware` would be accepted right now.
-            False while a program is running as well as when nobody has
-            completed the three-press sequence. Always true on a build with no button, since refusing
-            every change there would make the device unconfigurable rather than
-            safe.
+            Whether a window is open for some client and no program is running
+            to hold it shut. Not whether this client may write: only its own
+            `GET /api/v2/config-window` says that. Always true on a build with
+            no button, where every client may.
         remainingSeconds:
           type: integer
           format: int32

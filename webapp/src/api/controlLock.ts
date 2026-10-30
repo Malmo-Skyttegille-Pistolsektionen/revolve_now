@@ -10,8 +10,10 @@ export interface ControlLockEnableResponse {
 }
 
 export function useControlLockApi() {
-  const { controlLockToken, logoutControlLock } = useSettings();
-  const { request } = createAuthenticatedClient(controlLockToken, logoutControlLock);
+  const { controlLockToken, logoutControlLock, configWindowToken } = useSettings();
+  // The window token too: `enable` needs the window, and `disable` takes it in
+  // place of a session (D-51, D-52).
+  const { request } = createAuthenticatedClient(controlLockToken, logoutControlLock, configWindowToken);
 
   return {
     fetchStatus: (): Promise<ControlLockStatusResponse> => {

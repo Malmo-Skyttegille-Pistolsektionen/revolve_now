@@ -10,7 +10,7 @@ import { SettingsProvider } from '../src/context/SettingsContext';
 import { TroubleshootingSection } from '../src/components/TroubleshootingSection';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
-import { enableControlLockElsewhere } from './other-client';
+import { enableControlLockElsewhere, requestElsewhere } from './other-client';
 
 // Distinct per suite - vitest runs files in parallel, so a shared port is an
 // EADDRINUSE flake. Pick the next free number for a new suite.
@@ -21,7 +21,8 @@ let queryClient: QueryClient;
 let saved: { filename: string; blob: Blob }[];
 
 interface DeviceOptions {
-  configWindowOpen?: boolean;
+  /** A board whose window opens for one client (D-52); without, it is open to all. */
+  button?: boolean;
   coredumpPresent?: boolean;
 }
 
@@ -32,7 +33,7 @@ async function device(options: DeviceOptions = {}): Promise<void> {
     seed: {
       programs: {},
       audios: [],
-      configWindowOpen: options.configWindowOpen ?? true,
+      button: options.button,
       coredumpPresent: options.coredumpPresent,
     },
   });
@@ -83,7 +84,7 @@ describe('the troubleshooting bundle on Expert mode', () => {
   // carry a copy of the device's memory, so it is behind the three-press
   // gesture rather than merely behind the control lock, which is off by default.
   it('is not on the page at all while the configuration window is shut', async () => {
-    await device({ configWindowOpen: false });
+    await device({ button: true });
     renderSection();
 
     // The window state arrives from the device, so "absent" only means
@@ -97,11 +98,29 @@ describe('the troubleshooting bundle on Expert mode', () => {
     expect(screen.queryByTestId('troubleshooting-section')).toBeNull();
   });
 
-  it('appears once somebody has opened the window at the device', async () => {
-    await device({ configWindowOpen: true });
+  it('appears on a device without a button, where the window is open to all', async () => {
+    await device();
     renderSection();
 
     expect(await screen.findByTestId('troubleshooting-section')).toBeTruthy();
+  });
+
+  // #656: the window opens for this browser's token, and the download sends it.
+  it('downloads with the window this browser was given, and not with another', async () => {
+    await device({ button: true });
+    const { body } = await requestElsewhere(PORT, 'POST', '/api/v2/config-window/request');
+    localStorage.setItem('rt_settings_config_window_token', (JSON.parse(body) as { token: string }).token);
+    server.pressBoot();
+    renderSection();
+
+    fireEvent.click(await screen.findByTestId('troubleshooting-download'));
+    await waitFor(() => {
+      expect(saved).toHaveLength(1);
+    });
+
+    // Without the token, the same request is refused.
+    const { status } = await requestElsewhere(PORT, 'GET', '/api/v2/diagnostics/bundle');
+    expect(status).toBe(403);
   });
 
   it('says whether there is a crash dump to collect', async () => {

@@ -222,7 +222,8 @@ class FlashStore : public rt::backup::RestoreStore {
     return rt::backup::ItemOutcome::added(id);
   }
 
-  bool config_window_open() override { return boot_button::config_window_open(); }
+  // The restore request's own window token: the window is bound to a client.
+  bool config_window_open() override { return boot_button::config_window_open(window_token); }
   rt::HardwareConfig hardware_saved() override { return hardware_store::saved(); }
   rt::HardwareConfig hardware_defaults() override { return hardware_store::defaults(); }
   rt::ConfigRefusal hardware_save(const rt::HardwareConfig &config,
@@ -266,6 +267,9 @@ class FlashStore : public rt::backup::RestoreStore {
   }
 
   FILE *file_ = nullptr;
+
+ public:
+  std::string window_token;
 };
 
 // One restore at a time - the server has one task - held across the handler's
@@ -318,10 +322,13 @@ void register_routes(PsychicHttpServer &server, ControlLockGuard require_control
     options.hardware = flag(req, "hardware", true);
     options.name = flag(req, "name", false);
     rt::backup::RestoreLimits limits;
+    const char *window = req->header(kConfigWindowHeader);
+    const std::string window_token = window != nullptr ? window : "";
     limits.first_upload_id = kFirstUploadId;
     limits.max_program_bytes = kMaxUploadBytes;
     limits.max_audio_bytes = kMaxUploadBytes;
     s_restore = std::make_unique<Restore>(options, limits);
+    s_restore->store.window_token = window_token;
     return next();
   });
 

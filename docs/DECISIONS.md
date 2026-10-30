@@ -61,6 +61,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-48 | Backup and restore are the device's; a restore only adds, and never carries WiFi credentials | Decided | 2026-10-06 |
 | D-50 | A bank is level-driven or a pulsed latching relay, chosen per bank | Decided | 2026-10-27 |
 | D-51 | The control lock survives a restart, and setting it needs the button | Decided | 2026-10-28 |
+| D-52 | The configuration window opens for the one client that asked | Decided | 2026-10-30 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -1598,6 +1599,10 @@ off and block a fault report while it is on. What remains exposed is a LAN
 client watching for somebody at the board to open the window; the five-minute
 window bounds it.
 
+*Superseded in part by D-52:* that remaining exposure was confirmed on a board
+(#656), and the window now opens for the one client that asked for it rather
+than for the network.
+
 ## D-40 — "Admin mode" is renamed `control-lock`, everywhere *(Decided 2026-08-26)*
 
 **Decision:** the write lock is called **`control-lock`** in every surface it
@@ -2183,6 +2188,56 @@ suite turns the lock on before every spec.
 
 **Contract.** A breaking change taken before 1.0.0: `enable` gains a `403`, and
 `disable` accepts a request it used to refuse. Recorded in
+`contracts/README.md` with the other pre-release exceptions.
+
+## D-52 — The configuration window opens for the one client that asked *(Decided 2026-10-30)*
+
+**Decision:** three presses of BOOT open the configuration window for one
+client, not for the network. A client first calls `POST
+/api/v2/config-window/request` and receives a 16-byte random token; the
+presses then grant the window to the one request waiting. With more than one
+waiting they grant nobody, and each of those clients reads `conflict` from
+`GET /api/v2/config-window`. Every route behind the window — the bundle
+(D-39), `PUT` and `reset` of the hardware configuration, the WiFi scan and
+`PUT`, the hardware part of a restore, and the control lock's `enable` and
+window-based `disable` (D-51) — requires the token in `X-Config-Window`. The
+logic is `rt::ConfigWindow`, host-tested.
+
+**Why.** The window was one device-wide deadline, and every guard checked only
+that. On a board (#656), a client that was not at the board downloaded the
+coredump while somebody else had opened the window, and turned the control
+lock on and off without a password. The `configWindow` event told it when.
+
+**Why the presses come last.** The obvious binding — give a token to the first
+client that claims the window after the presses — is the race the setup portal
+had, where whoever polls fastest wins (#642). Making the presses the final step
+that commits exactly one waiting request, and nothing when there are several,
+is the same shape #642 gave the portal. Somebody polling with their own
+requests turns the presses into a conflict, and can keep doing so while they
+stay on the network; they cannot take the window. A conflict shows magenta on
+the LED, a grant cyan.
+
+**What it does not fix.** Pressing BOOT without having asked, while another
+client's request is the only one waiting, grants that client. The web app never
+says "press BOOT" until it has asked. At most four requests wait at once, and a
+fifth is refused (`409 /problems/config_window_busy`): evicting the oldest would
+let a flood leave its own request as the only one.
+
+**What stays public.** The `configWindow` event still says whether a window is
+open, and is now about the window whoever holds it. `writeWindow` in `GET
+/config/hardware` is about the client asking. Neither can be used without the
+token.
+
+**Kept.** Five minutes, and a run holds the window shut except for the control
+lock (D-51). Asking again with the token held renews an open window at the
+next presses. The token is its own header and never a cookie, so a cross-site
+form cannot carry it, and it is not the control lock's token. A build without a
+button still treats every client as holding the window; the QEMU profile's
+stuck GPIO0 means a request waits there and is never granted, as the window
+never opened there before.
+
+**Contract.** Breaking, taken before 1.0.0: routes that accepted a request with
+the window open now refuse one without its token. Recorded in
 `contracts/README.md` with the other pre-release exceptions.
 
 ## Open questions
