@@ -572,7 +572,7 @@
     "last_paths": {
       "idf": "",
       "netlist": "",
-      "plot": "rev1a/gerber/",
+      "plot": "rev2/gerber/",
       "specctra_dsn": "",
       "vrml": ""
     },
@@ -696,7 +696,7 @@
         "uuid": "f6e6825c-feea-453b-9887-1eb0e811e83a"
       }
     ],
-    "used_designators": "R27-28",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [
@@ -719,6 +719,10 @@
     [
       "0a2fddd8-0b8f-474b-a967-cec399a58d0f",
       "Power2"
+    ],
+    [
+      "09f1d6f0-a27f-4b67-b9a7-a62a12e6f809",
+      "Controller"
     ]
   ],
   "text_variables": {},

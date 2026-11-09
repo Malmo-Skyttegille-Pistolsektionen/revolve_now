@@ -1512,7 +1512,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "24ae8721-982f-4aee-88d4-05be36517260")
-		(property "Reference" "R24"
+		(property "Reference" "R5"
 			(at 155.448 123.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1576,11 +1576,11 @@
 		(instances
 			(project "revolvenow_controller"
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/0a2fddd8-0b8f-474b-a967-cec399a58d0f"
-					(reference "R26")
+					(reference "R8")
 					(unit 1)
 				)
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
-					(reference "R24")
+					(reference "R5")
 					(unit 1)
 				)
 			)
@@ -1682,7 +1682,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "ed206e9d-0049-469d-857f-2c2cb65abb40")
-		(property "Reference" "R23"
+		(property "Reference" "R4"
 			(at 148.336 123.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1746,11 +1746,11 @@
 		(instances
 			(project "revolvenow_controller"
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/0a2fddd8-0b8f-474b-a967-cec399a58d0f"
-					(reference "R25")
+					(reference "R7")
 					(unit 1)
 				)
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
-					(reference "R23")
+					(reference "R4")
 					(unit 1)
 				)
 			)
@@ -1767,7 +1767,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "f651458b-44fb-4791-bb6a-e0f1a31f5ee6")
-		(property "Reference" "R27"
+		(property "Reference" "R3"
 			(at 131.064 125.476 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1831,11 +1831,11 @@
 		(instances
 			(project "revolvenow_controller"
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/0a2fddd8-0b8f-474b-a967-cec399a58d0f"
-					(reference "R28")
+					(reference "R6")
 					(unit 1)
 				)
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
-					(reference "R27")
+					(reference "R3")
 					(unit 1)
 				)
 			)
