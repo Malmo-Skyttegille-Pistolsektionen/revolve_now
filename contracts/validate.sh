@@ -31,6 +31,6 @@ python3 ./check_backup_schema.py || status=1
 npx --yes @redocly/cli@2.76.0 lint openapi.yaml || status=1
 
 # renovate: datasource=npm depName=@asyncapi/cli
-npx --yes @asyncapi/cli@6.2.3 validate asyncapi.yaml || status=1
+npx --yes @asyncapi/cli@6.3.0 validate asyncapi.yaml || status=1
 
 exit "$status"
