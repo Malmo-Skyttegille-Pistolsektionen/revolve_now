@@ -1,5 +1,5 @@
-# Enclosure for the Revolve Now rev 1 board: a base tray and a lid, built from
-# the KiCad layout (hardware/revolvenow_hardware.kicad_pcb, PR #436).
+# Enclosure for the Revolve Now rev 2 board: a base tray and a lid, built from
+# the KiCad layout (hardware/main/revolvenow_main.kicad_pcb, PR #436).
 #
 # Regenerate with FreeCAD 1.1 (see README.md):
 #   freecadcmd hardware/enclosure/src/enclosure.py
@@ -7,8 +7,9 @@
 # exports to ../generated/.
 #
 # Frame: KiCad (x, y) -> X = x - 100, Y = 150 - y. The board is X 0..100,
-# Y 0..100. Y = 0 is the connector edge (J1, J2, J7, U11), Y = 100 the edge the
-# ESP32 antenna overhangs, X = 100 the USB-C edge.
+# Y 0..100. Y = 0 is the connector edge (J1, J2, J7, U11), X = 0 the edge with
+# J8, J6 and J3, X = 100 the USB-C edge, Y = 100 the edge notched under the
+# ESP32 antenna.
 #
 # Positions are read off the KiCad file. Connector heights and face widths are
 # not in it (no 3D models), so those are datasheet-typical; see README.md.
@@ -28,20 +29,23 @@ GENERATED = os.path.join(os.path.dirname(SRC), "generated")     # STEP, STL and 
 PCB_W, PCB_D, PCB_T = 100.0, 100.0, 1.6
 HOLES = [(5.5, 5.5), (94.5, 5.5), (5.5, 94.5), (94.5, 94.5)]  # 4.7 mm edge cuts
 HOLE_D = 4.7
-# ESP32-S3-WROOM-1 body: KiCad x 129.2..147.2, y 44.75..70.25 -> overhangs Y=100 by 5.25
-MODULE = dict(x0=29.2, x1=47.2, y0=79.75, y1=105.25, h=3.1)
+# Antenna keep-out cut into the back edge: KiCad x 128.2..176.5, y 50..56.5
+NOTCH = dict(x0=28.2, x1=76.5, y0=93.5, y1=100.0)
+# ESP32-S3-WROOM-1 body (F.Fab): KiCad x 143.35..161.35, y 50.4..75.9; inside the board,
+# its antenna over the notch
+MODULE = dict(x0=43.35, x1=61.35, y0=74.1, y1=99.6, h=3.1)
+# D8, the WS2812B status LED (KiCad 180.5, 53.3)
+STATUS_LED = (80.5, 96.7)
 
 # --- Enclosure parameters -----------------------------------------------------
 WALL = 2.0          # side walls
 FLOOR = 2.0         # base floor
 LID_T = 2.0         # lid top
-GAP = 0.5           # PCB edge to inner wall
-ANTENNA_CUTOUT = True  # module pokes out through a slot in the back wall, as on the bare board
-ANT_GAP = 1.0       # with ANTENNA_CUTOUT off: module tip to the inner wall of a deeper back bay
+GAP = 0.5           # PCB edge (or module tip, if it overhangs) to inner wall
 R_OUT = 3.0         # outer vertical corner radius
 STANDOFF_H = 5.0    # floor to PCB underside (THT leads stick out ~2-3 mm)
 HEADROOM = 16.0     # PCB top to lid underside; tallest part is an RJ45 (~13.5)
-BOSS_D = 8.0        # standoff / lid-post diameter at the board (clears J4's pads by 0.5 mm)
+BOSS_D = 8.0        # standoff / lid-post diameter at the board (clears J4's pads by 0.97 mm)
 
 # Fastening: M3x12 socket-head screws (ISO 4762) up through the base into M3 heat-set
 # inserts in the lid posts, so the lid top stays unbroken.
@@ -57,47 +61,47 @@ LOGO_SVG = os.path.join(SRC, "..", "..", "..", "webapp", "public", "revolve-now-
 LOGO_WIDTH = 80.0   # thinnest stroke is then ~0.67 mm, fine for a 0.4 mm nozzle
 LOGO_DEPTH = 0.6    # into the 2 mm lid top; prints face-down on the bed
 FRAME_PAD, FRAME_STROKE, FRAME_R = 4.0, 1.2, 4.0   # rounded-rectangle frame round the logo
+LED_WINDOW_D = 3.0  # hole in the lid top over STATUS_LED; 0 for none
 
 # Openings. side: front (Y=0), right (X=100), left (X=0). centre is along the
 # side in board coords; z is relative to PCB top. Widths/heights include clearance:
 # 1 mm or more on every side of the connector body.
 OPENINGS = [
     # ref, side, centre, kind, width, height (rect: bottom at PCB top) / dia + axis z (round)
-    dict(ref="J1 RJ45 Power/Turn 0-1", side="front", c=22.5,   kind="rect", w=18.8, h=16.0),
-    dict(ref="J2 RJ45 Power/Turn 2-3", side="front", c=42.5,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J1 RJ45 Turn 0-3",       side="front", c=22.5,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J2 RJ45 Turn 4-7",       side="front", c=42.5,   kind="rect", w=18.8, h=16.0),
     dict(ref="J7 audio PJ-320A",       side="front", c=60.5,   kind="round", d=9.0, z=2.6),
     dict(ref="U11 Ethernet MagJack",   side="front", c=78.215, kind="rect", w=19.0, h=16.3),
     dict(ref="J4 USB-C",               side="right", c=84.71,  kind="slot", w=14.5, h=9.0, z=1.63, r=2.5),
+    dict(ref="J8 RJ45 Turn 12-15",     side="left",  c=23.0,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J6 RJ45 Turn 8-11",      side="left",  c=43.0,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J3 RJ45 Trigger",        side="left",  c=79.0,   kind="rect", w=18.8, h=16.0),
 ]
-# J3 (trigger RJ45, left edge, centre Y=53.44) is not fitted on rev 1; flip on if needed.
-TRIGGER_OPENING = False
-if TRIGGER_OPENING:
-    OPENINGS.append(dict(ref="J3 RJ45 Trigger", side="left", c=53.44, kind="rect", w=16.8, h=14.0))
 
 # Fit-check stand-ins (approximate bodies, not exported): ref, x0, x1, y0, y1, h above PCB
+# RJ45 bodies: 16 mm wide about the footprint centre, depth from the courtyard.
 FIT = [
-    ("J1", 14.5, 30.5, -2.5, 11.5, 13.5),
-    ("J2", 34.5, 50.5, -2.5, 11.5, 13.5),
+    ("J1", 14.5, 30.5, -3.25, 10.75, 13.5),
+    ("J2", 34.5, 50.5, -3.25, 10.75, 13.5),
+    ("J8", -3.25, 10.75, 15.0, 31.0, 13.5),
+    ("J6", -3.25, 10.75, 35.0, 51.0, 13.5),
+    ("J3", -3.25, 10.75, 71.0, 87.0, 13.5),
     ("U11", 70.1, 86.3, -2.9, 19.7, 13.6),
     ("J7", 57.5, 63.5, -0.4, 12.35, 5.0),  # body only; the barrel sits in the round hole
-    ("J4", 92.5, 101.5, 79.7, 89.7, 3.3),
+    ("J4", 93.22, 102.22, 79.71, 89.71, 3.3),
+    ("J9", 18.24, 26.86, 88.67, 94.76, 8.5),  # 2x3 jumper header (LED / trigger GPIO), jumper on
+    ("J5", 66.55, 75.17, 88.43, 91.97, 8.5),  # UART header
 ]
 
 # --- Derived ------------------------------------------------------------------
 IN_X0, IN_X1 = -GAP, PCB_W + GAP
 IN_Y0 = -GAP
-IN_Y1 = PCB_D + GAP if ANTENNA_CUTOUT else max(PCB_D + GAP, MODULE["y1"] + ANT_GAP)
+IN_Y1 = max(PCB_D, MODULE["y1"]) + GAP
 OUT_X0, OUT_X1 = IN_X0 - WALL, IN_X1 + WALL
 OUT_Y0, OUT_Y1 = IN_Y0 - WALL, IN_Y1 + WALL
 Z_PCB_BOT = FLOOR + STANDOFF_H
 Z_PCB_TOP = Z_PCB_BOT + PCB_T          # base/lid split plane
 Z_TOP = Z_PCB_TOP + HEADROOM + LID_T
-
-
-if ANTENNA_CUTOUT:
-    # starts 0.5 mm below the split so the overhang never rests on the base wall
-    OPENINGS.append(dict(ref="U1 ESP32 antenna", side="back", c=(MODULE["x0"] + MODULE["x1"]) / 2,
-                         kind="rect", w=MODULE["x1"] - MODULE["x0"] + 1.0, h=MODULE["h"] + 1.0, z0=-0.5))  # 0.5 mm all round
 
 
 def rounded_box(x0, y0, x1, y1, z0, z1, r):
@@ -227,11 +231,24 @@ def build_lid():
         lid = checked(lid.cut(hole.fuse(tip)), lid.Volume, f"insert hole {x},{y}")
     for o in OPENINGS:
         lid = checked(lid.cut(opening_cutter(o)), lid.Volume, o["ref"])
-    return checked(lid.cut(logo_solid(extra=1.0)), lid.Volume, "logo")
+    lid = checked(lid.cut(logo_solid(extra=1.0)), lid.Volume, "logo")
+    if LED_WINDOW_D > 0:
+        win = led_window()
+        if win.common(logo_solid(extra=1.0)).Volume > 1e-6:
+            raise RuntimeError("the status LED window would cut into the logo or its frame")
+        lid = checked(lid.cut(win), lid.Volume, "LED window")
+    return lid
+
+
+def led_window():
+    x, y = STATUS_LED
+    return Part.makeCylinder(LED_WINDOW_D / 2, LID_T + 2, V(x, y, Z_TOP - LID_T - 1))
 
 
 def fit_check():
     pcb = Part.makeBox(PCB_W, PCB_D, PCB_T, V(0, 0, Z_PCB_BOT))
+    pcb = pcb.cut(Part.makeBox(NOTCH["x1"] - NOTCH["x0"], NOTCH["y1"] - NOTCH["y0"] + 1, PCB_T + 2,
+                               V(NOTCH["x0"], NOTCH["y0"], Z_PCB_BOT - 1)))
     for (x, y) in HOLES:
         pcb = pcb.cut(Part.makeCylinder(HOLE_D / 2, PCB_T + 2, V(x, y, Z_PCB_BOT - 1)))
     parts = [("PCB", pcb),

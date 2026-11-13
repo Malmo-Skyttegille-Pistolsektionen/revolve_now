@@ -1,6 +1,6 @@
 # Enclosure
 
-A 3D-printable box for the rev 1 board: a base tray the board screws into and a lid that drops over the connectors. It is 105 × 105 × 26.6 mm, with the Revolve Now logo in a rounded frame on the lid, printed in a second colour. Four screws hold it together from underneath, so the top shows no screws.
+A 3D-printable box for the rev 2 board: a base tray the board screws into and a lid that drops over the connectors. It is 105 × 105 × 26.6 mm, with the Revolve Now logo in a rounded frame on the lid, printed in a second colour. Four screws hold it together from underneath, so the top shows no screws.
 
 | Path | What it is |
 |---|---|
@@ -14,15 +14,17 @@ Everything under `generated/` is written by the script; edit `src/enclosure.py` 
 
 ## What it fits
 
-The positions come from `hardware/revolvenow_hardware.kicad_pcb`:
+The positions come from the rev 2 layout, `hardware/main/revolvenow_main.kicad_pcb` (PR #436):
 
-- **Connector edge:** J1 and J2 (Power/Turn RJ45s), the J7 audio jack and the U11 Ethernet MagJack.
+- **Connector edge:** J1 and J2 (Turn 0-3 and 4-7 RJ45s), the J7 audio jack and the U11 Ethernet MagJack.
+- **Left edge:** J8 and J6 (Turn 12-15 and 8-11 RJ45s) and J3 (Trigger RJ45).
 - **USB-C edge:** J4.
-- **Antenna side:** the ESP32 module overhangs the board edge by 5.25 mm and pokes out through a slot in the back wall, as it does on the bare board. Set `ANTENNA_CUTOUT = False` to keep it inside a deeper back bay instead; the box is then 110.8 mm deep.
+- **Back edge:** closed. The ESP32 module sits inside the board outline with its antenna over a notch in the board, so nothing pokes out.
+- **Status LED:** a 3 mm hole in the lid top over D8, the WS2812B. Set `LED_WINDOW_D = 0` for a closed lid.
 - **Mounting:** the four 4.7 mm corner holes.
 - **Logo:** the logo inside a rounded-rectangle frame, 0.6 mm deep in the lid top, upright when the connector edge faces you. It is read from `webapp/public/revolve-now-logo.svg` at generation time, so the box follows the web app's logo. The `logo` part fills it flush; in the 3MF it is a part of the lid on filament 2.
 
-J3, the trigger RJ45, is not fitted on rev 1, so its wall is closed. Set `TRIGGER_OPENING = True` to cut it.
+The J5 UART header and the J9 jumper header stay inside; take the lid off to reach them. The box for the rev 1 board is in the git history of this directory.
 
 ## Check before printing
 
@@ -30,12 +32,15 @@ The KiCad project has no 3D models, so connector heights and face widths are typ
 
 | Part | Assumed | Constant |
 |---|---|---|
-| RJ45 J1/J2 | 16 mm wide, 13.5 mm tall | `OPENINGS`, `FIT` |
+| RJ45 J1/J2/J3/J6/J8 | 16 mm wide, 13.5 mm tall | `OPENINGS`, `FIT` |
 | MagJack U11 | 16.2 mm wide, 13.6 mm tall | `OPENINGS`, `FIT` |
 | Audio J7 | barrel axis 2.6 mm above the board | `OPENINGS` |
 | USB-C J4 | connector centre 1.63 mm above the board | `OPENINGS` |
+| Pin headers J5/J9 | 8.5 mm tall with a jumper on | `FIT` |
 
-The openings are deliberately generous for a first test print, at least 1 mm around each connector body. Tighten them in `OPENINGS` once a print fits. Measure the board you have, update the constants, and regenerate. The rev 1 boards in use play audio through a PCM5102A breakout glued onto the board, whose jack is not where J7 is. Measure that jack's position too if the box is for one of those boards.
+The openings are deliberately generous for a first test print, at least 1 mm around each connector body. Tighten them in `OPENINGS` once a print fits. Measure the board you have, update the constants, and regenerate.
+
+The ribs between J1 and J2, and between J8 and J6, are 1.2 mm wide. They print, but handle the lid with care until the connectors are in them.
 
 ## Printing and assembly
 
