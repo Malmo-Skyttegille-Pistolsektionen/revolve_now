@@ -1,7 +1,7 @@
 """Relay box: the controller board and an 8-channel relay board, with two Amphenol ecomate C016
 control-line connectors. One box per controller revision (VARIANTS), each an App::Part in the one
 document. Run in FreeCAD (GUI or freecadcmd); it rebuilds RelayBox, saves relay_box.FCStd beside
-this file and writes the STEP and STL exports to ../generated/.
+this file and writes the STL exports to ../generated/.
 
 Frame: interior origin at the inner front-left corner, on top of the floor. X runs along the
 connector wall to the controller, Y from the front wall to the back, Z up.
@@ -358,7 +358,7 @@ def label_of(part):
 
 
 def build(doc, i, rev):
-    """Rev `rev` as an App::Part container in `doc`, checked, plus its STEP and STL exports."""
+    """Rev `rev` as an App::Part container in `doc`, checked, plus its STL exports."""
     v = VARIANTS[rev]
     layout(v)
     if STANDOFF_H - SSR["pins"] < 6.0:
@@ -410,7 +410,6 @@ def build(doc, i, rev):
         if part != "Logo" and (not mesh.isSolid() or mesh.hasNonManifolds()):
             raise RuntimeError(f"{rev} {part}: mesh is not a closed manifold")
         mesh.write(os.path.join(GENERATED, f"relay_box_{rev}-{stem}.stl"))
-        shapes[part].exportStep(os.path.join(GENERATED, f"relay_box_{rev}-{stem}.step"))
     print(f"{rev}: outside {IX + 2 * WALL:.1f} x {IY + 2 * WALL:.1f} x {IZ + FLOOR + WALL:.1f} mm, "
           f"wire gap {SSR['x'] - (CONN_BEHIND - WALL):.1f} mm, {v['relay']} relay board")
 
