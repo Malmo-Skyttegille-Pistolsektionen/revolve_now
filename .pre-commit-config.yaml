@@ -7,17 +7,15 @@
 # second passing is the normal path - re-stage what it changed.
 #
 # Excluded: the vendored third-party trees, which must stay byte-identical to
-# upstream; resources/, which is data; contracts/history/, which is a
-# frozen record of API v1 and must not be tidied; and generated CAD exports,
-# which must stay byte-identical to what their script writes.
+# upstream; resources/, which is data; and contracts/history/, which is a
+# frozen record of API v1 and must not be tidied.
 exclude: |
   (?x)^(
     firmware/lib/psychic_http/.*|
     firmware/lib/arduinojson/.*|
     firmware/lib/dns_server/.*|
     resources/.*|
-    contracts/history/.*|
-    hardware/.*\.step
+    contracts/history/.*
   )$
 
 repos:
@@ -31,7 +29,7 @@ repos:
       - id: mixed-line-ending
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v23.1.2
+    rev: v23.1.5
     hooks:
       - id: clang-format
         types_or: [c, c++]
@@ -44,7 +42,7 @@ repos:
       - id: prettier
         name: prettier (webapp)
         language: node
-        additional_dependencies: [prettier@3.9.9]
+        additional_dependencies: [prettier@3.9.10]
         entry: prettier --write --ignore-unknown --log-level warn --ignore-path webapp/.prettierignore
         files: ^webapp/
         types: [text]

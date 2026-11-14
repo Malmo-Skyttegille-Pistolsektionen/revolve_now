@@ -7,7 +7,6 @@ A 3D-printable box for the rev 2 board: a base tray the board screws into and a 
 | `src/enclosure.py` | The parametric model and the only source. Every dimension is a named constant at the top |
 | `src/enclosure.FCStd` | The same model in FreeCAD, with stand-ins for the board and its tall parts in a `FitCheck` group |
 | `generated/enclosure.3mf` | For Bambu Studio and OrcaSlicer. Both parts on one plate, laid out as printed: the base as modelled, the lid upside down beside it. Plate footprint 220 × 105 mm |
-| `generated/enclosure-{base,lid,logo}.step` | Each part on its own, in the more exact format. Bambu Studio imports STEP directly |
 | `generated/enclosure-{base,lid,logo}.stl` | Each part as a mesh, for slicers or printing services that only take STL |
 
 Everything under `generated/` is written by the script; edit `src/enclosure.py` and regenerate rather than changing an export.

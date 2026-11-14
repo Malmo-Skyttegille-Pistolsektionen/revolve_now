@@ -3,8 +3,8 @@
 #
 # Regenerate with FreeCAD 1.1 (see README.md):
 #   freecadcmd hardware/enclosure/src/enclosure.py
-# It saves enclosure.FCStd beside itself and writes the STEP, STL and 3MF
-# exports to ../generated/.
+# It saves enclosure.FCStd beside itself and writes the STL and 3MF exports
+# to ../generated/.
 #
 # Frame: KiCad (x, y) -> X = x - 100, Y = 150 - y. The board is X 0..100,
 # Y 0..100. Y = 0 is the connector edge (J1, J2, J7, U11), X = 0 the edge with
@@ -23,7 +23,7 @@ import MeshPart
 from FreeCAD import Vector as V
 
 SRC = os.path.dirname(os.path.abspath(__file__))           # enclosure.py, enclosure.FCStd
-GENERATED = os.path.join(os.path.dirname(SRC), "generated")     # STEP, STL and 3MF exports
+GENERATED = os.path.join(os.path.dirname(SRC), "generated")     # STL and 3MF exports
 
 # --- Board (from KiCad) -------------------------------------------------------
 PCB_W, PCB_D, PCB_T = 100.0, 100.0, 1.6
@@ -350,7 +350,6 @@ def main():
             raise RuntimeError(f"{name} would not print as a closed, manifold solid")
         obj = doc.addObject("Part::Feature", name)
         obj.Shape = shp
-        shp.exportStep(os.path.join(GENERATED, f"enclosure-{name.lower()}.step"))
         mesh.write(os.path.join(GENERATED, f"enclosure-{name.lower()}.stl"))
         print(f"{name}: {shp.Volume / 1000:.1f} cm3, Z {shp.BoundBox.ZMin:.1f}..{shp.BoundBox.ZMax:.1f}")
     grp = doc.addObject("App::DocumentObjectGroup", "FitCheck")
