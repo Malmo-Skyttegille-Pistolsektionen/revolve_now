@@ -241,15 +241,23 @@ esp_err_t PsychicRequest::loadBody()
     return _bodyParsed = ESP_FAIL;
   }
 
+  const int64_t startUs = esp_timer_get_time();
   while (remaining > 0) {
+    if (psychicBodyTooSlow(startUs, actuallyReceived)) {
+      ESP_LOGE(PH_TAG, "Body too slow, giving up.");
+      free(buf);
+      return _bodyParsed = ESP_FAIL;
+    }
     int received = httpd_req_recv(this->_req, buf + actuallyReceived, remaining);
 
     if (received == HTTPD_SOCK_ERR_TIMEOUT) {
       continue;
-    } else if (received == HTTPD_SOCK_ERR_FAIL) {
+    } else if (received <= 0) {
+      // Local patch (see CMakeLists.txt): 0 is a peer FIN before content_len
+      // arrived; it never reduced `remaining`, so this spun forever.
       ESP_LOGE(PH_TAG, "Failed to receive data.");
-      _bodyParsed = ESP_FAIL;
-      break;
+      free(buf);
+      return _bodyParsed = ESP_FAIL;
     }
 
     remaining -= received;
@@ -568,6 +576,9 @@ void PsychicRequest::_addParams(const char* params, bool post)
 
 PsychicWebParameter* PsychicRequest::addParam(const char* name, const char* value, bool decode, bool post)
 {
+  // Local patch (see CMakeLists.txt): see PSYCHIC_MAX_PARAMS.
+  if (_params.size() >= PSYCHIC_MAX_PARAMS)
+    return nullptr;
   if (decode) {
     auto dn = urlDecode(name);
     auto dv = urlDecode(value);
@@ -578,6 +589,11 @@ PsychicWebParameter* PsychicRequest::addParam(const char* name, const char* valu
 
 PsychicWebParameter* PsychicRequest::addParam(PsychicWebParameter* param)
 {
+  // Local patch (see CMakeLists.txt): see PSYCHIC_MAX_PARAMS.
+  if (_params.size() >= PSYCHIC_MAX_PARAMS) {
+    delete param;
+    return nullptr;
+  }
   // ESP_LOGD(PH_TAG, "Adding param: '%s' = '%s'", param->name().c_str(), param->value().c_str());
   _params.push_back(param);
   return param;

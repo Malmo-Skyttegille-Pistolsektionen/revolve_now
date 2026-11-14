@@ -128,14 +128,42 @@
       extractVersionTemplate: "^v(?<version>\\d+\\.\\d+(?:\\.\\d+)?)$",
       versioningTemplate: "loose",
     },
+
+    // The IDF container where a job pulls it only when the change needs it
+    // (#528). `image:` is then an expression, which the built-in manager skips,
+    // so the quoted literal inside it is matched here instead.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      matchStrings: [
+        "'espressif/idf:(?<currentValue>v[^@']+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+      ],
+      depNameTemplate: "espressif/idf",
+      datasourceTemplate: "docker",
+    },
   ],
 
   packageRules: [
     {
-      // webapp/package.json and the pre-commit hook pin the same Prettier.
-      // Split across two PRs, the hook would drift from `npm run format`.
-      matchDepNames: ["prettier"],
-      groupName: "prettier",
+      // One PR instead of one per plugin release; @eslint-react alone was
+      // ten PRs in two weeks (#453). Prettier is here too because
+      // webapp/package.json and the pre-commit hook pin the same version:
+      // split across two PRs, the hook would drift from `npm run format`.
+      matchDepNames: [
+        "eslint",
+        "@eslint/**",
+        "eslint-*",
+        "@eslint-react/**",
+        "typescript-eslint",
+        "@typescript-eslint/**",
+        "prettier",
+      ],
+      groupName: "lint tooling",
+    },
+    {
+      // The contract linters, run by contracts/validate.sh and contracts.yml.
+      matchDepNames: ["@redocly/cli", "@asyncapi/cli"],
+      groupName: "contract tooling",
     },
     {
       matchDepNames: ["espressif/esp-idf", "espressif/idf"],

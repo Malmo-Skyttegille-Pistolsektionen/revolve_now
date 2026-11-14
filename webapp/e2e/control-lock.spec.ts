@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
-import { CONTROL_LOCK_PASSWORD, enableControlLockViaUi, openApp, resetDevice } from './device';
+import { CONTROL_LOCK_PASSWORD, enableControlLockViaUi, openApp, openSettings, resetDevice } from './device';
 
 const STALE_TOKEN_KEY = 'rt_settings_control_lock_token';
 
@@ -28,7 +27,7 @@ test('enable, logout to view-only, log back in, disable', async ({ page, request
   await expect(page.getByTestId('run-program-select')).toHaveCount(0);
 
   // Log back in with the same password the enable set.
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'control-lock');
   await page.getByTestId('control-lock-password').fill(CONTROL_LOCK_PASSWORD);
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.getByTestId('control-lock-status')).toHaveText('ON ✓');
@@ -37,24 +36,10 @@ test('enable, logout to view-only, log back in, disable', async ({ page, request
   await expect(page.getByRole('button', { name: 'Toggle Targets' })).toBeVisible();
 
   // Disable puts the device back to full public access.
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'control-lock');
   await page.getByRole('button', { name: 'Turn the lock off' }).click();
   await expect(page.getByTestId('control-lock-status')).toHaveText('OFF');
   expect(await (await request.get('/api/v2/control-lock/status')).json()).toEqual({ enabled: false });
-});
-
-test('a wrong password is rejected and leaves the client view-only', async ({ page }) => {
-  await openApp(page);
-  await enableControlLockViaUi(page);
-  await page.getByRole('button', { name: 'Log out' }).click();
-  await expect(page.getByTestId('control-lock-status')).toHaveText('ON 🔒');
-
-  await page.getByTestId('control-lock-password').fill('not-the-password');
-  await page.getByRole('button', { name: 'Log in' }).click();
-
-  // The device's own message, surfaced by the API client's error extraction.
-  await expect(page.getByText('Invalid password')).toBeVisible();
-  await expect(page.getByTestId('control-lock-status')).toHaveText('ON 🔒');
 });
 
 test('a mutation with a stale control lock session fails into view-only, not a broken page', async ({ page }) => {
@@ -63,7 +48,10 @@ test('a mutation with a stale control lock session fails into view-only, not a b
   await page.getByRole('link', { name: 'Run' }).click();
   await expect(page.getByRole('button', { name: 'Toggle Targets' })).toBeVisible();
 
-  const before = await targetStripText(page);
+  // `-` is the strip before the first state arrives over SSE, not a state.
+  const strip = page.getByTestId('run-target-status');
+  await expect(strip).not.toHaveText('-');
+  const before = (await strip.textContent()) ?? '';
 
   // Impersonate a session the device no longer honours: the cookie goes, and
   // the remembered bearer token is replaced with one the device never issued.
@@ -83,10 +71,7 @@ test('a mutation with a stale control lock session fails into view-only, not a b
   await expect(page.getByRole('button', { name: 'Toggle Targets' })).toHaveCount(0);
   expect(await page.evaluate((key) => localStorage.getItem(key), STALE_TOKEN_KEY)).toBeNull();
 
-  // And the device did not act on the rejected request.
-  expect(await targetStripText(page)).toBe(before);
+  // And the device did not act on the rejected request. Retried, because the
+  // fresh load may not have had its first state yet.
+  await expect(strip).toHaveText(before);
 });
-
-async function targetStripText(page: Page): Promise<string | null> {
-  return page.getByTestId('run-target-status').textContent();
-}

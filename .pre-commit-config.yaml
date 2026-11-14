@@ -29,7 +29,7 @@ repos:
       - id: mixed-line-ending
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v23.1.1
+    rev: v23.1.5
     hooks:
       - id: clang-format
         types_or: [c, c++]
@@ -42,7 +42,7 @@ repos:
       - id: prettier
         name: prettier (webapp)
         language: node
-        additional_dependencies: [prettier@3.9.9]
+        additional_dependencies: [prettier@3.9.10]
         entry: prettier --write --ignore-unknown --log-level warn --ignore-path webapp/.prettierignore
         files: ^webapp/
         types: [text]

@@ -25,6 +25,16 @@ void overlay_banks(ConfigReader &reader, HardwareConfig &out, size_t count) {
     reader.read_bool(BankKey(i, "alow").text, out.banks[i].active_low);
 
     if (reader.read_str(BankKey(i, "name").text, text)) out.banks[i].name = text;
+
+    // A drive this build does not know stays level: a bank downgraded from a
+    // newer firmware holds its pin rather than pulsing pins it cannot name.
+    int32_t drive = 0;
+    if (reader.read_i32(BankKey(i, "drive").text, drive) &&
+        drive == static_cast<int32_t>(BankDrive::kLatching)) {
+      out.banks[i].drive = BankDrive::kLatching;
+    }
+    reader.read_i32(BankKey(i, "hide").text, out.banks[i].hide_gpio);
+    reader.read_i32(BankKey(i, "pulse").text, out.banks[i].pulse_ms);
   }
 }
 
@@ -50,7 +60,7 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
 
   std::string text;
   if (reader.read_str(hw_key::kHostname, text)) {
-    out.hostname = text;
+    if (text != kLegacyDefaultHostname) out.hostname = text;
     found = true;
   }
   if (reader.read_str(hw_key::kDisplayName, text)) {
@@ -59,6 +69,8 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
   }
 
   if (reader.read_bool(hw_key::kBootShown, out.targets_shown_at_boot)) found = true;
+  if (reader.read_bool(hw_key::kWifiOn, out.wifi_enabled)) found = true;
+  if (reader.read_bool(hw_key::kEthOn, out.eth_enabled)) found = true;
 
   const struct {
     const char *key;
@@ -67,7 +79,10 @@ bool overlay_config(ConfigReader &reader, HardwareConfig &out) {
       {hw_key::kLedGpio, &out.led_gpio},           {hw_key::kI2sPort, &out.i2s_port},
       {hw_key::kI2sBck, &out.i2s_bck_gpio},        {hw_key::kI2sWs, &out.i2s_ws_gpio},
       {hw_key::kI2sDout, &out.i2s_dout_gpio},      {hw_key::kHttpPort, &out.http_port},
-      {hw_key::kWifiRetry, &out.wifi_max_retries},
+      {hw_key::kWifiRetry, &out.wifi_max_retries}, {hw_key::kI2sMclk, &out.i2s_mclk_gpio},
+      {hw_key::kEthSclk, &out.eth_sclk_gpio},      {hw_key::kEthMosi, &out.eth_mosi_gpio},
+      {hw_key::kEthMiso, &out.eth_miso_gpio},      {hw_key::kEthCs, &out.eth_cs_gpio},
+      {hw_key::kEthInt, &out.eth_int_gpio},        {hw_key::kEthRst, &out.eth_rst_gpio},
   };
   for (const auto &scalar : scalars) {
     int32_t value = 0;

@@ -43,6 +43,8 @@ struct ProblemType {
   X(kControlLockCredentialsRequired, "control_lock_credentials_required",                       \
     "Control lock credentials required", 401)                                                   \
   X(kInvalidPassword, "invalid_password", "Invalid password", 401)                              \
+  X(kOriginNotAllowed, "origin_not_allowed", "Origin not allowed", 403)                         \
+  X(kHostNotAllowed, "host_not_allowed", "Host not allowed", 421)                               \
   /* not found */                                                                               \
   X(kRouteNotFound, "route_not_found", "Route not found", 404)                                  \
   X(kProgramNotFound, "program_not_found", "Program not found", 404)                            \
@@ -77,8 +79,11 @@ struct ProblemType {
     "That setting changes only from the serial console", 400)                                   \
   X(kHardwareConfigWindowClosed, "hardware_config_window_closed",                               \
     "The configuration window is closed", 403)                                                  \
+  X(kConfigWindowBusy, "config_window_busy", "Too many requests for the configuration window",  \
+    409)                                                                                        \
   X(kWifiCredentialsInvalid, "wifi_credentials_invalid", "Invalid WiFi credentials", 400)       \
   X(kBankUnavailable, "bank_unavailable", "No such target bank", 400)                           \
+  X(kBackupInvalid, "backup_invalid", "Not a usable backup", 400)                               \
   /* upload */                                                                                  \
   X(kUploadMissingFile, "upload_missing_file", "No file uploaded", 400)                         \
   X(kUploadMissingTitle, "upload_missing_title", "Missing title", 400)                          \
@@ -88,7 +93,8 @@ struct ProblemType {
   X(kAudioStoreFailed, "audio_store_failed", "Could not store audio", 500)                      \
   X(kWifiStoreFailed, "wifi_store_failed", "Could not store WiFi credentials", 500)             \
   X(kRestartFailed, "restart_failed", "Could not start the restart", 500)                       \
-  X(kOtaWriteFailed, "ota_write_failed", "Could not write the firmware", 500)
+  X(kOtaWriteFailed, "ota_write_failed", "Could not write the firmware", 500)                   \
+  X(kControlLockStoreFailed, "control_lock_store_failed", "Could not store the control lock", 500)
 
 namespace problem {
 #define RT_PROBLEM_DEFINE(name, slug, title, status) \
@@ -104,6 +110,11 @@ inline constexpr const ProblemType *kProblemTypes[] = {
     RT_PROBLEM_TYPES(RT_PROBLEM_ENTRY)
 #undef RT_PROBLEM_ENTRY
 };
+
+// What every closed-window refusal tells the person to do (D-52).
+constexpr const char *kOpenWindowHint =
+    "Ask for the configuration window first (Expert mode, in the web app), then press the BOOT "
+    "button on the device (marked BOOT or FLASH) three times within ten seconds, and try again.";
 
 // `{"type":"/problems/<slug>","title":...,"status":N,"detail":...}`.
 //

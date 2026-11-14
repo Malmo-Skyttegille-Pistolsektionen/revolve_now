@@ -18,7 +18,7 @@ import { CONTROL_LOCK_PASSWORD, expectProblem, resetDevice } from './device';
 
 const API = '/api/v2';
 
-test.beforeAll(async ({ request }) => {
+test.beforeEach(async ({ request }) => {
   await resetDevice(request);
 });
 
@@ -98,7 +98,7 @@ test('upload: a POST with no file part', async ({ request }) => {
 test('auth: a protected call with no credentials, and a wrong password', async ({ playwright, request }, testInfo) => {
   // The only group that needs the lock on: while it is off every endpoint is
   // open, so there is no 401 to provoke. Turned off again at the end, which is
-  // the state every other spec's beforeAll expects to find.
+  // the state every other spec's beforeEach expects to find.
   const enable = await request.post(`${API}/control-lock/enable`, { data: { password: CONTROL_LOCK_PASSWORD } });
   const session =
     enable.status() === 409

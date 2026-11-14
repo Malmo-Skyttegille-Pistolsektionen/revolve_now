@@ -1,4 +1,5 @@
-import { useClient, getApiBaseUrl } from './client';
+import { useSettings } from '../context/SettingsContext';
+import { createAuthenticatedClient } from './client';
 
 export interface ControlLockStatusResponse {
   enabled: boolean;
@@ -9,7 +10,10 @@ export interface ControlLockEnableResponse {
 }
 
 export function useControlLockApi() {
-  const { request } = useClient();
+  const { controlLockToken, logoutControlLock, configWindowToken } = useSettings();
+  // The window token too: `enable` needs the window, and `disable` takes it in
+  // place of a session (D-51, D-52).
+  const { request } = createAuthenticatedClient(controlLockToken, logoutControlLock, configWindowToken);
 
   return {
     fetchStatus: (): Promise<ControlLockStatusResponse> => {
@@ -30,69 +34,17 @@ export function useControlLockApi() {
       });
     },
 
+    /** Ends this session on the device; the lock stays on. Always 200. */
+    logout: (): Promise<void> => {
+      return request<void>('/control-lock/logout', {
+        method: 'POST',
+      });
+    },
+
     disable: (): Promise<void> => {
       return request<void>('/control-lock/disable', {
         method: 'POST',
       });
     },
   };
-}
-
-export async function fetchControlLockStatus(): Promise<ControlLockStatusResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/control-lock/status`, {
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch the control lock's state: ${response.statusText}`);
-  }
-
-  const text = await response.text();
-  return text ? JSON.parse(text) : { enabled: false };
-}
-
-export async function enableControlLock(password: string): Promise<ControlLockEnableResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/control-lock/enable`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to turn the control lock on: ${response.statusText}`);
-  }
-
-  const text = await response.text();
-  return text ? JSON.parse(text) : { token: '' };
-}
-
-export async function loginControlLock(password: string): Promise<ControlLockEnableResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/control-lock/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to log in: ${response.statusText}`);
-  }
-
-  const text = await response.text();
-  return text ? JSON.parse(text) : { token: '' };
-}
-
-export async function disableControlLock(token: string): Promise<void> {
-  const response = await fetch(`${getApiBaseUrl()}/control-lock/disable`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to turn the control lock off: ${response.statusText}`);
-  }
 }

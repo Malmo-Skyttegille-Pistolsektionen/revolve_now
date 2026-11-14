@@ -332,6 +332,30 @@ void test_a_zero_sample_rate_is_refused() {
   TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
 }
 
+void test_a_sample_rate_that_wraps_the_i2s_clock_is_refused() {
+  // rate * 256 wraps to 0 in IDF's uint32_t clock arithmetic for any multiple
+  // of 2^24, and is then used as a divisor.
+  for (uint32_t rate : {0x01000000u, 0x08000000u, 0xFF000000u}) {
+    MemorySource src(make_wav(1, 1, rate));
+    rt::WavInfo info;
+    TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
+  }
+}
+
+void test_the_sample_rate_bounds_are_inclusive() {
+  for (uint32_t rate : {rt::kMinSampleRate, rt::kMaxSampleRate}) {
+    MemorySource src(make_wav(1, 1, rate));
+    rt::WavInfo info;
+    TEST_ASSERT_TRUE(rt::parse_wav_header(src, info));
+    TEST_ASSERT_EQUAL_UINT32(rate, info.sample_rate);
+  }
+  for (uint32_t rate : {rt::kMinSampleRate - 1, rt::kMaxSampleRate + 1}) {
+    MemorySource src(make_wav(1, 1, rate));
+    rt::WavInfo info;
+    TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
+  }
+}
+
 void test_data_before_fmt_is_refused() {
   std::vector<uint8_t> v;
   put_tag(v, "RIFF");
@@ -341,6 +365,25 @@ void test_data_before_fmt_is_refused() {
   put_u32(v, 4);
   for (int i = 0; i < 4; i++) v.push_back(0);
 
+  MemorySource src(v);
+  rt::WavInfo info;
+  TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
+}
+
+void test_a_fmt_chunk_declared_shorter_than_16_bytes_is_refused() {
+  // The 16 bytes are there; the declared size says they are not, and the
+  // parser believes the size rather than reading into the next chunk.
+  std::vector<uint8_t> v = make_wav();
+  v[16] = 14;  // fmt chunk size, little-endian low byte
+  MemorySource src(v);
+  rt::WavInfo info;
+  TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
+}
+
+void test_a_truncated_fmt_body_is_refused() {
+  // Declares 16 bytes, and the file ends 8 bytes into them.
+  std::vector<uint8_t> v = make_wav();
+  v.resize(12 + 8 + 8);
   MemorySource src(v);
   rt::WavInfo info;
   TEST_ASSERT_FALSE(rt::parse_wav_header(src, info));
@@ -388,7 +431,11 @@ int main() {
   RUN_TEST(test_eight_bit_is_refused);
   RUN_TEST(test_more_than_two_channels_is_refused);
   RUN_TEST(test_a_zero_sample_rate_is_refused);
+  RUN_TEST(test_a_sample_rate_that_wraps_the_i2s_clock_is_refused);
+  RUN_TEST(test_the_sample_rate_bounds_are_inclusive);
   RUN_TEST(test_data_before_fmt_is_refused);
+  RUN_TEST(test_a_fmt_chunk_declared_shorter_than_16_bytes_is_refused);
+  RUN_TEST(test_a_truncated_fmt_body_is_refused);
   RUN_TEST(test_an_empty_data_chunk_is_refused);
   RUN_TEST(test_a_truncated_data_chunk_is_clamped_to_the_file);
   return UNITY_END();

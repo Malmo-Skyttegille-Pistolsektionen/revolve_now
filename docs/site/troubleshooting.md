@@ -36,6 +36,10 @@ mobile data or a previous WiFi.
 
 - Confirm the amplifier is powered and connected — the device has no way to
   detect that on its own.
+- Silent although the amplifier is powered and the pins look right? Check
+  the master clock (MCLK) in [Expert mode](expert-mode.md#audio). Some DAC
+  boards, the club's PCB rev 1 among them, play only with it, and may play
+  after a restart but not after a power cut.
 - Some devices are built with audio hardware disabled entirely; a target that
   only turns, with no sound, is a supported configuration on those. If that is
   the case for this device, there is nothing to fix.
@@ -72,16 +76,18 @@ dump.
 
 **To download one:**
 
-1. Press the device's **BOOT** button — the small button next to the USB
+1. In the web app, open **Settings → Expert mode** and tap **Ask for Expert
+   mode**.
+2. Press the device's **BOOT** button — the small button next to the USB
    sockets, marked `BOOT` or `FLASH` — **three times within ten seconds.**
-2. Open the **Expert mode** tab that appears in the web app, and scroll to
+3. Open the **Expert mode** tab that appears in that browser, and scroll to
    **Troubleshooting** at the bottom.
-3. Press **Download troubleshooting bundle** and attach the file to your
+4. Press **Download troubleshooting bundle** and attach the file to your
    message.
 
-The tab is only there for five minutes after those three presses, and it does
-not appear at all while a program is running. If it is missing, press the button
-three times again. [Expert mode](expert-mode.md) covers what else is on it.
+The tab is only there for five minutes after those three presses, only in the
+browser that asked, and it does not appear at all while a program is running.
+If it is missing, ask and press the button three times again. [Expert mode](expert-mode.md) covers what else is on it.
 
 !!! warning "Who you can send it to"
 

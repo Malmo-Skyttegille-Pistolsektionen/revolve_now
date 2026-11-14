@@ -87,7 +87,9 @@ export interface paths {
          *     endpoint's gate is about. What has to be established is that whoever is
          *     collecting it is *standing at the board*, so the gate is the
          *     **configuration window**: three presses of the device's BOOT button
-         *     within ten seconds, the same gesture that reveals Expert mode. A
+         *     within ten seconds, the same gesture that reveals Expert mode, opening
+         *     the window for the one client that asked for it (D-52). Another client
+         *     on the network cannot use it. A
          *     running program holds that window shut, so a bundle cannot be pulled
          *     out from under a sequence that is driving targets.
          *
@@ -110,6 +112,59 @@ export interface paths {
         get: operations["getDiagnosticsBundle"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/config-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where this client stands with the configuration window
+         * @description Answered for the token in `X-Config-Window`, or for no token. Public:
+         *     it says whether *this* client holds the window, and otherwise only
+         *     what the `configWindow` event already tells everyone - whether a
+         *     window is open for somebody.
+         */
+        get: operations["getConfigWindow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/config-window/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for the configuration window
+         * @description Starts a request that three presses of BOOT, within two minutes, turn
+         *     into an open window for this client (D-52). No body. Not behind the
+         *     control lock: asking proves nothing, the presses do.
+         *
+         *     Send the token already held in `X-Config-Window` to ask again without
+         *     becoming a second request - to keep waiting, or to renew an open
+         *     window for another five minutes. Without it every call is a new
+         *     request, and two requests waiting together make the presses a
+         *     conflict.
+         *
+         *     On a build without a button the answer is `open` at once.
+         */
+        post: operations["requestConfigWindow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -147,6 +202,13 @@ export interface paths {
          * @description Sets the password — any non-empty string, chosen by this call — and
          *     returns the first session token. Refused while the lock is already
          *     on: log in or disable it first.
+         *
+         *     The lock persists across restarts, so this needs the configuration
+         *     window: three presses of the BOOT button, proof that whoever sets the
+         *     password is at the board. Unlike `PUT /config/hardware`, a running
+         *     program does not hold it shut — locking the device mid-run is
+         *     reasonable. A build without a button, and the QEMU profile, skip the
+         *     check, because they cannot open the window at all.
          */
         post: operations["enableControlLockMode"];
         delete?: never;
@@ -210,9 +272,14 @@ export interface paths {
         put?: never;
         /**
          * Turn the control lock off
-         * @description Clears the password and invalidates every issued token. Note this
-         *     turns protection *off* — every endpoint becomes writable by anyone on
-         *     the network again. It is not "log out"; see `/control-lock/logout`.
+         * @description Clears the stored password and invalidates every issued token. Note
+         *     this turns protection *off* — every endpoint becomes writable by anyone
+         *     on the network again. It is not "log out"; see `/control-lock/logout`.
+         *
+         *     Accepted with a session, or without one while the configuration window
+         *     is open: somebody at the board can always turn the lock off, which is
+         *     the way back from a forgotten password now that a restart is not. A
+         *     build without a button has no such way, and needs a session.
          */
         post: operations["disableControlLockMode"];
         delete?: never;
@@ -237,7 +304,7 @@ export interface paths {
         /**
          * Upload a program
          * @description The `id` in the uploaded document is **ignored**: the device assigns
-         *     the next free id from 100 upwards and rewrites the file from the
+         *     the next free id from 1000 upwards and rewrites the file from the
          *     parsed program, so what is persisted is what will come back on the
          *     next boot. `readonly` in the document is ignored too — it follows from
          *     the directory the program lives in, and an upload is never read-only.
@@ -385,7 +452,7 @@ export interface paths {
         put?: never;
         /**
          * Pause the running program
-         * @description Pauses and keeps the last published position, so `start` resumes from it. That is the ticker the last `stateUpdate` carried, not the instant the pause arrived. Since `asyncapi.yaml` 3.0.0 replaced the whole-second `tickerSeconds` with `tickerMs`, a pause a few hundred milliseconds into a series no longer rewinds to the start of it.
+         * @description Pauses and keeps the last published position, so `start` resumes from it. That is the ticker the last `stateUpdate` carried, not the instant the pause arrived. Since `tickerMs` replaced the whole-second `tickerSeconds` (D-16), a pause a few hundred milliseconds into a series no longer rewinds to the start of it.
          */
         post: operations["stopProgram"];
         delete?: never;
@@ -583,7 +650,7 @@ export interface paths {
          *     whose recovery needs a USB cable:
          *
          *     - a GPIO outside 0–48, or one absent from this chip (22–25)
-         *     - a GPIO wired to the module's own flash or PSRAM (26–32, and 35–37 on
+         *     - a GPIO wired to the module's own flash or PSRAM (26–32, and 33–37 on
          *       this board's octal PSRAM), which stops the device booting rather than
          *       merely failing to drive a target
          *     - a GPIO carrying the serial console on UART0 (43–44), which would
@@ -746,6 +813,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ethernet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The wired interface, if there is one
+         * @description Public, like every other `GET`. A board probes for a W5500 on SPI at
+         *     boot and, if one answers, brings it up beside WiFi with a DHCP client;
+         *     the server answers on both. Under QEMU the emulated OpenCores MAC is
+         *     reported here the same way.
+         *
+         *     Answers on every build, so a client can tell "this device has no
+         *     Ethernet" (`supported` or `present` false) from "this firmware is older
+         *     than this endpoint" (a 404).
+         */
+        get: operations["getEthernetStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/restart": {
         parameters: {
             query?: never;
@@ -851,8 +945,8 @@ export interface paths {
          *     is assigned. Every failure path removes the staging file, so a
          *     repeated failed upload cannot fill the partition.
          *
-         *     Accepted audio is RIFF/WAVE with a non-zero sample rate and a
-         *     non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
+         *     Accepted audio is RIFF/WAVE with a sample rate from 8 to 192 kHz and
+         *     a non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
          *     16-bit, mono or stereo; or IMA ADPCM (format tag `0x11`), 4-bit, mono,
          *     with a block of 5 to 512 bytes - the encoding of the shipped clips,
          *     and what the web app converts other formats to before uploading.
@@ -935,6 +1029,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a backup of this device
+         * @description Everything a club has put on this board, as one `application/zip`
+         *     that `POST /restore` reads back (#520):
+         *
+         *     | Entry | What it is |
+         *     |---|---|
+         *     | `backup.json` | where it came from (`format: "revolve-now-backup"`, `formatVersion`, `firmwareVersion`, `hostname`, `displayName`, `includesWifiCredentials: false`), the stored hardware configuration as `hardware`, and the clips' titles as `audios` - described by `contracts/backup.schema.json` |
+         *     | `audio/<id>.wav` | each uploaded clip, byte for byte |
+         *     | `programs/<id>.json` | each uploaded program, as `GET /programs/{id}` returns it |
+         *
+         *     The entries are in that order, which is the order a restore needs:
+         *     `backup.json` with the titles before the clips they name, clips before
+         *     the programs that play them.
+         *
+         *     **Uploads only.** Shipped programs and clips come with the firmware
+         *     image and are not in it.
+         *
+         *     **No WiFi credentials, ever.** `backup.json` says so, so whoever
+         *     holds the file does not have to wonder whether it is safe to pass on.
+         *     A board that has lost its credentials joins a network through the
+         *     setup portal first, and only then can it be reached to restore.
+         *
+         *     `hardware` holds **only the values that differ from the compiled
+         *     defaults**, as a `HardwareConfigPatch`, so that a board built for
+         *     other hardware keeps its own defaults for everything nobody changed.
+         *     `targetsShownAtBoot` is never in it: it is serial-only (D-31).
+         *
+         *     Public, like every other `GET`: the programs and the hardware
+         *     configuration are already readable one by one, and nothing in it is a
+         *     credential.
+         *
+         *     The filename in `Content-Disposition` is
+         *     `revolve-now-backup-<hostname>-<version>.zip`, product first so the
+         *     file says what it is whatever the board is called. The hostname is
+         *     left out while it is the default, which would only repeat the
+         *     product name. No date, for the reason the troubleshooting bundle has
+         *     none: this device has no clock.
+         *
+         *     Served chunked, with no `Content-Length`, and streamed from flash.
+         */
+        get: operations["getBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a backup onto this device
+         * @description A `multipart/form-data` body with the file `GET /backup` produced in
+         *     one file part. Read as it arrives, and each item applied as soon as
+         *     it has: **nothing is deleted**, and everything goes through the same
+         *     checks an upload would.
+         *
+         *     - **Clips** are added under new ids from 1000 upwards. One with the
+         *       same title and the same bytes as a clip already here is skipped.
+         *     - **Programs** are added the same way, and their `audio_ids` are
+         *       rewritten to the ids the restored clips were given. A program
+         *       identical to one already here is skipped. An uploaded clip id the
+         *       backup holds no clip for is removed from the program rather than
+         *       left pointing at whatever this board numbers that way, and listed
+         *       in `droppedAudioIds`.
+         *     - **Hardware**, unless `hardware=false`: this build's compiled
+         *       defaults with the backup's values applied, saved as
+         *       `PUT /config/hardware` would save it — so it needs the
+         *       configuration window, and it takes effect at the next restart
+         *       (D-42). With the window shut it is skipped and reported, and the
+         *       rest is restored anyway - unless the board already holds exactly
+         *       that, which is `unchanged` and needs no window. The hostname and display name stay as they
+         *       are unless `name=true`, because two boards answering to one name is
+         *       the usual result of restoring them onto a second board.
+         *       `targetsShownAtBoot` is never changed.
+         *
+         *     Restoring the same backup twice therefore changes nothing the second
+         *     time.
+         *
+         *     **Across versions.** `backup.json` must come first. A file that is
+         *     not a backup, or a backup in a newer `formatVersion` than this
+         *     firmware reads, is refused as a whole before anything is applied. An
+         *     item this firmware cannot read is refused on its own and reported.
+         *
+         *     **A broken archive.** If the file ends early or is damaged after
+         *     `backup.json`, the restore stops there: what was already applied stays,
+         *     and the `200` lists it with `stoppedEarly` set. Only stored ZIP
+         *     entries are read — the file as it was downloaded, not one that was
+         *     unpacked and zipped again.
+         */
+        post: operations["restoreBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sse/v2": {
         parameters: {
             query?: never;
@@ -973,15 +1180,38 @@ export interface components {
         };
         /**
          * Format: int32
-         * @description The GPIO driving a target bank's circuit. 22-25 do not exist on this chip, 26-32 are the module's own flash and PSRAM, 35-37 are the octal PSRAM's extra data lines on the modules we ship, and 43-44 are the UART0 console; all are refused, because driving one stops the device booting — or takes away the way back from a bad configuration — rather than merely failing to move a target. Every bank needs its own, distinct from the LED's and the audio pins.
+         * @description The GPIO driving a target bank's circuit. 22-25 do not exist on this chip, 26-32 are the module's own flash and PSRAM, 33-37 are the octal PSRAM's extra data lines on the modules we ship, and 43-44 are the UART0 console; all are refused, because driving one stops the device booting — or takes away the way back from a bad configuration — rather than merely failing to move a target. Every bank needs its own, distinct from the LED's and the audio pins.
          */
         TargetBankGpio: number;
-        /** @description Whether a low level shows a target bank. Per bank, not per device: the de-energised state of each bank's wiring is what has to be its resting state. The prototype drives a BC547B whose low state opens the connection; a board that buffers or inverts the signal wants `false`. */
+        /** @description Whether a low level is the active one. On a `level` bank that is the level that shows it; on a `latching` bank it is the pulse level. Per bank, not per device: the de-energised state of each bank's wiring is what has to be its resting state. The prototype drives a BC547B whose low state opens the connection; a board that buffers or inverts the signal wants `false`. */
         TargetBankActiveLow: boolean;
-        /** @description One independently driven target group: one GPIO, one polarity, one name. Which letter it answers to is its position in `banks`, not anything stored here. */
+        /**
+         * @description How a bank's pins move its targets.
+         *
+         *     - **`level`** — `gpio` is held at the shown or hidden level for as long
+         *       as the state lasts.
+         *     - **`latching`** — a latching relay: `gpio` is pulsed to show the bank
+         *       and `hideGpio` to hide it, each for `pulseMs`. Between pulses both
+         *       rest at the inactive level. The relay cannot be read back, so at
+         *       boot the device sends the pulse for its boot state.
+         * @enum {string}
+         */
+        TargetBankDrive: "level" | "latching";
+        /** @description One independently driven target group: its pins, one polarity, one name. Which letter it answers to is its position in `banks`, not anything stored here. */
         TargetBank: {
             gpio: components["schemas"]["TargetBankGpio"];
             activeLow: components["schemas"]["TargetBankActiveLow"];
+            drive?: components["schemas"]["TargetBankDrive"];
+            /**
+             * Format: int32
+             * @description A `latching` bank's hide pin, checked like `gpio` and distinct from every other pin in use, this bank's `gpio` included. A `level` bank never drives it, so there it is only range-checked; -1 when unset. Omitted from a request, a bank keeps the value it had.
+             */
+            hideGpio?: number;
+            /**
+             * Format: int32
+             * @description How long a `latching` bank's pulse lasts, in milliseconds. Default 100. Omitted from a request, a bank keeps the value it had.
+             */
+            pulseMs?: number;
             /** @description What operators call this bank — `Vänster`, `Bana 3`. Display only, and may be empty, in which case a client shows the letter alone. It lives in the hardware configuration and never in a program, so renaming a bank cannot re-aim one. */
             name: string;
         };
@@ -1069,6 +1299,11 @@ export interface components {
             i2sDoutGpio: number;
             /**
              * Format: int32
+             * @description The I2S master clock pin, into the DAC's SCK, or -1 to leave it undriven. Most PCM5102A boards derive their clock from BCK and want -1; some breakouts stay silent without it.
+             */
+            i2sMclkGpio: number;
+            /**
+             * Format: int32
              * @description The port the web app and API are served on. mDNS advertises the host and not the port, so a device moved off 80 reports the port on the serial console — there is nothing else to ask.
              */
             httpPort: number;
@@ -1077,9 +1312,74 @@ export interface components {
              * @description How many times to try the stored network before raising the setup portal. At roughly 2.4 s an attempt, 60 is about two and a half minutes; beyond that a device that cannot join looks broken rather than busy.
              */
             wifiMaxRetries: number;
+            /** @description Whether to join WiFi. Off is honoured only while Ethernet has an address at boot; without one the device joins WiFi anyway and falls back to the setup portal, so it cannot be left unreachable. Off together with `ethEnabled` off is refused. */
+            wifiEnabled: boolean;
+            /** @description Whether to look for a W5500 at boot. On, the device probes for the chip on the pins below and carries on over WiFi alone if nothing answers, and the pins are checked like any other; off, they are carried but not used. */
+            ethEnabled: boolean;
+            /**
+             * Format: int32
+             * @description The SPI clock to a W5500 Ethernet controller.
+             */
+            ethSclkGpio: number;
+            /**
+             * Format: int32
+             * @description The SPI data line into the W5500 (MOSI).
+             */
+            ethMosiGpio: number;
+            /**
+             * Format: int32
+             * @description The SPI data line out of the W5500 (MISO).
+             */
+            ethMisoGpio: number;
+            /**
+             * Format: int32
+             * @description The W5500's chip select (SCS).
+             */
+            ethCsGpio: number;
+            /**
+             * Format: int32
+             * @description The W5500's interrupt line, or -1 to poll the chip instead.
+             */
+            ethIntGpio: number;
+            /**
+             * Format: int32
+             * @description The W5500's reset line, or -1 to reset it over SPI instead.
+             */
+            ethRstGpio: number;
         };
         /**
-         * @description Whether the device is currently accepting hardware configuration.
+         * @description - `closed` — this client holds nothing, and no window is open.
+         *     - `pending` — its request is waiting for three presses of BOOT.
+         *     - `open` — it holds the open window.
+         *     - `conflict` — the presses found more than one request waiting and
+         *       opened the window for nobody. Ask again, from one device only.
+         *       Reported for two minutes.
+         *     - `elsewhere` — a window is open, for another client.
+         *
+         *     A running program holds the window shut, so while one runs `open` and
+         *     `elsewhere` read `closed`.
+         * @enum {string}
+         */
+        ConfigWindowState: "closed" | "pending" | "open" | "conflict" | "elsewhere";
+        ConfigWindowStatus: {
+            state: components["schemas"]["ConfigWindowState"];
+            /**
+             * Format: int32
+             * @description Seconds left of the window while `open`, of the request while `pending`, otherwise 0.
+             */
+            remainingSeconds: number;
+        };
+        ConfigWindowRequest: {
+            /** @description 32 hex characters (16 random bytes). Send it as `X-Config-Window`. Not the control lock's token, and not interchangeable with it. */
+            token: string;
+            state: components["schemas"]["ConfigWindowState"];
+            /** Format: int32 */
+            remainingSeconds: number;
+        };
+        /**
+         * @description Whether the device is currently accepting hardware configuration from
+         *     the client asking, which is the one whose `X-Config-Window` token
+         *     holds the window (D-52).
          *
          *     Guarded by a button press rather than a password. The threat is an
          *     accident - somebody editing a GPIO because it looked interesting - and
@@ -1097,9 +1397,9 @@ export interface components {
          */
         ConfigWriteWindow: {
             /**
-             * @description Whether `PUT /config/hardware` would be accepted right now. One
-             *     meaning, so a client can hide the settings entirely rather than
-             *     offer a form that cannot save.
+             * @description Whether `PUT /config/hardware` from this client would be accepted
+             *     right now. One meaning, so a client can hide the settings entirely
+             *     rather than offer a form that cannot save.
              *
              *     False **while a program is running**, as well as when nobody has
              *     pressed the button. Reconfiguring the machine and operating it are
@@ -1153,8 +1453,17 @@ export interface components {
             i2sBckGpio?: components["schemas"]["HardwareConfig"]["i2sBckGpio"];
             i2sWsGpio?: components["schemas"]["HardwareConfig"]["i2sWsGpio"];
             i2sDoutGpio?: components["schemas"]["HardwareConfig"]["i2sDoutGpio"];
+            i2sMclkGpio?: components["schemas"]["HardwareConfig"]["i2sMclkGpio"];
             httpPort?: components["schemas"]["HardwareConfig"]["httpPort"];
             wifiMaxRetries?: components["schemas"]["HardwareConfig"]["wifiMaxRetries"];
+            wifiEnabled?: components["schemas"]["HardwareConfig"]["wifiEnabled"];
+            ethEnabled?: components["schemas"]["HardwareConfig"]["ethEnabled"];
+            ethSclkGpio?: components["schemas"]["HardwareConfig"]["ethSclkGpio"];
+            ethMosiGpio?: components["schemas"]["HardwareConfig"]["ethMosiGpio"];
+            ethMisoGpio?: components["schemas"]["HardwareConfig"]["ethMisoGpio"];
+            ethCsGpio?: components["schemas"]["HardwareConfig"]["ethCsGpio"];
+            ethIntGpio?: components["schemas"]["HardwareConfig"]["ethIntGpio"];
+            ethRstGpio?: components["schemas"]["HardwareConfig"]["ethRstGpio"];
         };
         /**
          * @description Three views of one configuration, because they can legitimately differ.
@@ -1188,6 +1497,8 @@ export interface components {
         WifiStatus: {
             /** @description Whether this build has a WiFi radio at all. False on the Ethernet build (`CONFIG_RT_NET_OPENETH`, QEMU), where every field below is empty or zero and the other two operations refuse with `/problems/wifi_unavailable`. */
             radioPresent: boolean;
+            /** @description `HardwareConfig.wifiEnabled` as the device booted with, false with no radio. Off is honoured only while Ethernet serves, so the station may still be `connected` with this false. */
+            enabled: boolean;
             /** @description Whether the station currently holds an association. A device serving this response is normally connected — but it may be answering over the Ethernet build, or in the moment between a drop and a reconnect, which the reconnect backoff can stretch to 30 seconds. */
             connected: boolean;
             /** @description The network joined, empty when not associated. Which one this is matters: the store tries the provisioned network first and the compiled seeds after it, so a device that has been to two sites may be on either. */
@@ -1202,7 +1513,7 @@ export interface components {
              * @description The same reading as `rssi`, bucketed 0-4 by the firmware (`wifi_scan::bars`). Carried rather than left to the client so that the web app, the serial console and any future client agree on where "two bars" ends — the thresholds are a judgement about this device's radio, not a display detail.
              */
             bars: number;
-            /** @description Dotted quad, empty before the interface has an address. The same value as `DiagnosticsInfo.ipAddress`. */
+            /** @description The station's dotted quad, empty before it has an address. The same value as `DiagnosticsInfo.ipAddress` unless Ethernet is also up, which that field prefers. */
             ipAddress: string;
             /**
              * @description The station MAC, lower-case and colon-separated. What a router's client list and a MAC filter identify this device by, which is the form the question is asked in when a device will not join.
@@ -1252,6 +1563,32 @@ export interface components {
              */
             auth: string;
         };
+        /** @description The wired interface, as it stands. */
+        EthernetStatus: {
+            /** @description Whether this build can have a wired interface at all. False on a firmware built without W5500 support; every field below is then false, zero or empty. */
+            supported: boolean;
+            /** @description `HardwareConfig.ethEnabled` as the device booted with. False means it did not look for a controller, so `present` is false too. */
+            enabled: boolean;
+            /** @description Whether a controller answered at boot. False when Ethernet is switched off or none responded on the configured pins - the probe runs once, so fitting one needs a restart. */
+            present: boolean;
+            /** @description Whether a cable is in and something is at the other end. */
+            linkUp: boolean;
+            /**
+             * Format: int32
+             * @description The negotiated speed, 0 without a link.
+             * @enum {integer}
+             */
+            speedMbps: 0 | 10 | 100;
+            /** @description The negotiated duplex, false without a link. */
+            fullDuplex: boolean;
+            /** @description The dotted quad leased over DHCP, empty without one. The device is also at `<hostname>.local` on this interface. */
+            ipAddress: string;
+            /**
+             * @description The interface's MAC, lower-case and colon-separated, empty when no controller is present. Distinct from the WiFi station's, so a router lists the device twice when both are connected.
+             * @example 30:ed:a0:a8:ab:7b
+             */
+            macAddress: string;
+        };
         WifiNetworkList: {
             /** @description Strongest first, one entry per SSID. Empty is a real answer: nothing in range, or a scan the driver refused. There is no timestamp — the device has no clock, and the list is a fresh scan by construction, not a cache. */
             networks: components["schemas"]["WifiNetwork"][];
@@ -1265,9 +1602,10 @@ export interface components {
         };
         /**
          * @description An RFC 9457 problem detail — the shape every handler uses for a
-         *     failure, served as `application/problem+json` (D-19). The one
-         *     exception is a request body over the size ceiling, rejected by the
-         *     HTTP layer with a `text/html` body.
+         *     failure, served as `application/problem+json` (D-19). The exception
+         *     is whatever the HTTP layer rejects before a handler runs: an oversized
+         *     body, a malformed multipart upload or oversized headers (see Limits
+         *     in `info`).
          *
          *     RFC 9457 permits extension members; this device emits none, which is
          *     what `additionalProperties: false` records.
@@ -1287,7 +1625,7 @@ export interface components {
              *     `program_invalid` `backend_issue` code in `asyncapi.yaml`.
              * @enum {string}
              */
-            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed";
+            type: "/problems/control_lock_credentials_required" | "/problems/invalid_password" | "/problems/origin_not_allowed" | "/problems/host_not_allowed" | "/problems/route_not_found" | "/problems/program_not_found" | "/problems/audio_not_found" | "/problems/control_lock_already_enabled" | "/problems/control_lock_not_enabled" | "/problems/no_program_loaded" | "/problems/program_not_running" | "/problems/program_running" | "/problems/program_loaded" | "/problems/wifi_unavailable" | "/problems/start_program_mismatch" | "/problems/skip_program_mismatch" | "/problems/program_readonly" | "/problems/audio_readonly" | "/problems/audio_in_use" | "/problems/audio_playing" | "/problems/program_banks_unavailable" | "/problems/ota_image_refused" | "/problems/restart_pending" | "/problems/program_invalid" | "/problems/program_id_mismatch" | "/problems/series_index_invalid" | "/problems/start_id_required" | "/problems/skip_id_required" | "/problems/hardware_config_invalid" | "/problems/hardware_config_serial_only" | "/problems/hardware_config_window_closed" | "/problems/config_window_busy" | "/problems/wifi_credentials_invalid" | "/problems/bank_unavailable" | "/problems/backup_invalid" | "/problems/upload_missing_file" | "/problems/upload_missing_title" | "/problems/audio_format_unsupported" | "/problems/program_store_failed" | "/problems/audio_store_failed" | "/problems/wifi_store_failed" | "/problems/restart_failed" | "/problems/ota_write_failed" | "/problems/control_lock_store_failed";
             /**
              * @description A short summary of the type, identical for every occurrence of it. Not for display — it does not describe this occurrence.
              * @example Program is read-only
@@ -1305,10 +1643,72 @@ export interface components {
         Message: {
             message: string;
         };
+        /** @description The answer to a call that ends in a restart: `POST /system/restart` and a successful `POST /ota`. */
+        RestartAccepted: {
+            /** @enum {string} */
+            status: "accepted";
+            restarting: boolean;
+        };
+        /** @description What `POST /restore` did with each part of the backup. */
+        RestoreReport: {
+            /** @description What `backup.json` said about where the backup came from. */
+            source: {
+                /** Format: int32 */
+                formatVersion: number;
+                firmwareVersion: string;
+                hostname: string;
+                displayName: string;
+            };
+            hardware: components["schemas"]["RestoreHardware"];
+            /** @description Every clip in the backup, in archive order. */
+            audios: components["schemas"]["RestoreItem"][];
+            /** @description Every program in the backup, in archive order. */
+            programs: components["schemas"]["RestoreItem"][];
+            /** @description Present when the archive broke part way - cut short or damaged. The restore stopped there; everything listed above it was applied. */
+            stoppedEarly?: components["schemas"]["Problem"];
+        };
+        RestoreItem: {
+            /**
+             * Format: int32
+             * @description Its id on the device the backup was taken from.
+             */
+            sourceId: number;
+            /** @description Empty for a program this firmware could not read; a placeholder for a clip the backup had no title for. */
+            title: string;
+            /**
+             * @description - `added` — stored under `id`.
+             *     - `skipped` — an identical one is already here, as `id`.
+             *     - `refused` — not stored; `problem` says why.
+             * @enum {string}
+             */
+            result: "added" | "skipped" | "refused";
+            /**
+             * Format: int32
+             * @description Its id on this device. Absent when refused.
+             */
+            id?: number;
+            problem?: components["schemas"]["Problem"];
+            /** @description Programs only: uploaded clip ids the program played that the backup restored no clip for, removed from its events. */
+            droppedAudioIds?: number[];
+        };
+        RestoreHardware: {
+            /**
+             * @description - `saved` — stored; it applies at the next restart.
+             *     - `unchanged` — already what the backup holds.
+             *     - `notRequested` — `hardware=false`.
+             *     - `notIncluded` — `backup.json` has no `hardware`.
+             *     - `skipped` — there is something to save and the configuration
+             *       window is shut; `problem` says how to open it.
+             *     - `refused` — this firmware refuses a value; `problem` names it.
+             * @enum {string}
+             */
+            result: "saved" | "unchanged" | "notRequested" | "notIncluded" | "skipped" | "refused";
+            problem?: components["schemas"]["Problem"];
+        };
         CreatedId: {
             /**
              * Format: int32
-             * @description The id the device assigned. Uploaded programs and clips are numbered from 100 upwards, keeping them clear of the shipped ids.
+             * @description The id the device assigned. Uploaded programs and clips are numbered from 1000 upwards, keeping them clear of the shipped ids.
              */
             id: number;
         };
@@ -1429,7 +1829,7 @@ export interface components {
             readonly: boolean;
         };
         PartitionInfo: {
-            /** @description The partition label from `partitions.csv`, e.g. `storage`. */
+            /** @description The partition label from `partitions.csv`, e.g. `userdata`. */
             name: string;
             /** @enum {string} */
             kind: "app" | "data";
@@ -1495,22 +1895,25 @@ export interface components {
             runningPartition: string;
             /** @description Whether a coredump image is waiting to be collected — that is, whether `GET /diagnostics/bundle` would carry a `coredump.bin`. False is the normal case: nothing has panicked since the partition was last erased, which is not something any update path does. */
             coredumpPresent: boolean;
-            /** @description The `storage` partition's size. Kept alongside `partitions`, which reports the same figure — this pair predates it and clients still read it. */
+            /** @description The `userdata` partition's size. Kept alongside `partitions`, which reports the same figure — this pair predates it and clients still read it. */
             storageTotalBytes: number;
             storageUsedBytes: number;
-            /** @description Every partition in the flash table, in flash-offset order. `storage` is not the only one that can fill: the app slots decide whether an over-the-air image will fit, and NVS holds the provisioned credentials. */
+            /** @description Every partition in the flash table, in flash-offset order. `userdata` is not the only one that can fill: the app slots decide whether an over-the-air image will fit, and NVS holds the provisioned credentials. */
             partitions: components["schemas"]["PartitionInfo"][];
             programCount: number;
             audioCount: number;
-            /** @description The device's current address, or empty when it has none. */
+            /** @description The device's current address, or empty when it has none. The Ethernet address while that interface has a link and a lease, otherwise the WiFi station's; `GET /ethernet` and `GET /wifi` each report their own. */
             ipAddress: string;
             /** @description A GPIO and its read-back level per bank, which is what answers "is the firmware driving what it thinks it is". `padLevel` is read from the pad rather than remembered, so it tells "the firmware never drove it" apart from "something else is holding it". */
             banks: {
                 id: components["schemas"]["BankLetter"];
                 /** @description The GPIO this bank drives. */
                 gpio: number;
-                /** @description The level actually on that pad. */
+                /** @description The level actually on that pad. On a `latching` bank this is the show pin, which rests released between pulses, so it says nothing about the targets — read `shown` instead. */
                 padLevel: number;
+                drive?: components["schemas"]["TargetBankDrive"];
+                /** @description What the device last told this bank. Remembered, not read: the only state a `latching` bank has, since the relay cannot be read back. Optional: firmware from before latching banks omits it, and `drive`. */
+                shown?: boolean;
                 /** @description The bank's configured name, possibly empty. */
                 name: string;
             }[];
@@ -1571,6 +1974,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description An RFC 9457 problem detail. Every operation that uses this names its own problem types in a `description` beside the `$ref`. */
+        Problem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /**
          * @description - `/problems/bank_unavailable` — `banks` names a bank this device does
          *       not have, or is not an array of letters at all. `detail` says which
@@ -1614,6 +2026,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+        ConfigWindowToken: string;
         /** @description Program id. Must be a plain decimal integer within `int32`; anything else is a `404` rather than being read as id 0. */
         ProgramId: number;
         /** @description Audio clip id. Must be a plain decimal integer within `int32`. */
@@ -1687,7 +2101,10 @@ export interface operations {
     getDiagnosticsBundle: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -1705,23 +2122,68 @@ export interface operations {
                 };
             };
             /**
-             * @description `/problems/hardware_config_window_closed` — nobody has completed
-             *     the three-press sequence recently, so the configuration window is
-             *     shut, or a program is running. The same refusal, from the same
+             * @description `/problems/hardware_config_window_closed` — this request does
+             *     not carry a token that holds the configuration window (D-52), or no
+             *     window is open, or a program is running. The same refusal, from the same
              *     window, as `PUT /config/hardware`: one window, one problem type,
              *     whichever endpoint it is guarding.
              *
              *     The only refusal this operation has. There is no `401`: nothing
              *     here is gated on the control lock.
              */
-            403: {
+            403: components["responses"]["Problem"];
+        };
+    };
+    getConfigWindow: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description This client's standing. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ConfigWindowStatus"];
                 };
             };
+        };
+    };
+    requestConfigWindow: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request, waiting for the presses. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigWindowRequest"];
+                };
+            };
+            /**
+             * @description - `/problems/config_window_busy` — four requests are already
+             *       waiting. They are never pushed out to make room, because that
+             *       would let a flood of requests leave its own as the only one.
+             */
+            409: components["responses"]["Problem"];
         };
     };
     getControlLockStatus: {
@@ -1749,7 +2211,10 @@ export interface operations {
     enableControlLockMode: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -1764,26 +2229,24 @@ export interface operations {
              * @description - `/problems/invalid_password` — the password was empty, or the
              *       body carried none.
              */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            401: components["responses"]["Problem"];
+            /**
+             * @description - `/problems/hardware_config_window_closed` — this request does
+             *       not hold the configuration window (D-52). The same type, from the same
+             *       window, as `PUT /config/hardware`.
+             */
+            403: components["responses"]["Problem"];
             /**
              * @description - `/problems/control_lock_already_enabled` — log in or disable it
              *       first.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
+            /**
+             * @description - `/problems/control_lock_store_failed` — the password could not be
+             *       stored, so the lock was left off rather than on until the next
+             *       restart.
+             */
+            500: components["responses"]["Problem"];
         };
     };
     loginControlLockMode: {
@@ -1801,26 +2264,12 @@ export interface operations {
         responses: {
             200: components["responses"]["ControlLockSession"];
             /** @description - `/problems/invalid_password` — wrong password. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            401: components["responses"]["Problem"];
             /**
              * @description - `/problems/control_lock_not_enabled` — there is nothing to log in
              *       to.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     logoutControlLockMode: {
@@ -1848,7 +2297,10 @@ export interface operations {
     disableControlLockMode: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -1864,6 +2316,12 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /**
+             * @description - `/problems/control_lock_store_failed` — the stored password could
+             *       not be cleared, so the lock was left on rather than off until the
+             *       next restart.
+             */
+            500: components["responses"]["Problem"];
         };
     };
     listPrograms: {
@@ -1913,15 +2371,13 @@ export interface operations {
              * @description - `/problems/program_invalid` — empty body, malformed JSON, or a
              *       non-object root.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
+            /**
+             * @description - `/problems/program_store_failed` — the document was valid but
+             *       could not be written to flash. Nothing was added.
+             */
+            500: components["responses"]["Problem"];
         };
     };
     getProgram: {
@@ -1949,14 +2405,7 @@ export interface operations {
              * @description - `/problems/program_not_found` — no such program, or a path
              *       segment that is not a plain decimal integer.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
         };
     };
     updateProgram: {
@@ -1991,27 +2440,13 @@ export interface operations {
              *     - `/problems/program_id_mismatch` — the body declares a different
              *       id from the path.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/program_not_found` — no such program, or a path
              *       segment that is not a plain decimal integer.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_readonly` — the program is shipped with the
              *       firmware and has no writable file behind it. Upload the document
@@ -2023,26 +2458,12 @@ export interface operations {
              *     is why `type` exists (D-19): the wording of `detail` is not a
              *     discriminator.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_store_failed` — the replacement could not be
              *       written to flash. The previous document is left intact.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     loadProgram: {
@@ -2071,14 +2492,7 @@ export interface operations {
              * @description - `/problems/program_not_found` — no such program.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
         };
     };
     deleteProgram: {
@@ -2107,27 +2521,13 @@ export interface operations {
              * @description - `/problems/program_not_found` — no such program.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_readonly` — the program is shipped with the
              *       firmware and has no writable file behind it. The same type
              *       `PUT /programs/{id}` answers for the same program.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     startProgram: {
@@ -2158,21 +2558,16 @@ export interface operations {
              *     - `/problems/start_id_required` — no body, unparseable JSON, or no
              *       integer `id`.
              *
-             *     "Nothing is loaded" outranks the id check: it is the more precise
-             *     diagnosis, and it is what a client that has to load something first
-             *     needs to hear.
+             *     The id check comes first: a start without a well-formed body is
+             *     refused as such whether or not anything is loaded.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
-             * @description - `/problems/start_program_mismatch` — a different program is
+             * @description - `/problems/program_running` — a firmware update is in progress
+             *       and the device is about to restart. Checked before anything
+             *       else, the body included.
+             *     - `/problems/start_program_mismatch` — a different program is
              *       loaded. `detail` names both ids, because the operator needs to
              *       know what the device actually holds to decide what to do about
              *       it. The run state is untouched and no `stateUpdate` is published.
@@ -2183,14 +2578,7 @@ export interface operations {
              *       bank it happens to drive. Uploading and loading such a program
              *       are both fine; only starting it is refused.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     stopProgram: {
@@ -2212,14 +2600,7 @@ export interface operations {
                 };
             };
             /** @description - `/problems/program_not_running` — nothing is running. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2242,14 +2623,7 @@ export interface operations {
                 };
             };
             /** @description - `/problems/no_program_loaded` — nothing is loaded. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2276,14 +2650,7 @@ export interface operations {
              * @description - `/problems/program_running` — a run is in progress. `stop` first;
              *       it is a pause, so the refusal lifts with it.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     skipToSeries: {
@@ -2319,41 +2686,20 @@ export interface operations {
              *     - `/problems/skip_id_required` — no body, unparseable JSON, or no
              *       integer `id`.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/route_not_found` — the path segment is not a plain
              *       decimal integer.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description - `/problems/skip_program_mismatch` — a different program is
              *       loaded. `detail` names both ids, same reasoning as `start`'s
              *       `409`. The run state is untouched and no `stateUpdate` is
              *       published.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     showTargets: {
@@ -2425,7 +2771,10 @@ export interface operations {
     getHardwareConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2445,7 +2794,10 @@ export interface operations {
     putHardwareConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2471,32 +2823,18 @@ export interface operations {
              *     - `/problems/hardware_config_serial_only` — the body carried
              *       `targetsShownAtBoot`, which changes only from the serial console.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
-             * @description `/problems/hardware_config_window_closed` — nobody has completed
-             *     the three-press sequence recently, so the configuration window is
-             *     shut.
+             * @description `/problems/hardware_config_window_closed` — this request does
+             *     not carry a token that holds the configuration window (D-52), or no
+             *     window is open.
              *
              *     Separate from 401, which is about the control lock: this is not a
              *     question of who you are but of whether somebody is standing at the
              *     device. Both apply, and both must pass.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description `/problems/program_running` — a program is running.
              *
@@ -2505,20 +2843,16 @@ export interface operations {
              *     operating it are different activities, and these values only take
              *     effect at the next restart.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
         };
     };
     resetHardwareConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2534,6 +2868,17 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            /**
+             * @description `/problems/hardware_config_window_closed` — the configuration
+             *     window is shut. The same guard as `PUT /config/hardware`: this
+             *     rewrites every value at once.
+             */
+            403: components["responses"]["Problem"];
+            /**
+             * @description `/problems/program_running` — a program is running. Checked before
+             *     the window, as on `PUT /config/hardware`.
+             */
+            409: components["responses"]["Problem"];
         };
     };
     getWifiStatus: {
@@ -2559,7 +2904,10 @@ export interface operations {
     putWifiCredentials: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2583,30 +2931,16 @@ export interface operations {
              *     32 bytes, or a password over 63. `detail` says which, because the
              *     operator has to decide what to type instead.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
-             * @description `/problems/hardware_config_window_closed` — nobody has completed
-             *     the three-press sequence recently, so the configuration window is
-             *     shut. The same window and the same problem type as
+             * @description `/problems/hardware_config_window_closed` — this request does
+             *     not carry a token that holds the configuration window (D-52), or no
+             *     window is open. The same window and the same problem type as
              *     `PUT /config/hardware` and `GET /diagnostics/bundle`: one window,
              *     one type, whichever endpoint it is guarding.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description - `/problems/program_running` — a program is running. Checked
              *       before the window, because "stop the run" is the more useful
@@ -2617,32 +2951,21 @@ export interface operations {
              *       (`CONFIG_RT_NET_OPENETH`). Permanent for this firmware, not a
              *       state to retry.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description `/problems/wifi_store_failed` — NVS refused the write. Nothing was
              *     saved and the device stays on the network it is on.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     getWifiNetworks: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2661,24 +2984,30 @@ export interface operations {
              * @description `/problems/hardware_config_window_closed` — the configuration
              *     window is shut, or a program is running.
              */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            403: components["responses"]["Problem"];
             /**
              * @description `/problems/wifi_unavailable` — this build has no radio
              *     (`CONFIG_RT_NET_OPENETH`).
              */
-            409: {
+            409: components["responses"]["Problem"];
+        };
+    };
+    getEthernetStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wired interface as it stands. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["EthernetStatus"];
                 };
             };
         };
@@ -2701,11 +3030,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "accepted";
-                        restarting: boolean;
-                    };
+                    "application/json": components["schemas"]["RestartAccepted"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2713,28 +3038,14 @@ export interface operations {
              * @description `/problems/program_running` — a program is running. Stop it first;
              *     a restart takes the targets and the audio down mid-sequence.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description `/problems/restart_failed` — the device could not start the task
              *     that does the restarting, which on this firmware means it is out of
              *     memory. Nothing was restarted, so the answer is a refusal rather
              *     than a `200` the client would sit waiting on.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     uploadFirmware: {
@@ -2765,38 +3076,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "accepted";
-                        restarting: boolean;
-                    };
+                    "application/json": components["schemas"]["RestartAccepted"];
                 };
             };
             /**
              * @description `/problems/ota_image_refused` — the upload was empty, too small to
-             *     be an image, not an image at all or incomplete, or not for this
-             *     project.
+             *     be an image, larger than the firmware slot, not an image at all or
+             *     incomplete, or not for this project. Larger than the slot is
+             *     answered before any of it is read.
              *
              *     `/problems/upload_missing_file` — the body was not
              *     `multipart/form-data`. Answered before any of it is read.
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The control lock is on and the request carried no valid session. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Unauthorized"];
             /**
              * @description `/problems/program_running` — a program is running.
              *
@@ -2805,14 +3098,7 @@ export interface operations {
              *     be written to is that image, so nothing is written until the
              *     restart.
              */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            409: components["responses"]["Problem"];
             /**
              * @description `/problems/restart_failed` — the image was written and is the boot
              *     partition, but the restart could not be started. The update is
@@ -2828,14 +3114,7 @@ export interface operations {
              *     partition. The image may have been fine; the running firmware is
              *     unchanged.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     listAudios: {
@@ -2895,30 +3174,16 @@ export interface operations {
              *     - `/problems/audio_format_unsupported` — not a WAV in either
              *       accepted encoding.
              *
-             *     A body over the 1 MiB ceiling is also answered `400`, but with a
-             *     `text/html` body rather than a problem detail.
+             *     A clip over the 1 MiB ceiling is answered by the HTTP layer with a
+             *     `text/html` body rather than a problem detail (see Limits in `info`).
              */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             /**
              * @description - `/problems/audio_store_failed` — the clip could not be moved
              *       into place or indexed.
              */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            500: components["responses"]["Problem"];
         };
     };
     playAudio: {
@@ -2952,14 +3217,7 @@ export interface operations {
              * @description - `/problems/audio_not_found` — no such clip.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
         };
     };
     deleteAudio: {
@@ -2988,14 +3246,7 @@ export interface operations {
              * @description - `/problems/audio_not_found` — no such clip.
              *     - `/problems/route_not_found` — the path did not parse.
              */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
+            404: components["responses"]["Problem"];
             /**
              * @description The clip is shipped, or it still matters to a run. Four types
              *     under one status, in the order the firmware checks them:
@@ -3015,14 +3266,90 @@ export interface operations {
              *       right now. LittleFS has no unlink-while-open, so removing it
              *       would corrupt the read.
              */
-            409: {
+            409: components["responses"]["Problem"];
+        };
+    };
+    getBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The backup. */
+            200: {
+                headers: {
+                    /** @description `attachment` with the generated filename. Characters outside `[A-Za-z0-9._-]` in the hostname or version are replaced with `-`. */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /**
+             * @description `/problems/program_running` — a program is running. The server
+             *     answers one request at a time and a backup takes seconds, so it
+             *     would hold the stop button's request behind it.
+             */
+            409: components["responses"]["Problem"];
+        };
+    };
+    restoreBackup: {
+        parameters: {
+            query?: {
+                /** @description Restore the hardware configuration. `false` leaves it alone. */
+                hardware?: boolean;
+                /** @description Restore the hostname and display name as well. Ignored when `hardware` is `false`. */
+                name?: boolean;
+            };
+            header?: {
+                /** @description The token from `POST /config-window/request`, once three presses of BOOT have opened the window for it (D-52). Without it, or with a token that does not hold the window, a guarded call is refused as if the window were shut. */
+                "X-Config-Window"?: components["parameters"]["ConfigWindowToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The backup, as `GET /backup` served it.
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Applied, item by item. Some items may have been refused; each says why. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["RestoreReport"];
                 };
             };
+            /**
+             * @description Refused as a whole; nothing was applied.
+             *
+             *     - `/problems/backup_invalid` — not a ZIP, not a backup, no
+             *       `backup.json` first, a `formatVersion` this firmware cannot
+             *       read, or a re-zipped file using compression.
+             *     - `/problems/upload_missing_file` — not a multipart body, or no
+             *       file part arrived.
+             */
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description `/problems/program_running` — a program is running. Refused before
+             *     the body is read: the upload holds the server for as long as it
+             *     takes, and the stop button with it.
+             */
+            409: components["responses"]["Problem"];
         };
     };
     streamEvents: {

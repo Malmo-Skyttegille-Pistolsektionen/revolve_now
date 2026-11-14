@@ -1,15 +1,14 @@
+import { useT } from '../i18n';
 import { ThemePicker } from './ThemePicker';
 import styles from './ThemeSection.module.css';
 
 export function ThemeSection(): React.ReactNode {
+  const t = useT();
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>Theme</h2>
+      <h2 className={styles.sectionTitle}>{t.settings.theme.title}</h2>
       <ThemePicker />
-      <p className={styles.hint}>
-        System follows this phone or computer&apos;s own light or dark setting. Kept in this browser only, like the
-        server URL.
-      </p>
+      <p className={styles.hint}>{t.settings.theme.hint}</p>
     </section>
   );
 }

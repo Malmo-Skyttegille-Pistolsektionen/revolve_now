@@ -1,4 +1,4 @@
-# Revolve Now
+<h1><img src="webapp/public/revolve-now-logo.svg" width="320" alt="Revolve Now"></h1>
 
 Software for running timed shooting programs on a rotating target system, built
 by and for Malmö Skyttegille Pistolsektionen.
@@ -34,7 +34,7 @@ The targets rest **shown** at boot, deliberately: a target that turns of its own
 accord when a board is powered is the failure this project is most concerned
 with. That resting state can be changed to suit a target system wired the other
 way round, but only over a USB cable, never from the web app — see
-[Settings](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/settings/).
+[Expert mode](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/expert-mode/).
 
 **Do not rely on this software to protect anyone.** It is a convenience for
 running programs, not a safety device, and it has no interlock, no sensor, and
@@ -49,7 +49,8 @@ operating this system. You build and use it entirely at your own risk.
 
 ## Documentation
 
-Everything an operator needs is on the documentation site:
+Everything an operator needs is on the documentation site, in English and
+Swedish (the language menu in the header switches):
 
 - **[Operator documentation](https://malmo-skyttegille-pistolsektionen.github.io/revolve_now/)**
   — wiring, connecting, running a program, settings, and what the status LED is

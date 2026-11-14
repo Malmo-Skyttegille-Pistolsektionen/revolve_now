@@ -49,15 +49,30 @@ def slot_size(partitions_csv: str, name: str) -> int:
 
 
 def mount_sizes(index_header: str) -> dict[str, int]:
-    """Bytes per top-level mount, from the generated index the packer emits."""
+    """Bytes per top-level mount, from the generated index the packer emits.
+
+    Refuses to answer when the parse finds nothing, or a different number of
+    entries than the header declares: a packer format change would otherwise
+    read as an empty image, and an empty image is always under budget.
+    """
     sizes: dict[str, int] = {}
     pattern = re.compile(r'\{"(/[^"]*)",\s*(\d+),\s*(\d+)\}')
     with open(index_header, encoding="utf-8") as handle:
-        for path, _offset, size in pattern.findall(handle.read()):
-            parts = path.split("/")
-            if len(parts) < 2 or not parts[1]:
-                continue
-            sizes[parts[1]] = sizes.get(parts[1], 0) + int(size)
+        text = handle.read()
+    found = pattern.findall(text)
+    declared = re.search(r"^// (\d+) file\(s\)", text, re.MULTILINE)
+    if not found or declared is None or int(declared.group(1)) != len(found):
+        raise SystemExit(
+            f"::error::{index_header}: parsed {len(found)} entries, the header declares "
+            f"{declared.group(1) if declared else 'no count'}. Either the index format in "
+            "firmware/tools/pack_assets.py changed under this check, or nothing was "
+            "embedded - the budget cannot be measured either way."
+        )
+    for path, _offset, size in found:
+        parts = path.split("/")
+        if len(parts) < 2 or not parts[1]:
+            continue
+        sizes[parts[1]] = sizes.get(parts[1], 0) + int(size)
     return sizes
 
 

@@ -67,6 +67,11 @@ HardwareConfig compiled_defaults() {
   config.i2s_dout_gpio = 11;
   config.http_port = 80;
   config.wifi_max_retries = 10;
+  config.eth_sclk_gpio = 41;
+  config.eth_mosi_gpio = 39;
+  config.eth_miso_gpio = 40;
+  config.eth_cs_gpio = 42;
+  config.eth_int_gpio = 38;
   return config;
 }
 
@@ -84,6 +89,47 @@ void test_a_device_that_has_never_been_configured_keeps_its_defaults() {
   TEST_ASSERT_EQUAL_INT32(5, config.banks[0].gpio);
   TEST_ASSERT_TRUE(config.banks[0].active_low);
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+}
+
+// A device saved before #506 has no MCLK key and keeps it undriven; one saved
+// after reads it back like any other pin.
+void test_the_i2s_master_clock_is_read_when_stored() {
+  FakeStore store;
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_FALSE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL_INT32(rt::kI2sPinUnused, config.i2s_mclk_gpio);
+
+  store.ints[rt::hw_key::kI2sMclk] = 47;
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL_INT32(47, config.i2s_mclk_gpio);
+}
+
+// A device saved before #262 has no Ethernet keys and keeps the compiled pins.
+void test_the_ethernet_pins_are_read_when_stored() {
+  FakeStore store;
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_FALSE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL_INT32(42, config.eth_cs_gpio);
+  TEST_ASSERT_TRUE(config.wifi_enabled);
+  TEST_ASSERT_TRUE(config.eth_enabled);
+
+  store.bools[rt::hw_key::kWifiOn] = false;
+  store.bools[rt::hw_key::kEthOn] = false;
+  store.ints[rt::hw_key::kEthSclk] = 41;
+  store.ints[rt::hw_key::kEthMosi] = 39;
+  store.ints[rt::hw_key::kEthMiso] = 40;
+  store.ints[rt::hw_key::kEthCs] = 42;
+  store.ints[rt::hw_key::kEthInt] = 38;
+  store.ints[rt::hw_key::kEthRst] = 2;
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL_INT32(41, config.eth_sclk_gpio);
+  TEST_ASSERT_EQUAL_INT32(39, config.eth_mosi_gpio);
+  TEST_ASSERT_EQUAL_INT32(40, config.eth_miso_gpio);
+  TEST_ASSERT_EQUAL_INT32(42, config.eth_cs_gpio);
+  TEST_ASSERT_EQUAL_INT32(38, config.eth_int_gpio);
+  TEST_ASSERT_EQUAL_INT32(2, config.eth_rst_gpio);
+  TEST_ASSERT_FALSE(config.wifi_enabled);
+  TEST_ASSERT_FALSE(config.eth_enabled);
 }
 
 // The count decides how many banks are read.
@@ -178,26 +224,97 @@ void test_keys_a_device_has_never_seen_keep_their_compiled_default() {
   TEST_ASSERT_EQUAL_STRING("revolve-now", config.hostname.c_str());
 }
 
+// D-44: the old default was written by every hardware save, whether or not
+// anyone chose it, so it must not pin a device to the name it no longer ships.
+void test_the_pre_rename_default_hostname_gives_way_to_the_compiled_one() {
+  FakeStore store;
+  store.strings[rt::hw_key::kHostname] = rt::kLegacyDefaultHostname;
+  store.strings[rt::hw_key::kDisplayName] = "Bana 1";
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+
+  TEST_ASSERT_EQUAL_STRING("revolve-now", config.hostname.c_str());
+  // Only the hostname is migrated; the rest of what was saved stands.
+  TEST_ASSERT_EQUAL_STRING("Bana 1", config.display_name.c_str());
+}
+
+void test_a_hostname_somebody_chose_is_kept() {
+  FakeStore store;
+  store.strings[rt::hw_key::kHostname] = "rotation-target-2";
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+
+  TEST_ASSERT_EQUAL_STRING("rotation-target-2", config.hostname.c_str());
+}
+
+// A latching bank (#636) reads its drive, hide pin and pulse back. A device
+// saved before it has none of those keys and stays level, on the default pulse.
+void test_a_latching_bank_reads_its_drive_hide_pin_and_pulse() {
+  FakeStore store;
+  store.ints[rt::hw_key::kBankCount] = 2;
+  store.ints[rt::BankKey(0, "gpio").text] = 5;
+  store.ints[rt::BankKey(1, "gpio").text] = 6;
+  store.ints[rt::BankKey(1, "drive").text] = static_cast<int32_t>(rt::BankDrive::kLatching);
+  store.ints[rt::BankKey(1, "hide").text] = 7;
+  store.ints[rt::BankKey(1, "pulse").text] = 250;
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLevel, config.banks[0].drive);
+  TEST_ASSERT_EQUAL_INT32(rt::kPinUnused, config.banks[0].hide_gpio);
+  TEST_ASSERT_EQUAL_INT32(rt::kDefaultPulseMs, config.banks[0].pulse_ms);
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLatching, config.banks[1].drive);
+  TEST_ASSERT_EQUAL_INT32(7, config.banks[1].hide_gpio);
+  TEST_ASSERT_EQUAL_INT32(250, config.banks[1].pulse_ms);
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+}
+
+// A drive value this build does not know is not trusted to mean latching: the
+// bank holds its one pin rather than pulsing a second it may not have.
+void test_an_unknown_drive_stays_level() {
+  FakeStore store;
+  store.ints[rt::hw_key::kBankCount] = 1;
+  store.ints[rt::BankKey(0, "drive").text] = 7;
+
+  HardwareConfig config = compiled_defaults();
+  TEST_ASSERT_TRUE(rt::overlay_config(store, config));
+  TEST_ASSERT_EQUAL(rt::BankDrive::kLevel, config.banks[0].drive);
+}
+
 // The keys are 15 characters at most, which is what NVS accepts. A longer one
 // is not a truncated key, it is a write that never happens.
 void test_every_key_fits_what_nvs_accepts() {
   for (size_t i = 0; i < rt::kMaxTargetBanks; i++) {
-    for (const char *suffix : {"gpio", "alow", "name"}) {
+    for (const char *suffix : rt::kBankKeySuffixes) {
       TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(rt::BankKey(i, suffix).text).size());
     }
   }
   TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(rt::hw_key::kBankCount).size());
   TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(rt::hw_key::kBootShown).size());
+  for (const char *key :
+       {rt::hw_key::kEthSclk, rt::hw_key::kEthMosi, rt::hw_key::kEthMiso, rt::hw_key::kEthCs,
+        rt::hw_key::kEthInt, rt::hw_key::kEthRst, rt::hw_key::kWifiOn, rt::hw_key::kEthOn}) {
+    TEST_ASSERT_LESS_OR_EQUAL_size_t(15, std::string(key).size());
+  }
 }
 
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_a_device_that_has_never_been_configured_keeps_its_defaults);
+  RUN_TEST(test_the_i2s_master_clock_is_read_when_stored);
+  RUN_TEST(test_the_ethernet_pins_are_read_when_stored);
   RUN_TEST(test_a_banked_device_reads_every_bank);
   RUN_TEST(test_a_missing_bank_a_pin_falls_back_to_the_compiled_default);
   RUN_TEST(test_a_half_written_bank_set_is_refused_rather_than_partly_applied);
   RUN_TEST(test_a_count_this_build_cannot_support_is_treated_as_absent);
   RUN_TEST(test_keys_a_device_has_never_seen_keep_their_compiled_default);
+  RUN_TEST(test_the_pre_rename_default_hostname_gives_way_to_the_compiled_one);
+  RUN_TEST(test_a_hostname_somebody_chose_is_kept);
+  RUN_TEST(test_a_latching_bank_reads_its_drive_hide_pin_and_pulse);
+  RUN_TEST(test_an_unknown_drive_stays_level);
   RUN_TEST(test_every_key_fits_what_nvs_accepts);
   return UNITY_END();
 }

@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "nvs_str.h"
 
 namespace wifi_store {
 namespace {
@@ -15,16 +16,7 @@ constexpr const char *kPassKey = "wifi_pass";
 // credential keys alone does not forget a network.
 constexpr const char *kNoSeedsKey = "wifi_noseeds";
 
-bool read_key(nvs_handle_t handle, const char *key, std::string &out) {
-  size_t len = 0;
-  if (nvs_get_str(handle, key, nullptr, &len) != ESP_OK || len == 0) return false;
-
-  out.resize(len);
-  if (nvs_get_str(handle, key, &out[0], &len) != ESP_OK) return false;
-  // nvs_get_str counts the NUL; std::string tracks length itself.
-  out.resize(len > 0 ? len - 1 : 0);
-  return true;
-}
+using storage::nvs_read_str;
 
 // "changeme" is the Kconfig default and means "nothing configured here".
 bool is_set(const std::string &ssid) {
@@ -63,9 +55,9 @@ std::vector<Credentials> load_all() {
   nvs_handle_t handle;
   if (nvs_open(kNamespace, NVS_READONLY, &handle) == ESP_OK) {
     std::string ssid;
-    if (read_key(handle, kSsidKey, ssid) && !ssid.empty()) {
+    if (nvs_read_str(handle, kSsidKey, ssid) && !ssid.empty()) {
       std::string password;
-      append_unique(out, {ssid, read_key(handle, kPassKey, password) ? password : ""});
+      append_unique(out, {ssid, nvs_read_str(handle, kPassKey, password) ? password : ""});
     }
     nvs_close(handle);
   }
@@ -126,7 +118,7 @@ bool provisioned() {
   if (nvs_open(kNamespace, NVS_READONLY, &handle) != ESP_OK) return false;
 
   std::string ssid;
-  const bool found = read_key(handle, kSsidKey, ssid) && !ssid.empty();
+  const bool found = nvs_read_str(handle, kSsidKey, ssid) && !ssid.empty();
   nvs_close(handle);
   return found;
 }

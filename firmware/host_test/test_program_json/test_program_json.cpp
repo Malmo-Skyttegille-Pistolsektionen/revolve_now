@@ -3,6 +3,7 @@
 //  Ported from tests/unit/dataclasses/test_program.py and
 //  tests/unit/repositories/test_programs.py.
 // ============================================================================
+#include <cstdint>
 #include <cstring>
 #include <string>
 
@@ -109,6 +110,7 @@ void test_a_non_object_root_is_refused() {
 void test_a_sparse_document_still_loads() {
   rt::Program p;
   const char *sparse = "{\"id\": 5}";
+  // Four arguments: the `id_present` out-parameter is optional.
   TEST_ASSERT_TRUE(rt::parse_program(sparse, strlen(sparse), false, p));
 
   TEST_ASSERT_EQUAL_INT32(5, p.id);
@@ -244,15 +246,6 @@ void test_a_null_or_garbage_id_is_not_silently_accepted() {
   TEST_ASSERT_EQUAL_INT32(0, p.id);
 }
 
-void test_the_id_out_parameter_is_optional() {
-  // Every existing caller passes four arguments; the fifth defaults to null
-  // and must not be dereferenced.
-  rt::Program p;
-  const char *doc = "{\"id\":5}";
-  TEST_ASSERT_TRUE(rt::parse_program(doc, strlen(doc), false, p));
-  TEST_ASSERT_EQUAL_INT32(5, p.id);
-}
-
 void test_a_hostile_duration_is_clamped() {
   // duration is attacker-controlled; total_ms() sums into an int32.
   rt::Program p;
@@ -267,6 +260,91 @@ void test_a_hostile_duration_is_clamped() {
   // silently skipped.
   TEST_ASSERT_EQUAL_INT32(rt::kMinEventMs, p.series[0].events[1].duration_ms);
   TEST_ASSERT_EQUAL_INT32(rt::kMaxEventMs + rt::kMinEventMs, p.series[0].total_ms());
+}
+
+// --- types that used to read as defaults ------------------------------------
+//
+// Each of these once parsed: a wrongly-typed value read as its default, so the
+// upload succeeded and the event ran as 1 ms or without its audio. Refused for
+// the same reason `command` is (D-20).
+
+namespace {
+
+bool event_parses(const char *event) {
+  rt::Program p;
+  const std::string doc = std::string("{\"id\":1,\"series\":[{\"events\":[") + event + "]}]}";
+  return rt::parse_program(doc.c_str(), doc.size(), false, p);
+}
+
+}  // namespace
+
+void test_a_non_integer_duration_fails_the_whole_program() {
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":\"5000\"}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":500.7}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":true}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":[5000]}"));
+}
+
+void test_a_missing_duration_is_refused() {
+  // A misspelt key is a missing one; reading it as 1 ms uploads a program
+  // whose event never visibly happens.
+  TEST_ASSERT_FALSE(event_parses("{}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":null}"));
+  TEST_ASSERT_FALSE(event_parses("{\"durration\":5000}"));
+}
+
+void test_an_integer_duration_parses() {
+  TEST_ASSERT_TRUE(event_parses("{\"duration\":5000}"));
+
+  // Past INT64_MAX is still an integer, and clamps like any other.
+  rt::Program p;
+  const char *doc = "{\"id\":1,\"series\":[{\"events\":[{\"duration\":18446744073709551615}]}]}";
+  TEST_ASSERT_TRUE(rt::parse_program(doc, strlen(doc), false, p));
+  TEST_ASSERT_EQUAL_INT32(rt::kMaxEventMs, p.series[0].events[0].duration_ms);
+}
+
+void test_a_non_integer_audio_id_fails_the_whole_program() {
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[\"1\"]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[null]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[1.5]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":[1,\"2\"]}"));
+  TEST_ASSERT_FALSE(event_parses("{\"duration\":100,\"audio_ids\":5}"));
+}
+
+void test_an_audio_id_outside_int32_is_dropped_not_refused() {
+  rt::Program p;
+  const char *doc =
+      "{\"id\":1,\"series\":[{\"events\":[{\"duration\":100,"
+      "\"audio_ids\":[2147483648,7,-2147483649]}]}]}";
+  TEST_ASSERT_TRUE(rt::parse_program(doc, strlen(doc), false, p));
+  TEST_ASSERT_EQUAL_size_t(1, p.series[0].events[0].audio_ids.size());
+  TEST_ASSERT_EQUAL_INT32(7, p.series[0].events[0].audio_ids[0]);
+}
+
+void test_series_that_is_not_an_array_fails_the_whole_program() {
+  rt::Program p;
+  const char *string_series = "{\"id\":1,\"series\":\"x\"}";
+  TEST_ASSERT_FALSE(rt::parse_program(string_series, strlen(string_series), false, p));
+  const char *object_series = "{\"id\":1,\"series\":{}}";
+  TEST_ASSERT_FALSE(rt::parse_program(object_series, strlen(object_series), false, p));
+  const char *non_object_entry = "{\"id\":1,\"series\":[5]}";
+  TEST_ASSERT_FALSE(rt::parse_program(non_object_entry, strlen(non_object_entry), false, p));
+
+  const char *null_series = "{\"id\":1,\"series\":null}";
+  TEST_ASSERT_TRUE(rt::parse_program(null_series, strlen(null_series), false, p));
+}
+
+void test_events_that_is_not_an_array_fails_the_whole_program() {
+  rt::Program p;
+  const char *object_events = "{\"id\":1,\"series\":[{\"events\":{}}]}";
+  TEST_ASSERT_FALSE(rt::parse_program(object_events, strlen(object_events), false, p));
+  const char *string_events = "{\"id\":1,\"series\":[{\"events\":\"x\"}]}";
+  TEST_ASSERT_FALSE(rt::parse_program(string_events, strlen(string_events), false, p));
+  TEST_ASSERT_FALSE(event_parses("5"));
+
+  const char *no_events = "{\"id\":1,\"series\":[{\"name\":\"Empty\"}]}";
+  TEST_ASSERT_TRUE(rt::parse_program(no_events, strlen(no_events), false, p));
+  TEST_ASSERT_EQUAL_size_t(0, p.series[0].events.size());
 }
 
 // --- the command vocabulary ------------------------------------------------
@@ -419,6 +497,64 @@ void test_an_empty_program_uses_nothing() {
   TEST_ASSERT_FALSE(rt::program_uses_audio(p, 1));
 }
 
+// --- Shape ceilings ------------------------------------------------------
+
+namespace {
+
+std::string repeated(const std::string &item, size_t n) {
+  std::string out;
+  for (size_t i = 0; i < n; i++) out += (i ? "," : "") + item;
+  return out;
+}
+
+bool parses(const std::string &doc) {
+  rt::Program p;
+  return rt::parse_program(doc.c_str(), doc.size(), false, p);
+}
+
+std::string with_series(size_t n) {
+  return R"({"id":5,"series":[)" + repeated(R"({"name":"s","events":[{"duration":1}]})", n) + "]}";
+}
+
+std::string with_events(size_t n) {
+  return R"({"id":5,"series":[{"name":"s","events":[)" + repeated(R"({"duration":1})", n) + "]}]}";
+}
+
+std::string with_audio_ids(size_t n) {
+  return R"({"id":5,"series":[{"name":"s","events":[{"duration":1,"audio_ids":[)" +
+         repeated("1", n) + "]}]}]}";
+}
+
+}  // namespace
+
+// Every stored program is parsed into RAM at boot, so the ceilings hold at
+// upload rather than leaving it to the 1 MiB body cap.
+void test_the_series_ceiling_is_inclusive() {
+  TEST_ASSERT_TRUE(parses(with_series(rt::kMaxProgramSeries)));
+  TEST_ASSERT_FALSE(parses(with_series(rt::kMaxProgramSeries + 1)));
+}
+
+void test_the_events_ceiling_is_inclusive() {
+  TEST_ASSERT_TRUE(parses(with_events(rt::kMaxSeriesEvents)));
+  TEST_ASSERT_FALSE(parses(with_events(rt::kMaxSeriesEvents + 1)));
+}
+
+void test_the_audio_ids_ceiling_is_inclusive() {
+  TEST_ASSERT_TRUE(parses(with_audio_ids(rt::kMaxEventAudioIds)));
+  TEST_ASSERT_FALSE(parses(with_audio_ids(rt::kMaxEventAudioIds + 1)));
+}
+
+// The audit's case: one series of tiny events filling the 1 MiB body.
+void test_a_body_full_of_tiny_events_is_refused() {
+  TEST_ASSERT_FALSE(parses(with_events(33'821)));
+}
+
+// kMaxEventMs exists so Series::total_ms() cannot overflow; that only holds if
+// the event count is bounded too.
+void test_a_full_series_at_the_duration_ceiling_fits_int32() {
+  TEST_ASSERT_TRUE(static_cast<int64_t>(rt::kMaxSeriesEvents) * rt::kMaxEventMs <= INT32_MAX);
+}
+
 // --- Per-bank overrides (#207, D-41) ---------------------------------------
 
 // One event whose `banks` is `body`, as a whole program document.
@@ -569,6 +705,13 @@ int main() {
   RUN_TEST(test_a_non_numeric_filename_is_refused);
   RUN_TEST(test_a_filename_id_past_int32_is_refused);
   RUN_TEST(test_a_hostile_duration_is_clamped);
+  RUN_TEST(test_a_non_integer_duration_fails_the_whole_program);
+  RUN_TEST(test_a_missing_duration_is_refused);
+  RUN_TEST(test_an_integer_duration_parses);
+  RUN_TEST(test_a_non_integer_audio_id_fails_the_whole_program);
+  RUN_TEST(test_an_audio_id_outside_int32_is_dropped_not_refused);
+  RUN_TEST(test_series_that_is_not_an_array_fails_the_whole_program);
+  RUN_TEST(test_events_that_is_not_an_array_fails_the_whole_program);
 
   RUN_TEST(test_show_and_hide_are_accepted);
   RUN_TEST(test_an_absent_command_is_accepted);
@@ -596,7 +739,6 @@ int main() {
 
   RUN_TEST(test_a_document_reports_whether_it_declares_an_id);
   RUN_TEST(test_a_null_or_garbage_id_is_not_silently_accepted);
-  RUN_TEST(test_the_id_out_parameter_is_optional);
 
   RUN_TEST(test_an_id_in_the_first_event_is_used);
   RUN_TEST(test_an_id_in_the_last_event_is_used);
@@ -604,5 +746,10 @@ int main() {
   RUN_TEST(test_an_unreferenced_id_is_not_used);
   RUN_TEST(test_events_without_audio_do_not_match);
   RUN_TEST(test_an_empty_program_uses_nothing);
+  RUN_TEST(test_the_series_ceiling_is_inclusive);
+  RUN_TEST(test_the_events_ceiling_is_inclusive);
+  RUN_TEST(test_the_audio_ids_ceiling_is_inclusive);
+  RUN_TEST(test_a_body_full_of_tiny_events_is_refused);
+  RUN_TEST(test_a_full_series_at_the_duration_ceiling_fits_int32);
   return UNITY_END();
 }

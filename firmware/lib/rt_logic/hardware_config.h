@@ -13,6 +13,8 @@
 
 namespace rt {
 
+constexpr int32_t kI2sPinUnused = kPinUnused;
+
 // The configuration a device can be given without rebuilding it (#144).
 //
 // Deliberately *not* everything in `main/config.h`. Two kinds of setting stay
@@ -57,6 +59,26 @@ struct HardwareConfig {
   int32_t i2s_bck_gpio = 0;
   int32_t i2s_ws_gpio = 0;
   int32_t i2s_dout_gpio = 0;
+  // The DAC's system clock. Most PCM5102A boards derive it from BCK and leave
+  // this kI2sPinUnused; the PCB rev 1 breakout stays silent without it (#506).
+  int32_t i2s_mclk_gpio = kI2sPinUnused;
+
+  // Which interfaces to use (#262). Both off is refused. WiFi off is honoured
+  // only while Ethernet has an address - without one the device joins WiFi
+  // anyway and falls back to the setup portal, so it cannot lock itself out.
+  bool wifi_enabled = true;
+  bool eth_enabled = true;
+
+  // A W5500 Ethernet controller on SPI (#262). With `eth_enabled` the device
+  // probes for one at boot and carries on over WiFi alone if nothing answers.
+  // INT and RST are optional: without INT the driver polls, and without RST it
+  // resets the chip over SPI.
+  int32_t eth_sclk_gpio = 0;
+  int32_t eth_mosi_gpio = 0;
+  int32_t eth_miso_gpio = 0;
+  int32_t eth_cs_gpio = 0;
+  int32_t eth_int_gpio = kPinUnused;
+  int32_t eth_rst_gpio = kPinUnused;
 
   // The port the web app and API are served on. Not a pin, but the same kind
   // of setting: wrong and the device is not where anybody looks for it. mDNS
@@ -75,6 +97,7 @@ struct HardwareConfig {
 struct Peripherals {
   bool audio = true;
   bool led = true;
+  bool ethernet = true;
 };
 
 // Why a configuration was refused. `kNone` means it was accepted.
@@ -96,6 +119,8 @@ enum class ConfigRefusal {
   kWifiRetriesOutOfRange,
   kBankCountOutOfRange,
   kBankNameTooLong,
+  kNoNetwork,
+  kPulseOutOfRange,
 };
 
 // A DNS label is 63 octets; mDNS is no more generous. The setup AP appends
@@ -128,14 +153,14 @@ constexpr int32_t kMaxWifiRetries = 60;
 // target that does not move, it is a device that stops booting and needs a
 // cable. 22..25 do not exist on the ESP32-S3 at all.
 //
-// 35..37 (the octal PSRAM's data lines on the N16R8) and 43/44 (UART0, the
+// 33..37 (the octal PSRAM's data lines on the N16R8) and 43/44 (UART0, the
 // serial console) are refused for the reasons D-41 records.
 //
 // Refused rather than warned about: the recovery from getting this wrong is a
 // USB cable and a reflash, which is exactly what configurability was supposed
 // to remove.
 inline bool gpio_is_reserved(int32_t gpio) {
-  return (gpio >= 22 && gpio <= 25) || (gpio >= 26 && gpio <= 32) || (gpio >= 35 && gpio <= 37) ||
+  return (gpio >= 22 && gpio <= 25) || (gpio >= 26 && gpio <= 32) || (gpio >= 33 && gpio <= 37) ||
          gpio == 43 || gpio == 44;
 }
 
@@ -158,8 +183,11 @@ inline bool gpio_is_usb_serial(int32_t gpio) {
 //
 // GPIO46 is strapping too and is already refused as not output-capable; it is
 // listed there rather than here so the message names the more useful reason.
+// GPIO3 is strapping only for the JTAG source, and only with
+// EFUSE_STRAP_JTAG_SEL burned, so it cannot stop a boot - and the PCB rev 1
+// puts Turn0 on it (#505).
 inline bool gpio_is_strapping(int32_t gpio) {
-  return gpio == 0 || gpio == 3 || gpio == 45;
+  return gpio == 0 || gpio == 45;
 }
 
 // Input-only pins cannot drive anything. On the ESP32-S3 there are none in the
@@ -176,6 +204,7 @@ ConfigRefusal validate_hostname(const std::string &hostname);
 // What a refusal was about, where the enum alone cannot say. Only
 // `kPinCollision` fills it in, and only when both sides are banks: with eight
 // of them, "two of these are on the same GPIO" no longer identifies which two.
+// Both sides naming the same bank means a latching bank's show and hide pins.
 struct ValidationDetail {
   static constexpr size_t kNoBank = static_cast<size_t>(-1);
 

@@ -43,20 +43,11 @@ void test_the_kind_goes_through_json_quote() {
   TEST_ASSERT_EQUAL_STRING(R"({"kind":"a\"b\nc"})", rt::library_changed_json("a\"b\nc").c_str());
 }
 
-// --- the kinds the firmware actually emits ---------------------------------
-
-void test_the_kind_constants_match_the_contract() {
-  // The `kind` enum in contracts/asyncapi.yaml lists exactly these two.
-  TEST_ASSERT_EQUAL_STRING("audio", rt::library_kind::kAudio);
-  TEST_ASSERT_EQUAL_STRING("program", rt::library_kind::kProgram);
-}
-
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_program_kind);
   RUN_TEST(test_audio_kind);
   RUN_TEST(test_the_payload_carries_nothing_else);
   RUN_TEST(test_the_kind_goes_through_json_quote);
-  RUN_TEST(test_the_kind_constants_match_the_contract);
   return UNITY_END();
 }

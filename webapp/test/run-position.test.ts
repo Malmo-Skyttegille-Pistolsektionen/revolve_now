@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { locateEvent, seriesTotalMs } from '../src/lib/run-position';
+import {
+  anchorMs,
+  anchorRelativeSeconds,
+  formatRunClock,
+  formatSeconds,
+  locateEvent,
+  seriesTotalMs,
+} from '../src/lib/run-position';
 import { PROGRAM_FALT_TRANING, PROGRAM_MILITARY_SNABBMATCH, PROGRAM_PRECISION } from './fixtures';
 
 // Fältträning series 1: hide 10s, show 3s, hide 3s, show 3s, hide 3s, show 3s,
@@ -54,5 +61,40 @@ describe('locateEvent', () => {
 
   it('returns null for an empty series', () => {
     expect(locateEvent({ name: 'empty', optional: false, events: [] }, 0)).toBeNull();
+  });
+});
+
+describe('run clock', () => {
+  // Three events of 5 s, 2.5 s and 10 s, the run timer starting on the third.
+  const anchored = {
+    name: 'anchored',
+    optional: false,
+    timer_start_index: 2,
+    events: [{ duration: 5000 }, { duration: 2500 }, { duration: 10000 }],
+  };
+  const plain = { ...anchored, timer_start_index: undefined };
+
+  it('anchors at the sum of the events before timer_start_index, and at 0 without one', () => {
+    expect(anchorMs(anchored)).toBe(7500);
+    expect(anchorMs(plain)).toBe(0);
+  });
+
+  it('writes an explicit + only once a series has an anchor', () => {
+    expect(anchorRelativeSeconds(anchored, 0)).toBe('-7'); // Math.round: -7.5 s rounds up
+    expect(anchorRelativeSeconds(anchored, 7500)).toBe('0');
+    expect(anchorRelativeSeconds(anchored, 10000)).toBe('+3');
+    expect(anchorRelativeSeconds(plain, 10000)).toBe('10');
+  });
+
+  it('keeps the tenth of a second in the detail figure', () => {
+    expect(formatRunClock(anchored, 10000)).toBe('+2.5 s');
+    expect(formatRunClock(anchored, 0)).toBe('-7.5 s');
+    expect(formatRunClock(anchored, 7500)).toBe('0 s');
+    expect(formatRunClock(plain, 2500)).toBe('2.5 s');
+  });
+
+  it('formats whole seconds without a decimal', () => {
+    expect(formatSeconds(3000)).toBe('3 s');
+    expect(formatSeconds(3250)).toBe('3.3 s');
   });
 });

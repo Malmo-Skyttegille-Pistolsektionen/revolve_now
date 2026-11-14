@@ -144,6 +144,9 @@ class Executor {
  private:
   const Series *series_at(const Nullable &index) const;
   void enter_event(int32_t index, const Event &event, bool play_audio);
+  // Enters every event after the current one up to and including `index`, in
+  // order, so a late wake-up cannot step over one. Returns whether any ran.
+  bool enter_through(const Series &series, int32_t index);
   void complete_series(int32_t series_index);
   void clear_run_anchor();
 

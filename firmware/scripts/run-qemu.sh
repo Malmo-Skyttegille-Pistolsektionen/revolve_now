@@ -3,11 +3,11 @@
 # Build the firmware for the QEMU simulator profile and boot it, with the guest
 # HTTP port forwarded to the host.
 #
-#   . ~/esp/esp-idf-6.0.2/export.sh
+#   . <esp-idf>/export.sh
 #   firmware/scripts/run-qemu.sh
 #
 # Then open http://localhost:8080 - the real REST API, the real SSE stream and
-# the real webapp, out of the same LittleFS image the board is flashed with.
+# the real webapp, out of the same application image the board is flashed with.
 # Ctrl-A X quits QEMU (Ctrl-C reaches the guest, not the emulator).
 #
 # Options:

@@ -7,7 +7,11 @@
  * in two versions that can drift apart.
  */
 import { problemType } from '../api/client';
+import type { Messages } from '../i18n';
 import type { DocumentIssue } from './program-document';
+
+/** The `programs.notices` dictionary, passed in because this module is not a component. */
+type NoticeMessages = Messages['programs']['notices'];
 
 export interface Notice {
   kind: 'error' | 'success' | 'warning';
@@ -30,39 +34,27 @@ export function issueLines(issues: DocumentIssue[]): string[] {
  * app does not know falls through to showing `detail`, which is what the
  * contract asks a client to do.
  */
-export function failureNotice(err: unknown, prefix: string): Notice {
+export function failureNotice(t: NoticeMessages, err: unknown, prefix: string): Notice {
   if (problemType(err) === '/problems/control_lock_credentials_required') {
-    return {
-      kind: 'error',
-      message: `${prefix} The controls are locked and this browser is not signed in \u2014 sign in under Settings.`,
-    };
+    return { kind: 'error', message: `${prefix} ${t.lockedNotSignedIn}` };
   }
   return { kind: 'error', message: `${prefix} ${err instanceof Error ? err.message : String(err)}` };
 }
 
-export function updateFailureNotice(err: unknown, id: number): Notice {
+export function updateFailureNotice(t: NoticeMessages, err: unknown, id: number): Notice {
   switch (problemType(err)) {
     case '/problems/program_readonly':
-      return {
-        kind: 'error',
-        message: `Program ${id} is shipped with the firmware and cannot be replaced. Upload the file as a new program instead.`,
-      };
+      return { kind: 'error', message: t.readonly(id) };
     // D-15: run state holds a pointer into the stored program, so the device
     // refuses. D-22 gave that refusal an escape of its own - before
     // `POST /programs/unload` existed the only ways out were loading some other
     // program or deleting this one, and this notice had to say so.
     case '/problems/program_loaded':
-      return {
-        kind: 'error',
-        message:
-          `Program ${id} is the one currently loaded on the device, and a loaded program cannot be replaced — ` +
-          'the run position points into it. Unload it first — the Unload button on the program’s row, or on the ' +
-          'Run page — and then replace it. If a series is running, stop it before unloading.',
-      };
+      return { kind: 'error', message: t.loaded(id) };
     case '/problems/program_not_found':
-      return { kind: 'error', message: `Program ${id} is no longer on the device.` };
+      return { kind: 'error', message: t.gone(id) };
   }
-  return failureNotice(err, `Could not replace program ${id}.`);
+  return failureNotice(t, err, t.replaceFailed(id));
 }
 
 /**
@@ -86,22 +78,11 @@ export function isGoneFromDevice(err: unknown): boolean {
  * it does not re-create — so on a 404 the editor sends `POST` instead and this
  * says as much rather than promising a replace that cannot happen.
  */
-export function sourceReloadNotice(err: unknown, id: number): Notice {
+export function sourceReloadNotice(t: NoticeMessages, err: unknown, id: number): Notice {
   if (isGoneFromDevice(err)) {
-    return {
-      kind: 'warning',
-      message:
-        `Program ${id} is no longer on the device — it was deleted while you had it open. Nothing typed here ` +
-        `was lost, but it cannot go back under id ${id}: the device refuses a replace of a program it does not ` +
-        'have. Save now creates this document as a new program, under an id the device assigns.',
-    };
+    return { kind: 'warning', message: t.deletedWhileOpen(id) };
   }
-  return {
-    kind: 'warning',
-    message:
-      `Could not re-read program ${id} from the device: ${err instanceof Error ? err.message : String(err)} ` +
-      `What is on screen is what was loaded, plus your edits; Save still replaces program ${id}.`,
-  };
+  return { kind: 'warning', message: t.reloadFailed(id, err instanceof Error ? err.message : String(err)) };
 }
 
 /**
@@ -116,14 +97,9 @@ export function sourceReloadNotice(err: unknown, id: number): Notice {
  * `updateFailureNotice` has to: `PUT` answers 409 for two different reasons
  * and only the text tells them apart, while unload has exactly one.
  */
-export function unloadFailureNotice(err: unknown): Notice {
+export function unloadFailureNotice(t: NoticeMessages, err: unknown): Notice {
   if (problemType(err) === '/problems/program_running') {
-    return {
-      kind: 'error',
-      message:
-        'The device is running a program, and unloading would end the series. Pause the run first, then ' +
-        'unload — Pause sits beside Unload on the Run page.',
-    };
+    return { kind: 'error', message: t.unloadWhileRunning };
   }
-  return failureNotice(err, 'Could not unload the program.');
+  return failureNotice(t, err, t.unloadFailed);
 }

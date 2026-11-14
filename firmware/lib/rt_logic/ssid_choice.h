@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 
+#include "text_parse.h"
+
 namespace rt {
 
 // The portal offers two ways to name a network: a dropdown of what the scan
@@ -27,17 +29,10 @@ namespace rt {
 // mangled name. With the text field always visible there is no mode to signal
 // and nothing to encode.
 inline std::string chosen_ssid(std::string_view picked, std::string_view typed) {
-  const auto trim = [](std::string_view text) {
-    const auto is_space = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
-    while (!text.empty() && is_space(text.front())) text.remove_prefix(1);
-    while (!text.empty() && is_space(text.back())) text.remove_suffix(1);
-    return text;
-  };
-
   // Trimmed for the emptiness test *and* for the result: a phone keyboard's
   // trailing space would otherwise be saved as part of the name, and the join
   // would fail with nothing on screen to explain why.
-  const std::string_view typed_trimmed = trim(typed);
+  const std::string_view typed_trimmed = trim_space(typed);
   if (!typed_trimmed.empty()) return std::string(typed_trimmed);
 
   // The dropdown's own value, which is either an SSID the scan reported or the

@@ -13,11 +13,11 @@
  * A new one fails the run until someone writes down why it exists; a removed
  * one fails until the stale entry goes.
  *
- * **ajv is used here on purpose and costs nothing shipped.** This file is the
- * only thing left in the repository that imports it — it is a test, and nothing
- * here is reachable from `src/`, so D-18's ~45 KB gz win is intact. That makes
- * it look like an unused dependency to anyone pruning `package.json`: it is
- * not. Do not "clean up" the dependency.
+ * **ajv is used here on purpose and costs nothing shipped.** Only tests import
+ * it - this file and `mock-server/contract.test.ts`, for backup.json - and
+ * nothing here is reachable from `src/`, so D-18's ~45 KB gz win is intact. That
+ * makes it look like an unused dependency to anyone pruning `package.json`: it
+ * is not. Do not "clean up" the dependency.
  */
 import { readFileSync } from 'node:fs';
 
@@ -84,7 +84,8 @@ export const DIVERGENCES = {
   'audio-id-int32-range': {
     schema: '`type: integer` with no bounds.',
     validator: 'Accepts, and warns that an id outside int32 will be dropped and its clip never play.',
-    firmware: 'parse_event keeps an id only `if (id.is<int32_t>())`; the rest go silently.',
+    firmware:
+      'parse_event refuses a non-integer entry, but an integer that is not `is<int32_t>()` is well-formed and dropped silently.',
   },
   'readonly-imposed-by-device': {
     schema: '`type: boolean`, required — the document states it.',
@@ -298,9 +299,7 @@ const CASES: Case[] = [
     schema: 'refused',
     validator: 'refused',
   },
-  // The firmware would take this one — a missing duration reads as 0 and
-  // clamps to 1 ms — but a 1 ms event is never what the author meant, so both
-  // descriptions refuse it. Deliberately stricter than the device, in step.
+  // The device refuses it too: a misspelt key would otherwise upload as 1 ms.
   { name: 'no duration', doc: withEvent(without(anEvent(), 'duration')), schema: 'refused', validator: 'refused' },
 
   // --- command -------------------------------------------------------------
@@ -380,6 +379,42 @@ const CASES: Case[] = [
 
   // --- audio_ids -----------------------------------------------------------
   { name: 'no audio_ids', doc: withEvent(without(anEvent(), 'audio_ids')), schema: 'accepted', validator: 'accepted' },
+  {
+    name: 'eight audio ids',
+    doc: withEvent(anEvent({ audio_ids: [1, 2, 3, 4, 5, 6, 7, 8] })),
+    schema: 'accepted',
+    validator: 'accepted',
+  },
+  {
+    name: 'nine audio ids',
+    doc: withEvent(anEvent({ audio_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9] })),
+    schema: 'refused',
+    validator: 'refused',
+  },
+  {
+    name: '128 events in a series',
+    doc: aProgram({ series: [aSeries({ events: Array.from({ length: 128 }, () => anEvent()) })] }),
+    schema: 'accepted',
+    validator: 'accepted',
+  },
+  {
+    name: '129 events in a series',
+    doc: aProgram({ series: [aSeries({ events: Array.from({ length: 129 }, () => anEvent()) })] }),
+    schema: 'refused',
+    validator: 'refused',
+  },
+  {
+    name: '64 series',
+    doc: aProgram({ series: Array.from({ length: 64 }, () => aSeries()) }),
+    schema: 'accepted',
+    validator: 'accepted',
+  },
+  {
+    name: '65 series',
+    doc: aProgram({ series: Array.from({ length: 65 }, () => aSeries()) }),
+    schema: 'refused',
+    validator: 'refused',
+  },
   { name: 'empty audio_ids', doc: withEvent(anEvent({ audio_ids: [] })), schema: 'accepted', validator: 'accepted' },
   {
     name: 'a fractional audio id',

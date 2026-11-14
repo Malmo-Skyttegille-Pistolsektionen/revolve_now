@@ -54,6 +54,14 @@ button is stuck or shorted. The device notices — it refuses to act on a button
 it has never seen released, so it will not reset itself — but the button will
 not work until the fault is fixed. The serial log says so in as many words.
 
+## Cyan or magenta — after three presses
+
+Three presses of BOOT show, for a moment, what they did:
+**cyan** — [Expert mode](expert-mode.md#getting-in) opened for the browser
+that asked; **magenta** — more than one browser was asking, so it opened for
+nobody. Ask again from one browser and press again. No colour at all means
+nobody had asked.
+
 ## Three things worth saying, because none is guessable
 
 - **Blinking versus solid red is the important distinction.** Before
@@ -62,8 +70,8 @@ not work until the fault is fixed. The serial log says so in as many words.
   which is exactly the question you have at the range.
 - **Yellow is a fault indicator, not a stage.** It exists to be seen only when
   something is wrong.
-- **White is the only colour that answers to you rather than reporting on the
-  device.** Every other colour is something to read; white is feedback on
+- **White, cyan and magenta answer to you rather than reporting on the
+  device.** Every other colour is something to read; these are feedback on
   something you are doing to it right now.
 
 The LED is deliberately dim: the device sits on a range in the dark and a

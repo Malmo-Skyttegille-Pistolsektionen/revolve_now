@@ -4,15 +4,10 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SSETypes } from '../api/types';
-import type {
-  BackendIssuePayload,
-  ConfigWindowPayload,
-  HardwareConfigState,
-  LibraryChangedPayload,
-  StateUpdatePayload,
-} from '../api/types';
+import type { BackendIssuePayload, LibraryChangedPayload, StateUpdatePayload } from '../api/types';
 import { getSseBaseUrl } from '../api/client';
 import { useSettings } from '../context/SettingsContext';
+import { backendIssueAtom, sseStatusAtom, stateAtom } from '../lib/sse-store';
 
 /**
  * Which cached queries a `libraryChanged` invalidates, by `kind`. The payload
@@ -44,18 +39,16 @@ export function useSSE(): void {
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
-    let reconnectTimer: NodeJS.Timeout | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let opened = false;
 
     const sseUrl = getSseBaseUrl();
 
     const connect = (): void => {
-      console.log('[SSE] Connecting to', sseUrl);
       eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = (): void => {
-        console.log('[SSE] Connected');
-        queryClient.setQueryData(['sse-status'], 'connected');
+        sseStatusAtom.set('connected');
         // Anything that changed while the stream was down was published to
         // nobody: this channel carries change notifications and sends no
         // snapshot on connect. For run state the next event is seconds away,
@@ -78,7 +71,7 @@ export function useSSE(): void {
 
       eventSource.onerror = (err): void => {
         console.error('[SSE] Error:', err);
-        queryClient.setQueryData(['sse-status'], 'error');
+        sseStatusAtom.set('error');
         eventSource?.close();
         reconnectTimer = setTimeout(connect, 5000);
       };
@@ -86,15 +79,14 @@ export function useSSE(): void {
       eventSource.addEventListener(SSETypes.StateUpdate, (event) => {
         try {
           const data = JSON.parse(event.data) as StateUpdatePayload;
-          console.log('[SSE] data', data);
-          queryClient.setQueryData(['state'], data);
+          stateAtom.set(data);
         } catch (error) {
           console.error('[SSE] Failed to parse stateUpdate', error);
         }
       });
 
       eventSource.addEventListener(SSETypes.Heartbeat, () => {
-        queryClient.setQueryData(['sse-status'], 'connected');
+        sseStatusAtom.set('connected');
       });
 
       // The device's library is served over REST and published nowhere else, so
@@ -121,29 +113,16 @@ export function useSSE(): void {
         }
       });
 
-      // Whether Expert mode is offered at all (#144). Written straight into the
-      // cache the hook reads rather than invalidated: an invalidation would
-      // cost a round trip to learn what the event already carried, and the
-      // event is the device's own answer.
-      eventSource.addEventListener(SSETypes.ConfigWindow, (event) => {
-        try {
-          const writeWindow = JSON.parse(event.data) as ConfigWindowPayload;
-          const previous = queryClient.getQueryData<HardwareConfigState>(['hardware-config']);
-          if (previous === undefined) {
-            // Nothing cached yet: the event overtook the first fetch, which is
-            // ordinary on a page that has only just loaded. Dropping it would
-            // lose the transition entirely - the next event might be five
-            // minutes away - so refetch instead and take the whole state.
-            void queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
-            return;
-          }
-          queryClient.setQueryData(['hardware-config'], { ...previous, writeWindow });
-        } catch (error) {
-          console.error('[SSE] Failed to parse configWindow', error);
-        }
+      // A window opened, lapsed or was held shut for somebody, or three
+      // presses ended in a conflict (#144). Whether it concerns this browser
+      // only its own token can say (D-52), so both queries that answer for the
+      // token are asked again rather than written from the event.
+      eventSource.addEventListener(SSETypes.ConfigWindow, () => {
+        void queryClient.invalidateQueries({ queryKey: ['config-window'] });
+        void queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
       });
 
-      // Parked in the query cache rather than shown: the toast is a separate
+      // Parked in an atom rather than shown: the toast is a separate
       // task. Until then this at least stops the event being dropped on the
       // floor, which is what happened when the firmware started emitting it.
       // Fire-and-forget by contract - nothing replays it, so a missed issue is
@@ -152,7 +131,7 @@ export function useSSE(): void {
         try {
           const data = JSON.parse(event.data) as BackendIssuePayload;
           console.warn('[SSE] backend issue', data);
-          queryClient.setQueryData(['backend-issue'], data);
+          backendIssueAtom.set(data);
         } catch (error) {
           console.error('[SSE] Failed to parse backend_issue', error);
         }
@@ -162,7 +141,6 @@ export function useSSE(): void {
     connect();
 
     return () => {
-      console.log('[SSE] Disconnecting...');
       if (eventSource) {
         eventSource.close();
       }

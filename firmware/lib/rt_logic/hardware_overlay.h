@@ -27,12 +27,26 @@ constexpr const char *kI2sPort = "hw_i2s_port";
 constexpr const char *kI2sBck = "hw_i2s_bck";
 constexpr const char *kI2sWs = "hw_i2s_ws";
 constexpr const char *kI2sDout = "hw_i2s_dout";
+constexpr const char *kI2sMclk = "hw_i2s_mclk";
 constexpr const char *kHttpPort = "hw_http_port";
 constexpr const char *kWifiRetry = "hw_wifi_retry";
+constexpr const char *kWifiOn = "hw_wifi_on";
+constexpr const char *kEthOn = "hw_eth_on";
+constexpr const char *kEthSclk = "hw_eth_sclk";
+constexpr const char *kEthMosi = "hw_eth_mosi";
+constexpr const char *kEthMiso = "hw_eth_miso";
+constexpr const char *kEthCs = "hw_eth_cs";
+constexpr const char *kEthInt = "hw_eth_int";
+constexpr const char *kEthRst = "hw_eth_rst";
 }  // namespace hw_key
 
-// `hw_bk<i>_gpio`, `hw_bk<i>_alow`, `hw_bk<i>_name` - built rather than spelled
-// out. Eleven characters at a single-digit index, inside NVS's cap of fifteen;
+// The default hostname before the rename (D-44). Every hardware save stored it,
+// so a stored copy means "never chosen" and gives way to this build's default.
+constexpr const char *kLegacyDefaultHostname = "rotation-target";
+
+// `hw_bk<i>_gpio`, `_alow`, `_name`, `_drive`, `_hide`, `_pulse` - built rather
+// than spelled out. Twelve characters at most at a single-digit index, inside
+// NVS's cap of fifteen;
 // the buffer is larger only so the compiler can see it cannot truncate.
 static_assert(kMaxTargetBanks <= 10, "a two-digit bank index would need shorter key names");
 struct BankKey {
@@ -40,6 +54,9 @@ struct BankKey {
 
   BankKey(size_t bank, const char *suffix);
 };
+
+// Every per-bank key, so a writer erasing a bank cannot miss one.
+constexpr const char *kBankKeySuffixes[] = {"gpio", "alow", "name", "drive", "hide", "pulse"};
 
 // Where a stored configuration is read from. One method per stored type,
 // because the store is typed and pretending otherwise costs a `signed char`

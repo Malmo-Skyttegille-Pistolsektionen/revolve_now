@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
+import { useT } from '../i18n';
 import styles from './ConfirmDialog.module.css';
 
 interface ConfirmDialogProps {
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps): React.ReactNode {
+  const t = useT();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function ConfirmDialog({
         <div className={styles.body}>{body}</div>
         <div className={styles.buttonRow}>
           <button className={styles.button} onClick={onCancel} autoFocus>
-            Cancel
+            {t.common.cancel}
           </button>
           <button
             className={clsx(styles.button, destructive ? styles.buttonDestructive : styles.buttonPrimary)}

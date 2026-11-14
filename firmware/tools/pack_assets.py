@@ -37,6 +37,8 @@ import hashlib
 import os
 import sys
 
+from _common import write_if_changed
+
 # Text assets are pre-compressed and only the `.gz` is shipped. The device has
 # no CPU to spare compressing on the fly, and the vendored static handler
 # already falls back to `<path>.gz` and sets Content-Encoding (see
@@ -166,25 +168,13 @@ rt_embedded_end:
     .byte 0
 '''
 
-    _write_if_changed(out_bin, bytes(blob))
-    _write_if_changed(out_header, header.encode())
-    _write_if_changed(out_asm, asm.encode())
+    write_if_changed(out_bin, bytes(blob))
+    write_if_changed(out_header, header.encode())
+    write_if_changed(out_asm, asm.encode())
 
     total = sum(size for _, _, size in entries)
     print(f"Embedded {len(entries)} file(s), {total} bytes ({len(blob)} with alignment)")
     return 0
-
-
-def _write_if_changed(path: str, data: bytes) -> None:
-    """This runs on every build; rewriting an unchanged file would relink every time."""
-    try:
-        with open(path, "rb") as handle:
-            if handle.read() == data:
-                return
-    except OSError:
-        pass
-    with open(path, "wb") as handle:
-        handle.write(data)
 
 
 if __name__ == "__main__":

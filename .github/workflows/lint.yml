@@ -30,9 +30,9 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           submodules: false
-      - uses: actions/setup-python@v7.0.0
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.15.2'
 
       # Inlined rather than using pre-commit/action, which is a four-step
       # composite doing exactly this. Upstream describes it as maintenance-only
@@ -43,7 +43,8 @@ jobs:
       # pre-commit.ci is the upstream recommendation and is deliberately not
       # used: it pushes auto-fix commits, and every commit here has to carry a
       # DCO sign-off (CONTRIBUTING.md) that a bot would not add.
-      - run: python -m pip install pre-commit
+      # renovate: datasource=pypi depName=pre-commit
+      - run: python -m pip install pre-commit==4.7.0
 
       - uses: actions/cache@v6.1.0
         with:
@@ -62,10 +63,23 @@ jobs:
         with:
           submodules: false
 
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.15.2'
+
+      # PyYAML is for check_workflow_permissions.py below, rather than
+      # whatever the runner image happens to ship.
+      - name: Install yamllint and PyYAML
+        run: |
+          # renovate: datasource=pypi depName=PyYAML
+          pip install PyYAML==6.0.3
+          # renovate: datasource=pypi depName=yamllint
+          pip install yamllint==1.38.0
+
       - name: yamllint
         # .yamllint lives under firmware/, not at the repo root, so point
         # yamllint at it explicitly rather than relying on upward discovery.
-        run: pipx run yamllint -c firmware/.yamllint .github .pre-commit-config.yaml firmware/.yamllint
+        run: yamllint -c firmware/.yamllint .github .pre-commit-config.yaml firmware/.yamllint
 
       - name: actionlint
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7  # v2.2.0
@@ -76,7 +90,7 @@ jobs:
       # with no logs and no job list to diagnose it from - see #213, which took
       # the release workflow out entirely.
       - name: reusable-workflow permissions
-        run: python3 .github/scripts/check_workflow_permissions.py
+        run: python .github/scripts/check_workflow_permissions.py
 
       # The gap no C++ linter can close (#225): clang-tidy and cppcheck analyse
       # translation units, and a file nothing compiles has none. rt_logic lists
@@ -85,3 +99,27 @@ jobs:
       # being built.
       - name: firmware sources are actually built
         run: python3 .github/scripts/check_build_membership.py
+
+  # The Python that runs inside the firmware build (packing the embedded
+  # filesystem, transcoding the shipped audio) and the checks that gate CI.
+  # The tests sit beside the code they test; there is no pytest config file.
+  tooling:
+    name: tooling tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: false
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.15.2'
+
+      - name: Install pytest
+        run: |
+          # renovate: datasource=pypi depName=pytest
+          python -m pip install pytest==9.2.0
+          # renovate: datasource=pypi depName=pyyaml
+          python -m pip install pyyaml==6.0.3
+
+      - name: pytest
+        run: python -m pytest -p no:cacheprovider firmware/tools firmware/scripts .github/scripts

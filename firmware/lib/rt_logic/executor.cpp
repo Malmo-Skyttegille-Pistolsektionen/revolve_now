@@ -132,6 +132,24 @@ StartResult Executor::start(int32_t expected_program_id) {
 bool Executor::stop() {
   if (!state_.running) return false;
 
+  // Capture where the run actually is. ticker_ms otherwise holds the last
+  // published frame - up to a second back, often on an event boundary - and a
+  // resume from a boundary replays that event's audio.
+  const Series *series = series_at(state_.current_series_index);
+  if (state_.has_series_start && series != nullptr) {
+    const int64_t elapsed = clock_.now_ms() - state_.series_start_ms;
+    // Never past the end of the entered event: a late wake-up can leave elapsed
+    // in the next one, and resuming mid-way into it would skip its audio. The
+    // boundary resumes onto it instead (offset 0 plays it, once).
+    int64_t entered_end = 0;
+    const int32_t entered = state_.current_event_index.value_or(0);
+    for (size_t i = 0; i < series->events.size() && static_cast<int32_t>(i) <= entered; i++) {
+      entered_end += series->events[i].duration_ms;
+    }
+    const int64_t at = elapsed < 0 ? 0 : (elapsed > entered_end ? entered_end : elapsed);
+    state_.ticker_ms.set(static_cast<int32_t>(at));
+  }
+
   state_.running = false;
   clear_run_anchor();
 
@@ -216,6 +234,22 @@ void Executor::enter_event(int32_t index, const Event &event, bool play_audio) {
   if (play_audio && !event.audio_ids.empty()) effects_.play_audios(event.audio_ids);
 }
 
+bool Executor::enter_through(const Series &series, int32_t index) {
+  // Nothing entered yet: only the event the clock is in, as before.
+  int32_t next =
+      state_.current_event_index.has_value ? state_.current_event_index.value + 1 : index;
+  // The index cannot go backwards on a monotonic clock; if it ever does, enter
+  // where the clock is rather than stay on a stale event.
+  if (index < next - 1) next = index;
+
+  bool entered = false;
+  for (; next <= index; next++) {
+    enter_event(next, series.events[static_cast<size_t>(next)], true);
+    entered = true;
+  }
+  return entered;
+}
+
 void Executor::complete_series(int32_t series_index) {
   state_.running = false;
   state_.ticker_ms.clear();
@@ -261,6 +295,9 @@ int32_t Executor::tick() {
       elapsed64 < 0 ? 0 : (elapsed64 > total_ms ? total_ms : static_cast<int32_t>(elapsed64));
 
   if (elapsed_ms >= total_ms) {
+    // A wake-up past the end still owes the events it crossed: a final "hide"
+    // skipped here would leave the targets in the wrong state for good.
+    enter_through(*series, static_cast<int32_t>(series->events.size()) - 1);
     complete_series(state_.current_series_index.value);
     return kIdleSleepMs;
   }
@@ -277,10 +314,10 @@ int32_t Executor::tick() {
 
   bool changed = false;
 
-  if (!state_.current_event_index.has_value || loc.index != state_.current_event_index.value) {
-    enter_event(loc.index, series->events[static_cast<size_t>(loc.index)], true);
-    changed = true;
-  }
+  // Every event crossed since the last wake-up, not just the one the clock is
+  // in: the loop wakes late (a flash write, a busy core), and an event shorter
+  // than the delay would otherwise never fire its command or audio.
+  if (enter_through(*series, loc.index)) changed = true;
 
   // Millisecond precision, one-second cadence. The comparison is on whole
   // seconds on purpose: publishing whenever the millisecond changed would put

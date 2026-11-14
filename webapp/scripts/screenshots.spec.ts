@@ -76,7 +76,8 @@ test.beforeAll(async () => {
     firmwareVersion: resolveVersion(),
     ipAddress: '192.168.1.50',
     wifi: { ipAddress: '192.168.1.50' },
-    configWindowOpen: false,
+    // A board: Expert mode opens only for the browser that asked (D-52).
+    button: true,
   };
   server = await createServer({
     ...viteConfig,
@@ -184,7 +185,12 @@ test('settings and expert mode', async ({ page }) => {
   await open(page, '/settings', page.getByRole('heading', { name: 'Settings' }), device);
   await shoot(page, 'settings.png', true);
 
-  mock.setConfigWindow(true);
+  // Asked for as this browser would, then the three presses at the board.
+  const asked = (await (await fetch(`${base}/api/v2/config-window/request`, { method: 'POST' })).json()) as {
+    token: string;
+  };
+  mock.pressBoot();
+  await page.evaluate((token) => localStorage.setItem('rt_settings_config_window_token', token), asked.token);
   await open(page, '/hardware', page.getByRole('heading', { name: 'Expert mode' }), device);
   await shoot(page, 'expert-mode.png');
 });

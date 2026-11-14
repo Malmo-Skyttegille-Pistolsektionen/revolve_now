@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @vitest-environment-options { "url": "http://127.0.0.1:18097" }
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsProvider } from '../src/context/SettingsContext';
@@ -23,23 +23,28 @@ let server: MockServer;
 let queryClient: QueryClient;
 
 function Probe(): React.ReactNode {
-  // The event arrives through useSSE, which writes it into the same query the
-  // hook reads - so a test of the hook has to have the subscription running.
+  // The event arrives through useSSE, which invalidates the query the hook
+  // reads - so a test of the hook has to have the subscription running.
   useSSE();
-  const { open, remainingSeconds } = useConfigWindow();
+  const { open, state, remainingSeconds, request } = useConfigWindow();
   return (
     <div>
       <span data-testid='open'>{String(open)}</span>
+      <span data-testid='state'>{state}</span>
       <span data-testid='remaining'>{String(remainingSeconds)}</span>
+      <button type='button' onClick={request}>
+        ask
+      </button>
     </div>
   );
 }
 
-async function device(open: boolean): Promise<void> {
+/** `button`: a board, whose window opens only for the client that asked (D-52). */
+async function device(button: boolean): Promise<void> {
   server = createMockServer({
     clock: createFakeClock(),
     port: PORT,
-    seed: { programs: { [PROGRAM.id]: PROGRAM }, audios: [], configWindowOpen: open },
+    seed: { programs: { [PROGRAM.id]: PROGRAM }, audios: [], button },
   });
   await server.listen();
   render(
@@ -55,7 +60,23 @@ async function device(open: boolean): Promise<void> {
   });
   // `open` is false both when the window is shut and before the first fetch
   // resolves, so waiting for 'false' asserts nothing. Wait for the query.
-  await waitFor(() => expect(queryClient.getQueryData(['hardware-config'])).not.toBeUndefined());
+  await waitFor(() => expect(queryClient.getQueryData(['config-window', null])).not.toBeUndefined());
+}
+
+/** What the device publishes after three presses, whatever they did. */
+function publish(payload: { open: boolean; remainingSeconds: number }): void {
+  let delivered = false;
+  act(() => {
+    delivered = FakeEventSource.latest.emit('configWindow', payload);
+  });
+  // Fails loudly if nothing is listening for the event name.
+  expect(delivered).toBe(true);
+}
+
+/** Asks from this browser and waits for the request to be pending. */
+async function ask(): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: 'ask' }));
+  await waitFor(() => expect(screen.getByTestId('state').textContent).toBe('pending'));
 }
 
 beforeEach(() => {
@@ -74,39 +95,62 @@ afterEach(async () => {
 });
 
 describe('the configuration window', () => {
-  it('reports the device as shut when nobody has completed the sequence', async () => {
-    await device(false);
-    await waitFor(() => expect(screen.getByTestId('open').textContent).toBe('false'));
+  it('reports the device as shut when nobody has asked', async () => {
+    await device(true);
+    await waitFor(() => expect(screen.getByTestId('state').textContent).toBe('closed'));
+    expect(screen.getByTestId('open').textContent).toBe('false');
     expect(screen.getByTestId('remaining').textContent).toBe('0');
   });
 
-  // The event is the whole mechanism now: there is no poll to fall back on, so
-  // a client that does not act on it shows a tab that never appears.
-  it('opens when the device publishes a configWindow event', async () => {
-    await device(false);
-    await waitFor(() => expect(screen.getByTestId('open').textContent).toBe('false'));
+  // The whole flow (D-52): ask first, the presses last, and the event is
+  // what tells this browser to look.
+  it('opens for this browser once it has asked and BOOT is pressed', async () => {
+    await device(true);
+    await ask();
+    expect(localStorage.getItem('rt_settings_config_window_token')).toMatch(/^[0-9a-f]{32}$/);
 
-    let delivered = false;
-    act(() => {
-      delivered = FakeEventSource.latest.emit('configWindow', { open: true, remainingSeconds: 300 });
-    });
-    // Fails loudly if nothing is listening for the event name, rather than
-    // looking like the hook ignored a frame it never received.
-    expect(delivered).toBe(true);
+    expect(server.pressBoot()).toBe('granted');
+    publish({ open: true, remainingSeconds: 300 });
 
     await waitFor(() => expect(screen.getByTestId('open').textContent).toBe('true'));
     expect(screen.getByTestId('remaining').textContent).toBe('300');
+  });
+
+  // #656: the window somebody else asked for is not this browser's.
+  it('stays shut here when the window opened for another client', async () => {
+    await device(true);
+    const base = `http://127.0.0.1:${String(PORT)}/api/v2`;
+    await fetch(`${base}/config-window/request`, { method: 'POST' });
+    server.pressBoot();
+    publish({ open: true, remainingSeconds: 300 });
+
+    await waitFor(() => expect(screen.getByTestId('state').textContent).toBe('elsewhere'));
+    expect(screen.getByTestId('open').textContent).toBe('false');
+  });
+
+  it('shows a conflict when another client asked at the same time', async () => {
+    await device(true);
+    await ask();
+    const base = `http://127.0.0.1:${String(PORT)}/api/v2`;
+    await fetch(`${base}/config-window/request`, { method: 'POST' });
+    expect(server.pressBoot()).toBe('conflict');
+    publish({ open: false, remainingSeconds: 0 });
+
+    await waitFor(() => expect(screen.getByTestId('state').textContent).toBe('conflict'));
+    expect(screen.getByTestId('open').textContent).toBe('false');
   });
 
   // The lapse is the transition nothing else in the system would notice, and
   // the one that leaves a stale tab if it is missed.
   it('closes when the device publishes the window lapsing', async () => {
     await device(true);
+    await ask();
+    server.pressBoot();
+    publish({ open: true, remainingSeconds: 300 });
     await waitFor(() => expect(screen.getByTestId('open').textContent).toBe('true'));
 
-    act(() => {
-      FakeEventSource.latest.emit('configWindow', { open: false, remainingSeconds: 0 });
-    });
+    server.closeConfigWindow();
+    publish({ open: false, remainingSeconds: 0 });
 
     await waitFor(() => expect(screen.getByTestId('open').textContent).toBe('false'));
     expect(screen.getByTestId('remaining').textContent).toBe('0');
@@ -116,7 +160,7 @@ describe('the configuration window', () => {
   // these values only take effect at the next restart - so the device refuses
   // during a run, and the app must not offer a form that cannot save.
   it('refuses the write while a program is running', async () => {
-    await device(true);
+    await device(false);
     const base = `http://127.0.0.1:${String(PORT)}/api/v2`;
 
     await fetch(`${base}/programs/${String(PROGRAM.id)}/load`, { method: 'POST' });
@@ -148,7 +192,7 @@ describe('the configuration window', () => {
   // board it is the more destructive of the two - guarding only the PUT
   // protected nothing, because one click undid it.
   it('refuses reset while the window is shut, not just the write', async () => {
-    await device(false);
+    await device(true);
     const base = `http://127.0.0.1:${String(PORT)}/api/v2`;
 
     const refused = await fetch(`${base}/config/hardware/reset`, { method: 'POST' });
@@ -157,7 +201,7 @@ describe('the configuration window', () => {
   });
 
   it('refuses reset while a program is running', async () => {
-    await device(true);
+    await device(false);
     const base = `http://127.0.0.1:${String(PORT)}/api/v2`;
 
     await fetch(`${base}/programs/${String(PROGRAM.id)}/load`, { method: 'POST' });
@@ -177,9 +221,9 @@ describe('the configuration window', () => {
   // reads as a stopped clock rather than a window that is closing.
   it('ticks down between events', async () => {
     await device(true);
-    act(() => {
-      FakeEventSource.latest.emit('configWindow', { open: true, remainingSeconds: 300 });
-    });
+    await ask();
+    server.pressBoot();
+    publish({ open: true, remainingSeconds: 300 });
     await waitFor(() => expect(screen.getByTestId('remaining').textContent).toBe('300'));
 
     await waitFor(() => expect(Number(screen.getByTestId('remaining').textContent)).toBeLessThan(300), {

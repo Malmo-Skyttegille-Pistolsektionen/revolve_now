@@ -53,8 +53,8 @@ config RT_RGB_LED_ENABLED
     bool "Board has an addressable RGB LED"
     default y
     help
-        A WS2812 used as a boot/health indicator: red while joining, yellow in
-        the setup portal, green once serving. Turn off for a board without one;
+        A WS2812 used as a boot/health indicator; the colours are listed in
+        main/io/rgb_led.h. Turn off for a board without one;
         the firmware then skips the driver entirely rather than logging a
         failure on every boot.
 
@@ -97,6 +97,71 @@ config RT_I2S_DOUT_GPIO
     default 11
     range 0 48
     depends on RT_AUDIO_ENABLED
+
+config RT_I2S_MCLK_GPIO
+    int "I2S master clock (SCK on the DAC) GPIO, -1 for none"
+    default -1
+    range -1 48
+    depends on RT_AUDIO_ENABLED
+    help
+        Most PCM5102A boards make their own clock from BCK and need nothing
+        here. The PCB rev 1's hand-fitted breakout does not, and needs 48.
+
+config RT_ETH_W5500_ENABLED
+    bool "Support a W5500 Ethernet controller on SPI"
+    default y
+    depends on !RT_NET_OPENETH
+    help
+        Probes for a W5500 at boot and, if one answers, brings up wired
+        Ethernet beside WiFi. A board without one logs a line and carries on
+        over WiFi. The pin defaults are the PCB rev 1's U10 net map, so the
+        same wiring serves a W5500 module on the PoC.
+
+config RT_ETH_SCLK_GPIO
+    int "W5500 SPI clock (SCLK) GPIO"
+    default 41
+    range 0 48
+    depends on RT_ETH_W5500_ENABLED
+
+config RT_ETH_MOSI_GPIO
+    int "W5500 SPI MOSI GPIO"
+    default 39
+    range 0 48
+    depends on RT_ETH_W5500_ENABLED
+
+config RT_ETH_MISO_GPIO
+    int "W5500 SPI MISO GPIO"
+    default 40
+    range 0 48
+    depends on RT_ETH_W5500_ENABLED
+
+config RT_ETH_CS_GPIO
+    int "W5500 chip select (SCS) GPIO"
+    default 42
+    range 0 48
+    depends on RT_ETH_W5500_ENABLED
+
+config RT_ETH_INT_GPIO
+    int "W5500 interrupt (INT) GPIO, -1 to poll instead"
+    default 38
+    range -1 48
+    depends on RT_ETH_W5500_ENABLED
+
+config RT_ETH_RST_GPIO
+    int "W5500 reset (RST) GPIO, -1 for none"
+    default -1
+    range -1 48
+    depends on RT_ETH_W5500_ENABLED
+    help
+        Not connected on the PCB rev 1. Without it the chip is reset over SPI.
+
+config RT_ETH_SPI_CLOCK_MHZ
+    int "W5500 SPI clock in MHz"
+    default 20
+    range 1 33
+    depends on RT_ETH_W5500_ENABLED
+    help
+        The W5500 is guaranteed to 33 MHz. Jumper wires to a module want less.
 
 endmenu
 
@@ -190,6 +255,16 @@ config RT_SETUP_AP_PASSWORD
         Used only by the setup portal the device falls back to when it cannot
         join a network. WPA2 needs at least 8 characters; shorter than that and
         the AP comes up OPEN, which is logged loudly at boot.
+
+config RT_CONTROL_LOCK_NEEDS_WINDOW
+    bool "Turning the control lock on needs the configuration window"
+    default y
+    help
+        The control lock persists across restarts (D-51), so whoever turns it
+        on first has to prove they are at the board: three presses of BOOT.
+        Off only for the QEMU profile, whose GPIO0 reads pressed from boot so
+        the window can never open. Turning the lock off without a token always
+        needs the window, whatever this is set to.
 
 config RT_DEV_ORIGIN
     string "Additional allowed CORS origin"

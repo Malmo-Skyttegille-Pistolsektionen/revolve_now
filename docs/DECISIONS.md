@@ -29,7 +29,7 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-16 | `tickerMs` replaces `tickerSeconds` | Decided | 2026-08-20 |
 | D-17 | E2E runs against the firmware, in one CI job | Decided | 2026-08-20 |
 | D-18 | Program validation without ajv; the editor ports later | Decided | 2026-08-20 |
-| D-19 | REST errors become RFC 9457 problem details | Implemented | 2026-08-21 |
+| D-19 | REST errors become RFC 9457 problem details | Decided | 2026-08-21 |
 | D-20 | `Event.command` is a closed vocabulary | Decided | 2026-08-20 |
 | D-21 | An npm `override` must be truthful | Decided | 2026-08-20 |
 | D-22 | `POST /programs/unload` | Decided | 2026-08-21 |
@@ -55,6 +55,13 @@ thought at the time). Dates: "Aug 2026" = earlier sessions; exact date where kno
 | D-42 | A save never restarts; one restart applies everything, from the page | Decided | 2026-09-09 |
 | D-43 | Uploads are converted to IMA ADPCM in the browser | Decided | 2026-10-03 |
 | D-44 | The product is Revolve Now, down to the firmware project name | Decided | 2026-10-03 |
+| D-45 | Swedish in the web app and the docs; the device keeps speaking English | Decided | 2026-10-04 |
+| D-46 | Wired Ethernet beside WiFi, probed at boot, with no onboarding of its own | Decided | 2026-10-06 |
+| D-47 | Updates from GitHub are found and checked by the browser; the device only receives an upload | Decided | 2026-10-06 |
+| D-48 | Backup and restore are the device's; a restore only adds, and never carries WiFi credentials | Decided | 2026-10-06 |
+| D-50 | A bank is level-driven or a pulsed latching relay, chosen per bank | Decided | 2026-10-27 |
+| D-51 | The control lock survives a restart, and setting it needs the button | Decided | 2026-10-28 |
+| D-52 | The configuration window opens for the one client that asked | Decided | 2026-10-30 |
 
 ## D-01 — Merge into a monorepo *(Decided, Aug 2026)*
 
@@ -140,6 +147,9 @@ remove the workarounds when the emulator is fixed.
   driver through MSPI timing tuning, another faulting path. The build half is
   still plain `idf.py`.
 
+**Amended by D-35/D-37 (#227):** the web app and the shipped content now live
+in the application image, not a LittleFS image; LittleFS holds uploads only.
+
 ## D-06 — E2E runs against the real backend, no mock *(Decided 2026-08-20)*
 
 **Decision:** webapp E2E (Playwright) runs against the QEMU-hosted firmware
@@ -148,6 +158,9 @@ demoted to a fast unit fixture.
 
 **Why:** makes mock/API drift structurally impossible — drift was the
 project's repeated failure mode.
+
+**Amended by D-35/D-37 (#227):** the web app and the shipped content now live
+in the application image, not a LittleFS image; LittleFS holds uploads only.
 
 ## D-07 — TUI is an SSE client, not backend-embedded *(Decided 2026-08-20; optional)*
 
@@ -160,7 +173,7 @@ the Linux targets implementation.
 and the SSE payload is serialized from the authoritative executor state under
 the same lock — it *is* the internal state, one serialization away.
 
-## D-08 — Target banks (A/B) deferred *(Deferred 2026-08-20)*
+## D-08 — Target banks (A/B) deferred *(Deferred 2026-08-20; superseded by D-41)*
 
 **Decision:** no bank work in the current plan.
 
@@ -263,7 +276,7 @@ is the only implementation of both)
 **Amended 2026-08-20:** the Audios tab and the Programs list/management
 views are now ported to React (#71, #72). What still exists only in
 `src_legacy` is the **WYSIWYG program editor** (#73) — so `src_legacy`
-stays until that lands. See [D-18](#d-18--program-validation-without-ajv-the-editor-ports-later); CI enforces a gzip size budget.
+stays until that lands. See [D-18](#d-18--program-validation-without-ajv-the-editor-ports-later-decided-2026-08-20); CI enforces a gzip size budget.
 
 **Amended 2026-08-21 (`src_legacy` removed):** the editor is ported (#73), so
 the condition this guardrail was waiting on is met and `src_legacy` is
@@ -373,6 +386,9 @@ framework for the same device).
 **Not covered:** `backend_issue`, which needs audio hardware — QEMU emulates
 no I2S, so the simulator profile builds with `RT_AUDIO_ENABLED` off and the
 event cannot be provoked from outside the device.
+
+**Amended by D-35/D-37 (#227):** the web app and the shipped content now live
+in the application image, not a LittleFS image; LittleFS holds uploads only.
 
 ## D-18 — Program validation without ajv; the editor ports later *(Decided 2026-08-20)*
 
@@ -732,6 +748,9 @@ the comment at `webapp/e2e/audios.spec.ts:35` says shipped clips answer `404`
 to a delete. All three must follow the firmware. Not done here: the React
 Programs and Audios work owns those files in parallel.
 
+**Done since:** the mock answers a shipped delete with `409`
+(`program_readonly` / `audio_readonly`), and both test suites assert it.
+
 ## D-24 — One `libraryChanged` SSE event *(Decided 2026-08-21)*
 
 **Decision:** v2 SSE gains a fourth event, `libraryChanged`, with the payload
@@ -1014,6 +1033,8 @@ of the previous.
    firmware boots from. They are one artifact, released together, under one tag.
    There are no `firmware-*` / `webapp-*` / `resources-*` tag lines, and there is
    no standalone webapp or resources release. Supersedes D-11's prefixes.
+   *Since #227 (D-37) that image is the application image, not LittleFS; the
+   reasoning is unchanged.*
 2. **Tags are bare semver — `2.0.0`.** No `v`, no component prefix, no `X.Y`
    shorthand. The tag string *is* the value the device reports
    (`esp_app_desc_t.version`, `GET /api/v2/version`) and the value the webapp
@@ -1330,6 +1351,133 @@ without it a rebuilt web app would assemble the previous blob.
 which is the disease, so it loses on merits rather than on cost. *A second OTA
 endpoint writing a littlefs image* — destroys uploads, which share the
 partition. Both are recorded in #227.
+## D-36 — Shipped audio is IMA ADPCM, transcoded in the build *(Decided 2026-08-25)*
+
+**Decision:** the shipped clips are transcoded to **IMA ADPCM** by
+`firmware/tools/wav_to_adpcm.py` as part of `idf.py build`, and decoded by
+`rt::decode_ima_adpcm_block` on the way to the DAC. Measured on the real corpus:
+77 clips, 158.8 s, **7.63 MB → 1.96 MB, 3.9×**. Uploaded clips stay PCM;
+transcoding somebody's upload is out of scope, so both formats reach the same
+player and which one a file is comes out of its header. (Narrowed by D-43:
+uploads are transcoded, in the browser.)
+
+**Why ADPCM, given it is the *least* compressed of the options measured.** FLAC
+4.46 MB (lossless), IMA ADPCM 1.96 MB, MP3@64k 1.33 MB, Opus@48k 0.92 MB,
+Opus@32k 0.62 MB. **Size was never the binding constraint — latency was.** At
+1.96 MB the budget already closes, so Opus's extra 1.3 MB buys nothing while
+costing 26 ms of algorithmic delay, a ~200 KB library, and a 48 kHz output rate
+that would change the per-clip I2S clock. These are **spoken range commands**;
+they tell a shooter when to fire. Predictability outranks ratio.
+
+FLAC was the serious alternative — bit-exact, so quality parity is a fact
+rather than a judgement. It costs 2.5 MB more per slot plus a real decoder —
+and **that framing is the trap, because it is not a fallback: it does not
+fit.** At 4.46 MB the FLAC corpus is around 180% of the 2,500,000 B audio
+share, and about 119% of the entire 3,774,873 B app-slot ceiling
+(`0x480000` × the 80% `APP_CEILING`) *before a byte of firmware code or the
+embedded web app*. `scripts/check_image_budget.py` fails the build on both
+counts. A 2.5 MB delta reads as affordable against a 4.5 MB slot only until
+you count that the slot is not otherwise empty, and that A/B means every
+shipped byte is paid for twice (#253).
+
+**So if ADPCM fails the on-hardware listening check, the in-budget
+alternatives are Opus and MP3** — at which point the latency argument above
+is the thing to re-examine, not the size one. Choosing FLAC anyway means
+repartitioning, paid for out of `userdata`, and uploads are stored as raw
+PCM rather than transcoded (until D-43), so that trade comes straight out of
+upload seconds.
+
+**A listening test on a laptop settled nothing** and is not cited as evidence
+here: all six codecs were indistinguishable from the original, including
+Opus@32k, which is not bit-transparent. A null result across *every* option
+means the instrument was the limit. Read it as "nothing here is grossly
+broken", not as licence to pick the smallest.
+
+**Standard IMA ADPCM WAV (`wFormatTag = 0x11`), not a private container.** A
+staged file drops into VLC and plays, which is the check that settles "does
+this sound right" without a board.
+
+**No ffmpeg.** It measured the options and must not be a build prerequisite: a
+large system package whose versions do not promise identical bytes, which would
+make builds non-reproducible. A stdlib-only Python encoder is ~150 lines and
+deterministic by construction, and ESP-IDF already requires Python 3.
+
+**The encoder and the decoder must agree on the reconstruction, exactly.** The
+IMA specification writes the step reconstruction as four separately-shifted
+terms; ffmpeg computes `((2n+1)*step)>>3` in one multiply. Those are
+algebraically equal and **numerically are not** — each term truncates on its
+own — so an encoder using one and a decoder the other drift apart over a block.
+Both use the ffmpeg form, and `host_test/test_ima_adpcm` pins the decoder
+against a vector ffmpeg produced, so "the same" is checkable rather than
+asserted.
+
+**Sample rates are left alone.** #227 proposed normalising the single 44.1 kHz
+clip to 24 kHz. Not done: the firmware sets the I2S clock per clip already, so
+a mixed-rate corpus costs nothing, and resampling in pure Python without a
+proper low-pass filter would trade real quality for tidiness.
+
+**The decoder lives in `rt_logic`**, like every other parser here: it turns
+bytes that arrived from outside this process into meaning, so it belongs where
+a host test and a sanitizer reach it. Behind a `FILE*` in an anonymous
+namespace nothing would ever have exercised a malformed block.
+
+## D-37 — One image, and uploads get a partition nothing updates *(Decided 2026-08-25)*
+
+**Decision:** `partitions.csv` is rewritten. The app slots grow from 3 MB to
+**4.5 MB** and carry firmware, web app, shipped audio and shipped programs
+together; `storage` is replaced by **`userdata`** (6.75 MB, uploads only) that
+**no update path writes** — not a guarded write, no write. `nvs` grows to
+80 KB and a 4 KB `nvs_keys` is parked, both paid for out of the 60 KB of dead
+flash the old table left between `otadata` and `ota_0`. The table sums to
+exactly 0x1000000 with no gaps and the app slots are 64 KB-aligned.
+
+Measured occupancy: **3.32 MB of 4.5 MB, 72%** — firmware 1.13, audio 1.96,
+web app 0.19, programs 0.075. (The current figure is kept in
+`firmware/partitions.csv`.)
+
+**What it buys.** One OTA updates everything. **Full A/B rollback for all of
+it**, inherited from the existing app-slot mechanism rather than built. Version
+drift becomes impossible: one binary, one `esp_app_desc_t.version`. And uploads
+are safe **structurally** — `userdata` has no image built for it, so `idf.py
+flash` stops destroying them, which it did every single time before.
+
+**What it costs, stated plainly.** Adding an audio clip becomes a firmware
+release. Every OTA transfers ~3.3 MB rather than ~1.3 MB. And **one cable pass
+over three boards, which also wipes NVS** — each needs its hardware
+configuration captured beforehand and re-provisioning afterwards. Taken now
+because the fleet is three boards, all in hand, and no release has been cut:
+this cost is at its historic minimum and rises with every board built.
+
+**The guardrails land with the table, deliberately.** It becomes effectively
+write-once at the first tag, so `scripts/check_image_budget.py` fails CI at 80%
+of the slot and separately if the shipped audio passes 2.5 MB. Two ceilings
+because they fail differently: the app grows when somebody writes code, the
+audio grows when somebody adds a file, and knowing which happened is the point.
+
+**`userdata` is formatted on first mount**, reversing the old refusal. While
+`storage` also held the shipped content, reformatting on a bad mount would
+silently discard it, so it refused. `userdata` holds only uploads and no image
+is flashed into it, so on a new board there is nothing to preserve and refusing
+would mean refusing to boot.
+
+**`nvs_keys` does nothing today.** It would hold NVS encryption keys; real use
+needs the `encrypted` flag plus eFuse flash encryption, which is one-way. It is
+in the table only because adding it later would cost a second cable pass.
+
+**A side effect worth having:** `readonly` stops depending on care. It is a
+property of the directory a resource was loaded from, and shipped resources now
+live inside the binary — so an uploaded file cannot reach where they are even
+in principle. D-15 (a loaded program cannot be updated via `PUT`) is unaffected.
+
+**Rejected** (all recorded in #227): *a shipped-content A/B pair* — 2 × 8.5 MB
+against 16 MB, which is arithmetic rather than judgement. *A second OTA endpoint
+writing a littlefs image to `storage`* — destroys uploads, which share the
+partition; a file-level merge instead has no rollback. *Manifest-driven file
+sync* — its guarantee is delivered by the partition split at a fraction of the
+code, and it could still return later as a transfer optimisation without
+touching the table. *Shipping audio uncompressed* — 8.65 MB per slot, 17.3 MB
+for the pair; does not fit.
+
 ## D-38 — Repo browsing is one card; titles ride on raw, not the API *(Decided 2026-08-25)*
 
 **Decision:** the Pages editor's two repository cards — "this repo" and
@@ -1445,6 +1593,16 @@ has no E2E coverage of its accepted path. The ZIP layout is covered by
 `firmware/host_test/test_zip_writer`, whose expectations were checked against
 Python's `zipfile` and `unzip -t`.
 
+*Re-examined 2026-10-28, in the security audit:* the gate stays the window
+alone. Adding the control lock would again protect nothing while the lock is
+off and block a fault report while it is on. What remains exposed is a LAN
+client watching for somebody at the board to open the window; the five-minute
+window bounds it.
+
+*Superseded in part by D-52:* that remaining exposure was confirmed on a board
+(#656), and the window now opens for the one client that asked for it rather
+than for the network.
+
 ## D-40 — "Admin mode" is renamed `control-lock`, everywhere *(Decided 2026-08-26)*
 
 **Decision:** the write lock is called **`control-lock`** in every surface it
@@ -1500,132 +1658,6 @@ decided on purpose.
 **The guarantee to keep saying out loud:** it gates *changing* the device, never
 *looking at* it. Every `require_control_lock` on the tree was re-read against
 that sentence as part of this.
-
-## D-36 — Shipped audio is IMA ADPCM, transcoded in the build *(Decided 2026-08-25)*
-
-**Decision:** the shipped clips are transcoded to **IMA ADPCM** by
-`firmware/tools/wav_to_adpcm.py` as part of `idf.py build`, and decoded by
-`rt::decode_ima_adpcm_block` on the way to the DAC. Measured on the real corpus:
-77 clips, 158.8 s, **7.63 MB → 1.96 MB, 3.9×**. Uploaded clips stay PCM;
-transcoding somebody's upload is out of scope, so both formats reach the same
-player and which one a file is comes out of its header. (Narrowed by D-43:
-uploads are transcoded, in the browser.)
-
-**Why ADPCM, given it is the *least* compressed of the options measured.** FLAC
-4.46 MB (lossless), IMA ADPCM 1.96 MB, MP3@64k 1.33 MB, Opus@48k 0.92 MB,
-Opus@32k 0.62 MB. **Size was never the binding constraint — latency was.** At
-1.96 MB the budget already closes, so Opus's extra 1.3 MB buys nothing while
-costing 26 ms of algorithmic delay, a ~200 KB library, and a 48 kHz output rate
-that would change the per-clip I2S clock. These are **spoken range commands**;
-they tell a shooter when to fire. Predictability outranks ratio.
-
-FLAC was the serious alternative — bit-exact, so quality parity is a fact
-rather than a judgement. It costs 2.5 MB more per slot plus a real decoder —
-and **that framing is the trap, because it is not a fallback: it does not
-fit.** At 4.46 MB the FLAC corpus is around 180% of the 2,500,000 B audio
-share, and about 119% of the entire 3,774,873 B app-slot ceiling
-(`0x480000` × the 80% `APP_CEILING`) *before a byte of firmware code or the
-embedded web app*. `scripts/check_image_budget.py` fails the build on both
-counts. A 2.5 MB delta reads as affordable against a 4.5 MB slot only until
-you count that the slot is not otherwise empty, and that A/B means every
-shipped byte is paid for twice (#253).
-
-**So if ADPCM fails the on-hardware listening check, the in-budget
-alternatives are Opus and MP3** — at which point the latency argument above
-is the thing to re-examine, not the size one. Choosing FLAC anyway means
-repartitioning, paid for out of `userdata`, and uploads are stored as raw
-PCM rather than transcoded (until D-43), so that trade comes straight out of
-upload seconds.
-
-**A listening test on a laptop settled nothing** and is not cited as evidence
-here: all six codecs were indistinguishable from the original, including
-Opus@32k, which is not bit-transparent. A null result across *every* option
-means the instrument was the limit. Read it as "nothing here is grossly
-broken", not as licence to pick the smallest.
-
-**Standard IMA ADPCM WAV (`wFormatTag = 0x11`), not a private container.** A
-staged file drops into VLC and plays, which is the check that settles "does
-this sound right" without a board.
-
-**No ffmpeg.** It measured the options and must not be a build prerequisite: a
-large system package whose versions do not promise identical bytes, which would
-make builds non-reproducible. A stdlib-only Python encoder is ~150 lines and
-deterministic by construction, and ESP-IDF already requires Python 3.
-
-**The encoder and the decoder must agree on the reconstruction, exactly.** The
-IMA specification writes the step reconstruction as four separately-shifted
-terms; ffmpeg computes `((2n+1)*step)>>3` in one multiply. Those are
-algebraically equal and **numerically are not** — each term truncates on its
-own — so an encoder using one and a decoder the other drift apart over a block.
-Both use the ffmpeg form, and `host_test/test_ima_adpcm` pins the decoder
-against a vector ffmpeg produced, so "the same" is checkable rather than
-asserted.
-
-**Sample rates are left alone.** #227 proposed normalising the single 44.1 kHz
-clip to 24 kHz. Not done: the firmware sets the I2S clock per clip already, so
-a mixed-rate corpus costs nothing, and resampling in pure Python without a
-proper low-pass filter would trade real quality for tidiness.
-
-**The decoder lives in `rt_logic`**, like every other parser here: it turns
-bytes that arrived from outside this process into meaning, so it belongs where
-a host test and a sanitizer reach it. Behind a `FILE*` in an anonymous
-namespace nothing would ever have exercised a malformed block.
-
-## D-37 — One image, and uploads get a partition nothing updates *(Decided 2026-08-25)*
-
-**Decision:** `partitions.csv` is rewritten. The app slots grow from 3 MB to
-**4.5 MB** and carry firmware, web app, shipped audio and shipped programs
-together; `storage` is replaced by **`userdata`** (6.75 MB, uploads only) that
-**no update path writes** — not a guarded write, no write. `nvs` grows to
-80 KB and a 4 KB `nvs_keys` is parked, both paid for out of the 60 KB of dead
-flash the old table left between `otadata` and `ota_0`. The table sums to
-exactly 0x1000000 with no gaps and the app slots are 64 KB-aligned.
-
-Measured occupancy: **3.32 MB of 4.5 MB, 72%** — firmware 1.13, audio 1.96,
-web app 0.19, programs 0.075.
-
-**What it buys.** One OTA updates everything. **Full A/B rollback for all of
-it**, inherited from the existing app-slot mechanism rather than built. Version
-drift becomes impossible: one binary, one `esp_app_desc_t.version`. And uploads
-are safe **structurally** — `userdata` has no image built for it, so `idf.py
-flash` stops destroying them, which it did every single time before.
-
-**What it costs, stated plainly.** Adding an audio clip becomes a firmware
-release. Every OTA transfers ~3.3 MB rather than ~1.3 MB. And **one cable pass
-over three boards, which also wipes NVS** — each needs its hardware
-configuration captured beforehand and re-provisioning afterwards. Taken now
-because the fleet is three boards, all in hand, and no release has been cut:
-this cost is at its historic minimum and rises with every board built.
-
-**The guardrails land with the table, deliberately.** It becomes effectively
-write-once at the first tag, so `scripts/check_image_budget.py` fails CI at 80%
-of the slot and separately if the shipped audio passes 2.5 MB. Two ceilings
-because they fail differently: the app grows when somebody writes code, the
-audio grows when somebody adds a file, and knowing which happened is the point.
-
-**`userdata` is formatted on first mount**, reversing the old refusal. While
-`storage` also held the shipped content, reformatting on a bad mount would
-silently discard it, so it refused. `userdata` holds only uploads and no image
-is flashed into it, so on a new board there is nothing to preserve and refusing
-would mean refusing to boot.
-
-**`nvs_keys` does nothing today.** It would hold NVS encryption keys; real use
-needs the `encrypted` flag plus eFuse flash encryption, which is one-way. It is
-in the table only because adding it later would cost a second cable pass.
-
-**A side effect worth having:** `readonly` stops depending on care. It is a
-property of the directory a resource was loaded from, and shipped resources now
-live inside the binary — so an uploaded file cannot reach where they are even
-in principle. D-15 (a loaded program cannot be updated via `PUT`) is unaffected.
-
-**Rejected** (all recorded in #227): *a shipped-content A/B pair* — 2 × 8.5 MB
-against 16 MB, which is arithmetic rather than judgement. *A second OTA endpoint
-writing a littlefs image to `storage`* — destroys uploads, which share the
-partition; a file-level merge instead has no rollback. *Manifest-driven file
-sync* — its guarantee is delivered by the partition split at a fraction of the
-code, and it could still return later as a transfer optimisation without
-touching the table. *Shipping audio uncompressed* — 8.65 MB per slot, 17.3 MB
-for the pair; does not fit.
 
 ## D-41 — Target banks: letters, baseline plus overrides, refuse rather than clamp *(Decided 2026-09-08)*
 
@@ -1710,6 +1742,10 @@ typed. **43 and 44** are UART0 and carry the serial console, which is the way
 back from a bad configuration — the same argument that already refuses 19/20 on
 the other socket. Both are now refused. One pin per board was typed once and
 got lucky; eight is eight chances.
+
+*Amended 2026-10-28:* octal mode takes **33 and 34** as well - ESP-IDF's
+ESP32-S3 GPIO notes list 33-37 as SPIIO4-7 and SPIDQS - so the refused range is
+33-37, leaving 20 pins rather than 22.
 
 **Staged, each stage its own PR.** (1) `rt_logic`, NVS and the pin driver, with
 no contract change — the bank vector, the migration from the pre-bank
@@ -1888,10 +1924,14 @@ that check runs on the code already on the board, so **every board running
 `rotation_target_backend` needs one cable flash** to cross the rename. Accepted:
 the fleet is three boards, all in hand.
 
-**Consequence:** a board whose hostname was never saved in Expert mode answers
-at `revolve-now.local` after its next update. `rotation-target.local` stops
-working, and so do bookmarks to it. A board whose hostname was set explicitly
-keeps that name. GitHub redirects the repository's URLs after a rename, but
+**Consequence:** every board answers at `revolve-now.local` after its update,
+and `rotation-target.local` stops working, along with bookmarks to it. A
+hostname stays in NVS, but saving *any* hardware setting writes the hostname
+too, so a stored `rotation-target` says nothing about whether anyone chose it.
+The overlay therefore reads it as unset (`rt::kLegacyDefaultHostname`), and the
+next save writes the new default over it. Any other stored hostname is kept.
+The cost: somebody who really did choose `rotation-target` has to choose it
+again. GitHub redirects the repository's URLs after a rename, but
 Pages does not, so the old `…github.io/rotation_target/` links break.
 
 **Contract:** the default host moves in both specs' `servers`, which the
@@ -1905,12 +1945,305 @@ which would leave the old name in every build and release artifact.
 *Accepting both names in OTA*: the old firmware runs the check, so it would
 not spare a single flash.
 
+## D-45 — Swedish in the web app and the docs; the device keeps speaking English *(Decided 2026-10-04)*
+
+**Decision:** the web app and the documentation site are available in Swedish
+beside English (#443). The web app gets a **Language** setting under Settings
+— System / English / Svenska — stored in the browser like the theme, where
+System follows the browser's own language list and falls back to English. The
+docs site is built once per language by `mkdocs-static-i18n`, with a page's
+translation beside it as `<page>.sv.md` and Material's language switcher in
+the header.
+
+**Where the line is:** only what the *app* says is translated. Text the
+*device* produces — a problem `detail`, a parse error, a console line — is
+shown as the device said it, in English, inside whatever sentence the app
+wraps around it. The web app's program validator (`program-document.ts`)
+mirrors the firmware's parser word for word (D-18) and stays English with it.
+Program and audio names are data, not interface, and are never translated.
+
+**How:** hand-written dictionaries, one per area of the app, under
+`webapp/src/i18n/`. English is the source: `Messages` is `typeof en`, and the
+Swedish dictionary is declared as that type, so a string added without its
+translation fails `tsc`, and so does a translation nobody reads any more. A
+string with a value in it is a function, so the translation chooses the word
+order. Components read the dictionary through `useT()`; a helper outside React
+takes it as a parameter.
+
+**Why not i18next or the like:** the app has a few hundred strings in two
+languages, and a library would add more to the on-device bundle than the
+second language does, for interpolation and plural rules the dictionaries
+express as plain functions. The type check is the thing a library would not
+give: completeness of the translation is a compile error, not a runtime
+fallback to English that nobody notices.
+
+**Why System rather than Swedish as the default:** the club is Swedish, but the
+device may be driven from a member's phone set to English, and a page in a
+language the reader did not choose is the one failure a language setting
+exists to prevent. The language names are shown in themselves — *English*,
+*Svenska* — so the option is readable to the person it is for.
+
+**Docs:** the suffix layout keeps images, snippets and the figures-and-tables
+hook shared between languages. A page without a translation is served in
+English under `/sv/`, so a half-translated site still has every page. A
+translated heading pins the English anchor with attr_list
+(`## Köra ett program { #running-a-program }`), so a cross-page link does not
+move with the wording. Screenshots stay English until somebody regenerates them
+in Swedish; their alt text is translated.
+
+**Rejected:** *the docs in a `docs/site/sv/` folder* (the folder layout breaks
+the shared `img/` and `snippets/` paths); *translating device text in the
+client* (string-matching English prose is the failure D-19 was decided to
+end); *a Swedish-only app* (the English the tests and the e2e suite assert on
+would have become a second-class translation of itself).
+
+## D-46 — Wired Ethernet beside WiFi, probed at boot, with no onboarding of its own *(Decided 2026-10-06)*
+
+**Decision:** a board may carry a W5500 SPI Ethernet controller and connect to
+the range's router or switch by cable (#262). The firmware probes for one at
+every boot and, if it answers, runs it beside WiFi with a DHCP client; the
+server and mDNS answer on both. Its six pins are hardware configuration like
+any other (#144) — NVS over Kconfig, validated, collisions refused — with CS
+-1 meaning "none". The defaults are the PCB rev 1's U10 nets, so a module on
+the PoC and a populated PCB share one configuration.
+
+**Onboarding is unchanged.** A cable needs no credentials, so there is nothing
+to provision: the device takes a lease and is at `<hostname>.local`. Boot
+returns as soon as *either* interface has an address, and WiFi keeps joining
+in the background. The setup portal comes up only when neither can serve —
+WiFi has nothing to join or gave up, and Ethernet has no link or no lease
+within its grace — and a portal that then sees Ethernet get an address
+restarts into the normal path. While Ethernet serves, a WiFi that failed its
+initial join is retried every minute rather than abandoned.
+
+**Switches:** `wifiEnabled` and `ethEnabled` turn either interface off, never
+both. WiFi off holds only while Ethernet has an address at boot; otherwise WiFi
+is used anyway and the setup portal stays the fallback, so no setting can leave
+a board unreachable. A ten-second BOOT hold resets both to on.
+
+**Why probe rather than require the switch:** the probe is one register read
+and costs nothing on a board without the chip, so the stock image works with or
+without a module. `ethEnabled` off is for a board that needs those pins for
+something else.
+
+**Why the Ethernet address wins `DiagnosticsInfo.ipAddress`:** a cable is
+plugged in because it is the dependable link. `GET /wifi` and the new
+`GET /ethernet` each report their own address.
+
+**Rejected:** *USB-NCM, PPP or a serial HTTP shim* (#262's original options) —
+those serve a laptop at the bench, and the need is the device on the range
+network; the PCB's native USB pins are not wired anyway. *A DHCP server on the
+wired port* for direct laptop connections — plugged into a club LAN, it would
+hand out conflicting leases.
+
+## D-47 — Updates from GitHub are found and checked by the browser; the device only receives an upload *(Decided 2026-10-06)*
+
+**Decision:** Settings → Update (#518) checks GitHub's releases API when it
+opens, lists the releases with their notes, and lets the user pick one —
+newer, the same, or older behind a warning. The chosen release's
+`-ota.bin` is an ordinary browser download; the user then picks that file,
+the page compares its SHA-256 with the `digest` GitHub publishes for the
+asset, and uploads it through the existing `POST /api/v2/ota`. The firmware
+has no GitHub code and needs no internet. Uploading any OTA file stays beside
+it for a network with none.
+
+**Why the user carries the file:** the asset host
+(`release-assets.githubusercontent.com`) sends no CORS header, so no page can
+read the bytes — tested in Chromium for both the download URL and the API
+asset endpoint. Every product that automates this either downloads on the
+device (Shelly, Tasmota, OctoPrint, Pi-hole) or serves the files from a host
+of its own with CORS (WLED, OpenWrt, Meshtastic). Both were rejected below.
+
+**Rejected:** *the device downloads* — built and working on hardware, but it
+puts a GitHub dependency, TLS and a certificate bundle in the firmware, and
+needs the device itself to have internet. *A copy on Pages or a CORS proxy* —
+the GitHub release stays the single source of truth.
+
+**Downgrades** are allowed and confirmed: newer versions may store settings
+or programs in ways an older one cannot read, and a version older than the
+first with this page can only be left by uploading a file.
+
+**Integrity:** the published SHA-256, checked in the page with a JavaScript
+hash (`crypto.subtle` needs https; the device serves http), then the device's
+own project and image checks. Nothing is signed: secure boot is not enabled.
+
+## D-48 — Backup and restore are the device's; a restore only adds, and never carries WiFi credentials *(Decided 2026-10-06)*
+
+**Decision:** `GET /backup` streams one stored ZIP of everything a club has put
+on a board — uploaded programs and clips, and the hardware configuration as
+overrides of the compiled defaults — and `POST /restore` reads it back as it
+arrives (#520). The archive's layout and every restore rule live in
+`rt_logic/backup.h`; the mock mirrors them.
+
+**On the device, not replayed by the web app.** The web app could have built
+the file from existing endpoints and restored it through `POST /programs`,
+`POST /audios` and `PUT /config/hardware`. One device-side file means one
+download and one upload, a backup any client can take with `curl`, and the
+renumbering of clips under the programs that play them done once, in tested
+code, rather than in every client.
+
+**A restore only adds.** Clips and programs get new ids and nothing is deleted.
+One identical to an upload already present — the same program, or a clip with
+the same title and bytes — is skipped, so restoring twice is harmless. Each
+item goes through the checks an upload would and is refused on its own; only a
+file that is not a backup, or one in a newer `formatVersion`, is refused whole,
+and that is decided from `backup.json` (`contracts/backup.schema.json`)
+before anything is applied.
+
+**No WiFi credentials, ever.** Nothing else in the API returns the password,
+and a backup is a file people pass around. A board that has lost its
+credentials has to join a network through the setup portal before it can be
+reached to restore anyway. The manifest says `includesWifiCredentials: false`
+so a reader does not have to wonder.
+
+**Hardware behind the window; the name opt-in.** Restoring the hardware
+configuration needs the configuration window, as `PUT /config/hardware` does;
+with it shut the rest is restored and the hardware is reported as skipped. The
+result is this build's defaults with the backup's overrides, so a board built
+for other hardware keeps its own defaults for whatever nobody changed. The
+hostname and display name come back only when asked for: two boards answering
+to one name is what restoring them onto a second board does.
+`targetsShownAtBoot` is never restored (D-31).
+
+**The upload ceiling moves to the `userdata` partition.** A restore carries all
+of it, which makes it the largest upload, so the server-wide ceiling is sized
+for it and `POST /ota` bounds itself against the slot.
+
+**Rejected:** *a web-app-side backup* — above. *Credentials behind the BOOT
+window* (D-39's gate) — it would make the backup a file to guard, for no gain
+on the board that needs it. *Replace-all restore* — deleting what is on a board
+to make it a copy is a step nobody should take by uploading a file.
+
+## D-50 — A bank is level-driven or a pulsed latching relay, chosen per bank *(Decided 2026-10-27)*
+
+**Decision:** each bank has a `drive` (#636). `level`, the default and every
+bank before this, holds one pin at the shown or hidden level. `latching` drives
+a latching relay: `gpio` is pulsed to show the bank and `hideGpio` to hide it,
+each for `pulseMs` (default 100, 10–1000), with both pins released between
+pulses. `activeLow` keeps one meaning — which level is active — so on a
+latching bank it is the pulse level.
+
+**Per bank, beside level rather than instead of it.** The relay box is the
+first latching hardware; the PCB rev 1 and the PoC stay level-driven, and one
+device may mix the two. The pulse length is per bank for the same reason the
+polarity is (D-41): it belongs to the relay on that bank.
+
+**At boot a latching bank is pulsed to its boot state.** A latching relay keeps
+whatever it held at power-off and cannot be read back, so the only way to make
+D-31 true is to tell it. Both pins are set released before either is
+configured as an output, so nothing pulses before that deliberate one.
+
+**Show and hide never overlap.** A command arriving mid-pulse releases the
+other pin first, cutting the old pulse short rather than queueing behind it.
+
+**What a latching bank reports is what was last sent.** `padLevel` reads the
+show pin, which rests released, so diagnostics gains `drive` and `shown` and the
+web app shows "last sent" for those banks rather than a pad level that says
+nothing.
+
+**Additive.** The three fields are optional in a request, and an omitted one
+keeps the bank's current value, so a client that predates them cannot turn a
+latching bank back into a level one by saving. A drive a firmware does not
+know, read from NVS, stays `level`.
+
+**Rejected:** *a device-wide drive* — it forbids the mixed device, for no
+saving. *One toggle pin per bank* — `docs/site/hardware.md` already rules out
+hardware that moves on each pulse; a toggled relay drifts out of step with the
+device the first time a pulse is missed. *Holding the coil for the whole state*
+— that is a level bank, and what a latching relay exists to avoid.
+
+## D-51 — The control lock survives a restart, and setting it needs the button *(Decided 2026-10-28)*
+
+**Decision:** the control lock's password is kept in NVS as a verifier — a
+16-byte random salt and a 32-byte PBKDF2-HMAC-SHA256 key
+(`kControlLockKdfIterations` rounds), never the password — and restored at
+boot. Sessions stay in RAM: after a restart the lock is still on and every
+client logs in again. `POST /control-lock/enable` needs the configuration
+window (three presses of BOOT). `POST /control-lock/disable` takes a session
+**or** an open window.
+
+**Why.** Before this, the lock lived in RAM and the first caller after a boot
+set the password. So anything that rebooted the device unlocked it, and
+whoever asked first afterwards owned it. The security audit found three ways
+to cause such a reboot without logging in (#639, #640, #646). Fixing those
+closed the known ones, not the class. A persisted lock no longer cares how the
+device restarted.
+
+**Why the button to set it.** Persistence alone would make "first caller sets
+the password" permanent rather than until the next power-cycle. The window is
+the proof of presence the device already has (#144, D-39). It is not held shut
+by a run, unlike for hardware configuration: locking the device mid-run is a
+reasonable thing to want.
+
+**Why the button can also turn it off.** A restart is no longer the way back
+from a forgotten password, so somebody at the board has to have one that keeps
+the uploads and the settings. A factory reset still works, and takes the lock
+with it, because it erases the whole NVS partition.
+
+**What a build without a button does.** It has nothing to press, so it can turn
+the lock on without the window, as before, but it can only turn it off with a
+session. The QEMU profile sets `CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW=n`, because
+its GPIO0 reads pressed from boot and the window can never open, and the E2E
+suite turns the lock on before every spec.
+
+**Contract.** A breaking change taken before 1.0.0: `enable` gains a `403`, and
+`disable` accepts a request it used to refuse. Recorded in
+`contracts/README.md` with the other pre-release exceptions.
+
+## D-52 — The configuration window opens for the one client that asked *(Decided 2026-10-30)*
+
+**Decision:** three presses of BOOT open the configuration window for one
+client, not for the network. A client first calls `POST
+/api/v2/config-window/request` and receives a 16-byte random token; the
+presses then grant the window to the one request waiting. With more than one
+waiting they grant nobody, and each of those clients reads `conflict` from
+`GET /api/v2/config-window`. Every route behind the window — the bundle
+(D-39), `PUT` and `reset` of the hardware configuration, the WiFi scan and
+`PUT`, the hardware part of a restore, and the control lock's `enable` and
+window-based `disable` (D-51) — requires the token in `X-Config-Window`. The
+logic is `rt::ConfigWindow`, host-tested.
+
+**Why.** The window was one device-wide deadline, and every guard checked only
+that. On a board (#656), a client that was not at the board downloaded the
+coredump while somebody else had opened the window, and turned the control
+lock on and off without a password. The `configWindow` event told it when.
+
+**Why the presses come last.** The obvious binding — give a token to the first
+client that claims the window after the presses — is the race the setup portal
+had, where whoever polls fastest wins (#642). Making the presses the final step
+that commits exactly one waiting request, and nothing when there are several,
+is the same shape #642 gave the portal. Somebody polling with their own
+requests turns the presses into a conflict, and can keep doing so while they
+stay on the network; they cannot take the window. A conflict shows magenta on
+the LED, a grant cyan.
+
+**What it does not fix.** Pressing BOOT without having asked, while another
+client's request is the only one waiting, grants that client. The web app never
+says "press BOOT" until it has asked. At most four requests wait at once, and a
+fifth is refused (`409 /problems/config_window_busy`): evicting the oldest would
+let a flood leave its own request as the only one.
+
+**What stays public.** The `configWindow` event still says whether a window is
+open, and is now about the window whoever holds it. `writeWindow` in `GET
+/config/hardware` is about the client asking. Neither can be used without the
+token.
+
+**Kept.** Five minutes, and a run holds the window shut except for the control
+lock (D-51). Asking again with the token held renews an open window at the
+next presses. The token is its own header and never a cookie, so a cross-site
+form cannot carry it, and it is not the control lock's token. A build without a
+button still treats every client as holding the window; the QEMU profile's
+stuck GPIO0 means a request waits there and is never granted, as the window
+never opened there before.
+
+**Contract.** Breaking, taken before 1.0.0: routes that accepted a request with
+the window open now refuse one without its token. Recorded in
+`contracts/README.md` with the other pre-release exceptions.
+
 ## Open questions
 
 - **Are `app` / `x86_linux` used by anyone?** (asked — drives D-03's
   archive-or-keep follow-up)
-- **The control lock is off after every boot** — acceptable security posture, or a
-  cross-component contract change?
 - **CORS:** firmware allowlist vs MicroPython reflect-any — the contract
   must pick one.
 - **Reinstate `GET /status`** as a v2-shaped snapshot for debugging?

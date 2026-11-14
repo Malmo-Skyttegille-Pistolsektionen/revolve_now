@@ -8,10 +8,18 @@ does not produce a warning, it produces a device that no longer answers.
 
 ## Getting in
 
-**Press the BOOT button on the device three times within ten seconds.** It is
-next to the USB sockets and may be marked `FLASH`. An **Expert mode** tab
-appears in the web app and stays for five minutes; press three times again for
-a fresh five.
+1. In the web app, open **Settings → Expert mode** and tap **Ask for Expert
+   mode**.
+2. Within two minutes, **press the BOOT button on the device three times
+   within ten seconds.** It is next to the USB sockets and may be marked
+   `FLASH`.
+
+An **Expert mode** tab appears **in that browser only**, and stays for five
+minutes. The status LED shows cyan for a moment when it worked.
+
+If more than one browser asked at the same time, the presses open Expert mode
+for nobody: the LED shows magenta and the page says so. Make sure nobody else
+is asking, then ask again. Ask and press again for a fresh five minutes.
 
 ![The Expert mode page, with the configuration window open](img/expert-mode.png)
 
@@ -19,6 +27,13 @@ Three presses rather than one so it cannot happen by accident, and a button
 rather than a password because the thing being established is that **somebody
 is standing at the device**. That is not something anyone can do from across
 the range, at any distance, with any credential — which is the whole point.
+And it opens for the browser that asked rather than for everyone on the
+network, so a phone in the next room cannot use a window you opened.
+
+!!! tip "Ask first, then press"
+
+    Presses that nobody asked for open nothing. Always ask in the web app
+    before pressing, so the window goes to you.
 
 !!! note "It will not open during a run"
 
@@ -26,9 +41,16 @@ the range, at any distance, with any credential — which is the whole point.
     and operating it are different jobs, and these settings only take effect
     when the device restarts anyway. Stop the run first.
 
-If the tab is not there, nobody has pressed the button recently. If it vanishes
-while you are typing, the five minutes ran out — press three times again and
+If the tab is not there, this browser does not hold the window. If it vanishes
+while you are typing, the five minutes ran out — ask and press again, and
 carry on.
+
+The page opens with a short status — whether a restart is pending, how many
+settings differ from the defaults, and which WiFi network the device joins —
+then one row per topic, as on Settings. Tap a row to
+open it. A row whose values differ from the defaults says **Changed**, and one
+with edits not yet saved says **Not saved**; edits are kept while a row is
+closed, and **Save** below the hardware rows saves them all.
 
 ## Restart to apply
 
@@ -94,6 +116,12 @@ Wrong values here are the ones whose way back is a USB cable:
   stops being reachable at `revolve-now.local`. Worse than a wrong pin,
   which at least leaves the app up to fix it from.
 
+The **Ethernet (W5500)** group says where an [Ethernet module](hardware.md#ethernet)
+is wired, and **Use Ethernet** switches it off to free those pins. **Use WiFi**,
+under Name and network, does the same for WiFi. They cannot both be off, and WiFi off
+holds only while the cable gives the device an address — without one it uses
+WiFi anyway, so it can always be reached.
+
 **Nothing here takes effect until the device restarts**, and the page says so
 when a saved value is not yet in use — then **Restart to apply** at the top of
 the page. A change that appears to have done nothing is how somebody ends up
@@ -108,9 +136,11 @@ control line each, lettered by position:
 |---|---|
 | **Bank** | The letter, A first. It is the row's position, not a stored value, so removing a bank re-letters the ones after it |
 | **Name** | What operators see on the Run page — `Vänster`, `Bana 3`. Display only, at most 16 characters, and may be left empty |
-| **GPIO** | The pin this bank's transistor is wired to. Every bank needs its own, distinct from the LED's and the three audio pins |
-| **Shown when low** | Whether a low level shows *this* bank. Per bank, because the resting state that has to be safe is a property of that bank's wiring |
-| **Pad now** | The level actually on the pin, read back rather than remembered. It answers "is the firmware driving this" without a multimeter |
+| **Drive** | **Level**, one pin held shown or hidden, or **Pulse** for a [latching relay](hardware.md#latching-relays) |
+| **GPIO** | The pin this bank's transistor is wired to — for a pulsed bank, a **show** pin and a **hide** pin. Every pin needs to be its own, distinct from the LED's and the audio pins |
+| **Pulse (ms)** | How long a pulsed bank's pulse lasts, 10–1000. 100 unless the relay asks for something else |
+| **Active low** | Whether a low level is the active one: for a level bank, the level that shows it; for a pulsed bank, the pulse level. Per bank, because the resting state that has to be safe is a property of that bank's wiring |
+| **Pad now** | The level actually on the pin, read back rather than remembered. It answers "is the firmware driving this" without a multimeter. A pulsed bank shows what was last sent instead, because a latching relay cannot be read back |
 
 **Add bank B** appends the next letter, up to eight — the most this firmware
 drives. A new row starts with **no GPIO**; Save waits until every row has one,
@@ -133,6 +163,24 @@ setting for every bank**. Which position is safe at rest is a property of the
 target system, so it has to be configurable — but it is also what protects
 somebody standing downrange when a board is powered, so it changes only from
 the serial console with a cable attached.
+
+### Audio { #audio }
+
+The **Audio** group says where the I2S DAC that plays the range commands is
+wired. The pin names on a DAC or amplifier board differ from the firmware's:
+
+| Field | Wire it to |
+|---|---|
+| **I2S bit clock (BCK)** | BCLK or BCK |
+| **I2S word select (WS/LRCK)** | LRC or LCK |
+| **I2S data out (DOUT)** | DIN. The names cross over, which is the usual way to wire this wrong |
+| **I2S master clock (MCLK)** | SCK, or `-1` to leave it undriven |
+
+Most PCM5102A boards make their own clock and want MCLK at `-1`. Some do not
+play without it, and the club's PCB rev 1 is one of them: its audio needs
+MCLK on GPIO48. Such a board can seem fine after a restart and then stay
+silent after a power cut, because the DAC keeps the clock it was given while
+it stays powered. Test it by switching the power off and on.
 
 ## Troubleshooting
 

@@ -278,8 +278,8 @@ void broadcast_library_changed(const char *kind) {
 }
 
 void broadcast_config_window(bool open, int32_t remaining_s) {
-  // Same shape as `writeWindow` in GET /config/hardware, so a client keeps one
-  // value from two sources rather than reconciling two.
+  // Same shape as `writeWindow` in GET /config/hardware, but about the window
+  // whoever holds it, not about the client reading it (D-52).
   std::string payload = "{\"open\":";
   payload += open ? "true" : "false";
   payload += ",\"remainingSeconds\":";

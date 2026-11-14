@@ -34,3 +34,7 @@ The three `$ref`s in `openapi.yaml` pointed at `./program.schema.json`, which
 now lives at `../program.schema.json` — the program document schema is still
 current, so it was promoted rather than copied. The references were repointed
 so the file still resolves; nothing else was touched.
+
+That makes the file only partly frozen: those `$ref`s point at the **live**
+schema, so `Program`, `Series` and `Event` here describe today's v2 program
+document, not the v1 one. For the v1 shape, read the schema in git history.

@@ -3,12 +3,11 @@
 // useControlLockStatus.test.tsx: the mock implements no CORS allowlist.
 // @vitest-environment-options { "url": "http://127.0.0.1:18081" }
 import { readFileSync } from 'fs';
-import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { MAX_FILE_BYTES, MAX_UPLOAD_BYTES } from '../src/api/audios';
 import { MAX_COMPRESSED_SOURCE_BYTES } from '../src/lib/audio-convert';
@@ -20,6 +19,8 @@ import { useSSE } from '../src/hooks/useSSE';
 import { FakeEventSource } from './fake-event-source';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
+import { enableControlLockElsewhere } from './other-client';
+import { backendIssueAtom } from '../src/lib/sse-store';
 
 // Out of the Linux ephemeral range, and not the port useControlLockStatus.test.tsx
 // binds — vitest runs the two files in parallel.
@@ -54,7 +55,7 @@ function wavFile(name = 'signal.wav', byteLength = 64): File {
 function stubDecoder(
   decode: () => Promise<AudioBuffer>,
   probedSeconds: number | null = null,
-): ReturnType<typeof vi.fn> {
+): Mock<() => Promise<AudioBuffer>> {
   const spy = vi.fn(decode);
   vi.stubGlobal(
     'OfflineAudioContext',
@@ -98,29 +99,6 @@ function fakeAudioBuffer(length: number, numberOfChannels: number, channels?: Fl
 function adpcmFile(name: string): File {
   const bytes = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data/adpcm/chirp-adpcm.wav'));
   return new File([bytes], name, { type: 'audio/wav' });
-}
-
-/** See useControlLockStatus.test.tsx: a request from another client, so no cookie lands in this page's jar. */
-function enableControlLockElsewhere(password: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ password });
-    const req = http.request(
-      {
-        host: '127.0.0.1',
-        port: PORT,
-        path: '/api/v2/control-lock/enable',
-        method: 'POST',
-        agent: false,
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-      },
-      (res) => {
-        res.resume();
-        res.on('end', () => resolve());
-      },
-    );
-    req.on('error', reject);
-    req.end(body);
-  });
 }
 
 let server: MockServer;
@@ -215,7 +193,7 @@ describe('the audio library', () => {
 
 describe('the control lock gates the mutating controls', () => {
   it('lock ON without a token: view only, no upload form and no row actions', async () => {
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
 
     renderAudios();
     await waitForClips();
@@ -227,7 +205,7 @@ describe('the control lock gates the mutating controls', () => {
   });
 
   it('lock ON with a token: the controls come back', async () => {
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
     localStorage.setItem('rt_settings_control_lock_token', 'a-token');
 
     renderAudios();
@@ -241,7 +219,7 @@ describe('the control lock gates the mutating controls', () => {
   it('a 401 drops the stale token, and the controls go away with it', async () => {
     // The password-changed case: the lock was cycled elsewhere, so this
     // client's token is no longer one the device knows.
-    await enableControlLockElsewhere('competition-2026');
+    await enableControlLockElsewhere(PORT, 'competition-2026');
     localStorage.setItem('rt_settings_control_lock_token', 'a-token-from-a-previous-session');
 
     renderAudios();
@@ -605,7 +583,7 @@ describe('backend_issue', () => {
     expect(screen.queryByTestId('backend-issue-banner')).toBeNull();
 
     // What `useSSE` does when a backend_issue frame arrives.
-    queryClient.setQueryData(['backend-issue'], playbackFailed);
+    backendIssueAtom.set(playbackFailed);
 
     const banner = await screen.findByTestId('backend-issue-banner');
     expect(text(banner)).toContain('Could not open /userdata/audio/1000.wav');
@@ -622,7 +600,7 @@ describe('backend_issue', () => {
     expect(screen.queryByTestId('backend-issue-banner')).toBeNull();
 
     // A later issue is a fresh object, so it shows again.
-    queryClient.setQueryData(['backend-issue'], { ...playbackFailed, message: 'Could not configure I2S' });
+    backendIssueAtom.set({ ...playbackFailed, message: 'Could not configure I2S' });
     expect(text(await screen.findByTestId('backend-issue-banner'))).toContain('Could not configure I2S');
   });
 
@@ -630,7 +608,7 @@ describe('backend_issue', () => {
     renderAudios();
     await waitForClips();
 
-    queryClient.setQueryData(['backend-issue'], {
+    backendIssueAtom.set({
       code: 'storage_full',
       message: 'The uploads partition is full',
     } satisfies BackendIssuePayload);
@@ -642,7 +620,7 @@ describe('backend_issue', () => {
     renderAudios();
     await waitForClips();
 
-    queryClient.setQueryData(['backend-issue'], {
+    backendIssueAtom.set({
       code: 'program_invalid',
       message: 'Skipped /userdata/programs/7.json',
     } satisfies BackendIssuePayload);

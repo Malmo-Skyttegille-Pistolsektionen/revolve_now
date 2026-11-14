@@ -4,6 +4,7 @@
 // @vitest-environment-options { "url": "http://127.0.0.1:18092" }
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { SettingsProvider } from '../src/context/SettingsContext';
@@ -44,13 +45,33 @@ async function open(): Promise<void> {
 /** The testid a field is rendered with, to the config key it edits. */
 const TESTID_TO_KEY: Record<
   string,
-  'ledGpio' | 'i2sPort' | 'i2sBckGpio' | 'i2sWsGpio' | 'i2sDoutGpio' | 'httpPort' | 'wifiMaxRetries'
+  | 'ledGpio'
+  | 'i2sPort'
+  | 'i2sBckGpio'
+  | 'i2sWsGpio'
+  | 'i2sDoutGpio'
+  | 'i2sMclkGpio'
+  | 'ethCsGpio'
+  | 'ethSclkGpio'
+  | 'ethMosiGpio'
+  | 'ethMisoGpio'
+  | 'ethIntGpio'
+  | 'ethRstGpio'
+  | 'httpPort'
+  | 'wifiMaxRetries'
 > = {
   'hardware-led-gpio': 'ledGpio',
   'hardware-i2s-port': 'i2sPort',
   'hardware-i2s-bck': 'i2sBckGpio',
   'hardware-i2s-ws': 'i2sWsGpio',
   'hardware-i2s-dout': 'i2sDoutGpio',
+  'hardware-i2s-mclk': 'i2sMclkGpio',
+  'hardware-eth-cs': 'ethCsGpio',
+  'hardware-eth-sclk': 'ethSclkGpio',
+  'hardware-eth-mosi': 'ethMosiGpio',
+  'hardware-eth-miso': 'ethMisoGpio',
+  'hardware-eth-int': 'ethIntGpio',
+  'hardware-eth-rst': 'ethRstGpio',
   'hardware-http-port': 'httpPort',
   'hardware-wifi-retries': 'wifiMaxRetries',
 };
@@ -78,17 +99,47 @@ afterEach(async () => {
 });
 
 describe('the hardware section', () => {
-  // It used to be a collapsible section on Settings. It is now its own page,
-  // reached by a button and absent from the main navigation, so there is no
-  // toggle - and a stale one would silently hide every field behind a click
-  // that no longer exists.
-  it('has no expander, because it is a page rather than a section', async () => {
+  // One row per peripheral (#533). Rendered on its own, without the page's
+  // open row, every row is open, so nothing here is hidden behind a click.
+  it('folds into one row per peripheral, all open when rendered on its own', async () => {
     await device();
     renderSection();
 
     await open();
-    expect(screen.queryByTestId('hardware-toggle')).toBeNull();
+    for (const row of ['targets', 'led', 'audio', 'ethernet', 'network']) {
+      expect(screen.getByTestId(`settings-fold-${row}`).querySelector('button')?.getAttribute('aria-expanded')).toBe(
+        'true',
+      );
+    }
     expect(screen.getByTestId('hardware-bank-table')).toBeTruthy();
+  });
+
+  // Edits survive folding, and the row says it holds some, so a change made
+  // under Audio is not forgotten while Ethernet is open.
+  it('marks a row with unsaved edits, and keeps them while it is folded', async () => {
+    await device();
+    function Page(): React.ReactNode {
+      const [row, setRow] = useState<string | null>('audio');
+      return <HardwareSection open={row} onToggle={(id) => setRow(row === id ? null : id)} />;
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsProvider>
+          <Page />
+        </SettingsProvider>
+      </QueryClientProvider>,
+    );
+    await open();
+
+    fireEvent.change(field('hardware-i2s-mclk'), { target: { value: '3' } });
+    const audio = screen.getByTestId('settings-fold-audio');
+    expect(audio.textContent).toContain('Not saved');
+    expect(audio.textContent).toContain('MCLK 3');
+
+    fireEvent.click(screen.getByTestId('settings-fold-ethernet').querySelector('button') as HTMLButtonElement);
+    expect(field('hardware-i2s-mclk').value).toBe('3');
+    expect(audio.querySelector('button')?.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('hardware-save').hasAttribute('disabled')).toBe(false);
   });
 
   it('shows what the device is configured for', async () => {
@@ -120,6 +171,71 @@ describe('the hardware section', () => {
     };
     expect(state.saved.displayName).toBe('Bana 1');
     expect(state.saved.banks[0].gpio).toBe(HARDWARE_DEFAULTS.banks[0].gpio);
+  });
+
+  // MCLK starts undriven (-1) and takes a pin like the other three (#506).
+  it('saves an I2S master clock pin', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    expect(field('hardware-i2s-mclk').value).toBe('-1');
+    await type('hardware-i2s-mclk', '48');
+    // 48 is the LED's on the PoC defaults; this is the PCB, which has none.
+    await type('hardware-led-gpio', '2');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('hardware-notice')).toBeTruthy());
+
+    const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
+      saved: { i2sMclkGpio: number };
+    };
+    expect(state.saved.i2sMclkGpio).toBe(48);
+  });
+
+  // The W5500's pins are pins like any other (#262): one on a bank's pad is
+  // refused, and switching Ethernet off leaves them unchecked.
+  it('checks the Ethernet pins only while Ethernet is on', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    await type('hardware-eth-int', String(HARDWARE_DEFAULTS.banks[0].gpio));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('same GPIO'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-eth-enabled'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).not.toContain('same GPIO'));
+
+    const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
+      saved: { ethEnabled: boolean };
+    };
+    expect(state.saved.ethEnabled).toBe(false);
+  });
+
+  it('refuses switching off both WiFi and Ethernet', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    for (const testId of ['hardware-wifi-enabled', 'hardware-eth-enabled']) {
+      await act(async () => {
+        fireEvent.click(screen.getByTestId(testId));
+      });
+    }
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('cannot both be off'));
   });
 
   // The device's RFC 9457 `detail` is the sentence written for the situation -
@@ -207,6 +323,13 @@ describe('the hardware section', () => {
       'hardware-i2s-bck',
       'hardware-i2s-ws',
       'hardware-i2s-dout',
+      'hardware-i2s-mclk',
+      'hardware-eth-cs',
+      'hardware-eth-sclk',
+      'hardware-eth-mosi',
+      'hardware-eth-miso',
+      'hardware-eth-int',
+      'hardware-eth-rst',
       'hardware-http-port',
       'hardware-wifi-retries',
     ]) {
@@ -217,6 +340,7 @@ describe('the hardware section', () => {
       'hardware-group-targets',
       'hardware-group-led',
       'hardware-group-audio',
+      'hardware-group-ethernet',
       'hardware-group-network',
     ]) {
       expect(screen.getByTestId(group)).toBeTruthy();
@@ -259,7 +383,7 @@ describe('the hardware section', () => {
     server = createMockServer({
       clock: createFakeClock(),
       port: PORT,
-      seed: { programs: {}, audios: [], configWindowOpen: false },
+      seed: { programs: {}, audios: [], button: true },
     });
     await server.listen();
     renderSection();
@@ -408,9 +532,79 @@ describe('the hardware section', () => {
       saved: { banks: { gpio: number; activeLow: boolean; name: string }[] };
     };
     expect(state.saved.banks).toEqual([
-      { gpio: HARDWARE_DEFAULTS.banks[0].gpio, activeLow: true, name: '' },
-      { gpio: 6, activeLow: true, name: 'Höger' },
+      { gpio: HARDWARE_DEFAULTS.banks[0].gpio, activeLow: true, name: '', drive: 'level', hideGpio: -1, pulseMs: 100 },
+      { gpio: 6, activeLow: true, name: 'Höger', drive: 'level', hideGpio: -1, pulseMs: 100 },
     ]);
+  });
+
+  // A latching relay (#636): a show pin, a hide pin and a pulse length.
+  it('saves a latching bank with its hide pin and pulse length', async () => {
+    await device();
+    renderSection();
+    await open();
+
+    expect(screen.queryByTestId('hardware-bank-hide-gpio-A')).toBeNull();
+    await type('hardware-bank-drive-A', 'latching');
+    // No hide pin yet, so nothing the device would refuse can be sent.
+    expect(field('hardware-bank-hide-gpio-A').value).toBe('');
+    expect(field('hardware-bank-pulse-A').value).toBe('100');
+    expect((screen.getByTestId('hardware-save') as HTMLButtonElement).disabled).toBe(true);
+
+    await type('hardware-bank-hide-gpio-A', '6');
+    await type('hardware-bank-pulse-A', '250');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('hardware-notice')).toBeTruthy());
+    const state = (await (await fetch(`http://127.0.0.1:${String(PORT)}/api/v2/config/hardware`)).json()) as {
+      saved: { banks: unknown[] };
+    };
+    expect(state.saved.banks).toEqual([
+      {
+        gpio: HARDWARE_DEFAULTS.banks[0].gpio,
+        activeLow: true,
+        name: '',
+        drive: 'latching',
+        hideGpio: 6,
+        pulseMs: 250,
+      },
+    ]);
+  });
+
+  it("shows the device's own refusal for a pulse out of range", async () => {
+    await device();
+    renderSection();
+    await open();
+
+    await type('hardware-bank-drive-A', 'latching');
+    await type('hardware-bank-hide-gpio-A', '6');
+    await type('hardware-bank-pulse-A', '5');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hardware-save'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('hardware-notice').textContent).toContain('between 10 and 1000 ms'));
+  });
+
+  // A latching relay cannot be read back, so the column says what was sent.
+  it('reports the last command sent for a latching bank instead of its pad', async () => {
+    server = createMockServer({
+      clock: createFakeClock(),
+      port: PORT,
+      seed: {
+        programs: {},
+        audios: [],
+        hardware: {
+          banks: [{ gpio: 5, activeLow: true, name: '', drive: 'latching', hideGpio: 6, pulseMs: 100 }],
+        },
+      },
+    });
+    await server.listen();
+    renderSection();
+    await open();
+
+    await waitFor(() => expect(screen.getByTestId('hardware-bank-pad-A').textContent).toBe('last sent: shown'));
   });
 
   // Two banks on one pad passes every per-pin check and still does not work.

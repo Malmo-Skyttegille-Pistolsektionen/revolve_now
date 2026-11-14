@@ -59,11 +59,17 @@ info:
 
     ## Authentication
 
-    The control lock is off after every boot and lives in RAM only. While it is
-    off,
+    The control lock is off until it is turned on, and **it stays on across
+    restarts** (D-51): the device keeps a salted hash of the password, never
+    the password. Sessions do not survive a restart - after one the lock is
+    still on and every client logs in again. While the lock is off,
     **every endpoint is unauthenticated**, including the ones marked as
-    requiring a session below. A client turns protection on with
-    `POST /api/v2/control-lock/enable`, choosing the password in that call.
+    requiring a session below.
+
+    Turning it on, with `POST /api/v2/control-lock/enable`, needs somebody at
+    the board: the configuration window, three presses of the BOOT button,
+    has to be open. Turning it off needs a session **or** that window, which
+    is the way back from a forgotten password. A factory reset clears it too.
 
     While the lock is on, the protected endpoints accept either credential:
 
@@ -83,6 +89,32 @@ info:
     empty security requirement alongside the two credentials: with the lock
     disabled, a call with no credentials succeeds.
 
+    ## The configuration window
+
+    Some operations need somebody at the board rather than a password: the
+    troubleshooting bundle, hardware configuration, WiFi, the hardware part
+    of a restore, and the control lock's `enable` and window-based `disable`.
+    The proof is three presses of the BOOT button within ten seconds, and the
+    window it opens **belongs to one client** (D-52):
+
+    1. The client calls `POST /config-window/request` and receives a token.
+    2. Somebody presses BOOT three times within two minutes.
+    3. If exactly one request was waiting, the window opens for five minutes
+       for that token alone. With more than one waiting it opens for nobody,
+       and each of them reads `conflict` from `GET /config-window`.
+
+    The client then sends its token as `X-Config-Window: <token>` on each
+    guarded call, beside any control lock credential. It is a different
+    token from the control lock's and never a cookie, so a cross-site form
+    cannot carry it. A request without it, or with another client's, is
+    refused with `403 /problems/hardware_config_window_closed` exactly as if
+    the window were shut.
+
+    A running program holds the window shut, except for the control lock.
+    A build without a button cannot prove presence: there every client is
+    told the window is open and the hardware routes need no token, but the
+    control lock cannot be turned off without a session.
+
     ## CORS
 
     The firmware answers credentialed cross-origin requests against an
@@ -100,6 +132,25 @@ info:
     Any other origin gets no CORS headers at all, so the browser blocks the
     response.
 
+    ## Requests CORS cannot stop
+
+    CORS stops a foreign page *reading* a response, not a simple request
+    being sent, and it never applies to a DNS-rebinding page, which is
+    same-origin. So every route under `/api` and `/sse` also checks:
+
+    - **`Host`** must be the device's own name (`<CONFIG_RT_HOSTNAME>` or
+      `<CONFIG_RT_HOSTNAME>.local`), an IP literal, or `localhost`, port
+      aside. Anything else answers `421` with `/problems/host_not_allowed`.
+    - **`Origin`**, on a request other than `GET`, `HEAD` or `OPTIONS`, must
+      be one the CORS allowlist above accepts or the origin the request was
+      served under (`http(s)://<Host>`). Anything else, `null` included,
+      answers `403` with `/problems/origin_not_allowed`. A request with no
+      `Origin`, which is what non-browser clients send, is unaffected.
+
+    Every response also carries `X-Frame-Options: DENY` and
+    `Content-Security-Policy: frame-ancestors 'none'`, so no other site can
+    frame the web app.
+
     ## Routes that exist but are not modelled as paths here
 
     Both are catch-alls that would have to be attached to every path to be
@@ -109,11 +160,16 @@ info:
       no body (with the CORS headers above when the origin is allowed).
       Registered because nothing else answers `OPTIONS`, and a preflight that
       404s fails the real request behind it.
-    - `GET /*` — the built webapp, served from the LittleFS path
-      `/storage/webapp/` with `index.html` as the default file. Registered
-      last so it can never shadow an API route.
+    - `GET /*` — the built webapp, served from `/embedded/webapp/` (a
+      read-only filesystem inside the app image) with `index.html` as the
+      default file. Registered last so it can never shadow an API route.
 
-    An unmatched URI answers `404` with `/problems/route_not_found`.
+    An unmatched URI answers `404` with `/problems/route_not_found`, except
+    for a `GET` that looks like a webapp page: outside `/api` and `/sse`, with
+    no file extension in its last segment. That answers `200` with the
+    webapp's `index.html`, so a reload on a client-side route such as `/run`
+    lands on the app. A device built without the webapp answers `404` there
+    too.
 
     Provisioning (the SoftAP setup portal at `/` and `/save`) runs on a
     *separate* HTTP server that is only up when the device has no WiFi
@@ -121,11 +177,23 @@ info:
 
     ## Limits
 
-    - Request bodies and uploads are capped at 1 MiB (`kMaxUploadBytes`,
-      `firmware/main/config.h`). Exceeding it is answered `400` with a
-      **`text/html`** body, not a problem detail — that check lives in the
-      vendored HTTP layer, above every handler, and is the one failure in this
-      API that is not RFC 9457.
+    - Request bodies are capped at 1 MiB (`kMaxUploadBytes`,
+      `firmware/main/config.h`), and uploads at about 6.8 MiB
+      (`kMaxRestoreUploadBytes`), sized to the `userdata` partition because a
+      restore carries all of it and is the largest legitimate upload.
+      Exceeding either is answered `400` with a **`text/html`** body, not a
+      problem detail — that check lives in the vendored HTTP layer, above every
+      handler. A firmware image over the 4.5 MiB slot is refused by
+      `POST /ota` itself, as `/problems/ota_image_refused`.
+    - An audio clip is further capped at 1 MiB (`kMaxUploadBytes`), counted as
+      it streams. Past that the upload is abandoned and the vendored layer
+      answers `500`, again with a `text/html` body.
+    - Failures raised below the handlers are never problem details: a
+      multipart upload without a boundary is a `400` and one the HTTP layer
+      cannot process a `500`, both `text/html`; request headers over the
+      server's limit are a `431` from ESP-IDF's `esp_http_server`, with a
+      plain-text body. Clients branch on the status when the content type is
+      not `application/problem+json`.
     - At most 12 sockets are open at once, and each connected client holds one
       of them for `/sse/v2` on top of its REST traffic.
 
@@ -146,6 +214,10 @@ tags:
     description: Firmware identity.
   - name: diagnostics
     description: Post-incident triage without a USB cable.
+  - name: config-window
+    description: >-
+      Asking for the configuration window that three presses of BOOT open for
+      one client.
   - name: control-lock
     description: Turning write protection on and off, and session handling.
   - name: programs
@@ -163,6 +235,14 @@ tags:
     description: >-
       Which network the device is on, and moving it to another one without
       first taking it off the one it has.
+  - name: ethernet
+    description: >-
+      The wired interface, beside WiFi on a board with a W5500 and alone under
+      QEMU.
+  - name: backup
+    description: >-
+      What a club has put on a board - uploaded programs and clips, and the
+      hardware configuration - saved to one file and put back.
   - name: system
     description: >-
       The device as a whole, rather than anything stored on it: restarting it
@@ -222,6 +302,8 @@ paths:
       tags: [diagnostics]
       summary: Download a troubleshooting bundle
       operationId: getDiagnosticsBundle
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Everything post-incident triage needs, in one file somebody can attach
         to a message — a `application/zip` download containing:
@@ -241,7 +323,9 @@ paths:
         endpoint's gate is about. What has to be established is that whoever is
         collecting it is *standing at the board*, so the gate is the
         **configuration window**: three presses of the device's BOOT button
-        within ten seconds, the same gesture that reveals Expert mode. A
+        within ten seconds, the same gesture that reveals Expert mode, opening
+        the window for the one client that asked for it (D-52). Another client
+        on the network cannot use it. A
         running program holds that window shut, so a bundle cannot be pulled
         out from under a sequence that is driving targets.
 
@@ -277,19 +361,69 @@ paths:
               schema:
                 type: string
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
-            `/problems/hardware_config_window_closed` — nobody has completed
-            the three-press sequence recently, so the configuration window is
-            shut, or a program is running. The same refusal, from the same
+            `/problems/hardware_config_window_closed` — this request does
+            not carry a token that holds the configuration window (D-52), or no
+            window is open, or a program is running. The same refusal, from the same
             window, as `PUT /config/hardware`: one window, one problem type,
             whichever endpoint it is guarding.
 
             The only refusal this operation has. There is no `401`: nothing
             here is gated on the control lock.
+
+  /config-window:
+    get:
+      tags: [config-window]
+      summary: Where this client stands with the configuration window
+      operationId: getConfigWindow
+      description: |
+        Answered for the token in `X-Config-Window`, or for no token. Public:
+        it says whether *this* client holds the window, and otherwise only
+        what the `configWindow` event already tells everyone - whether a
+        window is open for somebody.
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
+      responses:
+        "200":
+          description: This client's standing.
           content:
-            application/problem+json:
+            application/json:
               schema:
-                $ref: "#/components/schemas/Problem"
+                $ref: "#/components/schemas/ConfigWindowStatus"
+
+  /config-window/request:
+    post:
+      tags: [config-window]
+      summary: Ask for the configuration window
+      operationId: requestConfigWindow
+      description: |
+        Starts a request that three presses of BOOT, within two minutes, turn
+        into an open window for this client (D-52). No body. Not behind the
+        control lock: asking proves nothing, the presses do.
+
+        Send the token already held in `X-Config-Window` to ask again without
+        becoming a second request - to keep waiting, or to renew an open
+        window for another five minutes. Without it every call is a new
+        request, and two requests waiting together make the presses a
+        conflict.
+
+        On a build without a button the answer is `open` at once.
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
+      responses:
+        "200":
+          description: The request, waiting for the presses.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigWindowRequest"
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/config_window_busy` — four requests are already
+              waiting. They are never pushed out to make room, because that
+              would let a flood of requests leave its own as the only one.
 
   /control-lock/status:
     get:
@@ -314,10 +448,19 @@ paths:
       tags: [control-lock]
       summary: Turn the control lock on and open a session
       operationId: enableControlLockMode
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Sets the password — any non-empty string, chosen by this call — and
         returns the first session token. Refused while the lock is already
         on: log in or disable it first.
+
+        The lock persists across restarts, so this needs the configuration
+        window: three presses of the BOOT button, proof that whoever sets the
+        password is at the board. Unlike `PUT /config/hardware`, a running
+        program does not hold it shut — locking the device mid-run is
+        reasonable. A build without a button, and the QEMU profile, skip the
+        check, because they cannot open the window at all.
       requestBody:
         required: true
         content:
@@ -328,21 +471,27 @@ paths:
         "200":
           $ref: "#/components/responses/ControlLockSession"
         "401":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/invalid_password` — the password was empty, or the
               body carried none.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/hardware_config_window_closed` — this request does
+              not hold the configuration window (D-52). The same type, from the same
+              window, as `PUT /config/hardware`.
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/control_lock_already_enabled` — log in or disable it
               first.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/control_lock_store_failed` — the password could not be
+              stored, so the lock was left off rather than on until the next
+              restart.
 
   /control-lock/login:
     post:
@@ -359,20 +508,14 @@ paths:
         "200":
           $ref: "#/components/responses/ControlLockSession"
         "401":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/invalid_password` — wrong password.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/control_lock_not_enabled` — there is nothing to log in
               to.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /control-lock/logout:
     post:
@@ -408,10 +551,17 @@ paths:
       tags: [control-lock]
       summary: Turn the control lock off
       operationId: disableControlLockMode
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
-        Clears the password and invalidates every issued token. Note this
-        turns protection *off* — every endpoint becomes writable by anyone on
-        the network again. It is not "log out"; see `/control-lock/logout`.
+        Clears the stored password and invalidates every issued token. Note
+        this turns protection *off* — every endpoint becomes writable by anyone
+        on the network again. It is not "log out"; see `/control-lock/logout`.
+
+        Accepted with a session, or without one while the configuration window
+        is open: somebody at the board can always turn the lock off, which is
+        the way back from a forgotten password now that a restart is not. A
+        build without a button has no such way, and needs a session.
       security:
         - controlLockBearer: []
         - controlLockCookie: []
@@ -425,6 +575,12 @@ paths:
                 $ref: "#/components/schemas/Message"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/control_lock_store_failed` — the stored password could
+              not be cleared, so the lock was left on rather than off until the
+              next restart.
 
   /programs:
     get:
@@ -447,7 +603,7 @@ paths:
       operationId: createProgram
       description: |
         The `id` in the uploaded document is **ignored**: the device assigns
-        the next free id from 100 upwards and rewrites the file from the
+        the next free id from 1000 upwards and rewrites the file from the
         parsed program, so what is persisted is what will come back on the
         next boot. `readonly` in the document is ignored too — it follows from
         the directory the program lives in, and an upload is never read-only.
@@ -474,15 +630,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreatedId"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_invalid` — empty body, malformed JSON, or a
               non-object root.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/Problem"
+          description: |
+            - `/problems/program_store_failed` — the document was valid but
+              could not be written to flash. Nothing was added.
 
   /programs/{id}:
     parameters:
@@ -499,13 +657,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Program"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program, or a path
               segment that is not a plain decimal integer.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
     put:
       tags: [programs]
       summary: Replace an uploaded program
@@ -550,26 +705,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Program"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_invalid` — empty body, malformed JSON, or a
               non-object root.
             - `/problems/program_id_mismatch` — the body declares a different
               id from the path.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program, or a path
               segment that is not a plain decimal integer.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_readonly` — the program is shipped with the
               firmware and has no writable file behind it. Upload the document
@@ -580,18 +730,11 @@ paths:
             The same status for two refusals a client must answer differently
             is why `type` exists (D-19): the wording of `detail` is not a
             discriminator.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_store_failed` — the replacement could not be
               written to flash. The previous document is left intact.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/{id}/load:
     parameters:
@@ -617,13 +760,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/{id}/delete:
     parameters:
@@ -654,22 +794,16 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_found` — no such program.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_readonly` — the program is shipped with the
               firmware and has no writable file behind it. The same type
               `PUT /programs/{id}` answers for the same program.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/start:
     post:
@@ -704,23 +838,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/no_program_loaded` — nothing is loaded, or the loaded
               program has no series at the current index.
             - `/problems/start_id_required` — no body, unparseable JSON, or no
               integer `id`.
 
-            "Nothing is loaded" outranks the id check: it is the more precise
-            diagnosis, and it is what a client that has to load something first
-            needs to hear.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
+            The id check comes first: a start without a well-formed body is
+            refused as such whether or not anything is loaded.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
+            - `/problems/program_running` — a firmware update is in progress
+              and the device is about to restart. Checked before anything
+              else, the body included.
             - `/problems/start_program_mismatch` — a different program is
               loaded. `detail` names both ids, because the operator needs to
               know what the device actually holds to decide what to do about
@@ -731,10 +865,6 @@ paths:
               Nothing moves: a device never clamps a letter to the nearest
               bank it happens to drive. Uploading and loading such a program
               are both fine; only starting it is refused.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/stop:
     post:
@@ -744,8 +874,8 @@ paths:
       description: >-
         Pauses and keeps the last published position, so `start` resumes
         from it. That is the ticker the last `stateUpdate` carried, not the
-        instant the pause arrived. Since `asyncapi.yaml` 3.0.0 replaced the
-        whole-second `tickerSeconds` with `tickerMs`, a pause a few hundred
+        instant the pause arrived. Since `tickerMs` replaced the whole-second
+        `tickerSeconds` (D-16), a pause a few hundred
         milliseconds into a series no longer rewinds to the start of it.
       security:
         - controlLockBearer: []
@@ -759,12 +889,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_not_running` — nothing is running.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -788,12 +915,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/no_program_loaded` — nothing is loaded.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -836,13 +960,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_running` — a run is in progress. `stop` first;
               it is a pause, so the refusal lifts with it.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /programs/series/{seriesIndex}/skip_to:
     parameters:
@@ -889,6 +1010,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/series_index_invalid` — nothing is loaded, or the
               index is outside the loaded program. The firmware does not
@@ -896,30 +1018,20 @@ paths:
               id, but stays a `400` either way.
             - `/problems/skip_id_required` — no body, unparseable JSON, or no
               integer `id`.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/route_not_found` — the path segment is not a plain
               decimal integer.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/skip_program_mismatch` — a different program is
               loaded. `detail` names both ids, same reasoning as `start`'s
               `409`. The run state is untouched and no `stateUpdate` is
               published.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /targets/show:
     post:
@@ -1012,6 +1124,8 @@ paths:
       tags: [config]
       summary: The hardware this device is configured for
       operationId: getHardwareConfig
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Public, like every other `GET`: it carries no credential, and the pin a
         device drives is not a secret from anyone who can already see the
@@ -1038,6 +1152,8 @@ paths:
       tags: [config]
       summary: Store a hardware configuration
       operationId: putHardwareConfig
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Validates, then persists to NVS. **Takes effect at the next restart**,
         and the response says so: nothing here re-drives a pin or renames mDNS
@@ -1050,7 +1166,7 @@ paths:
         whose recovery needs a USB cable:
 
         - a GPIO outside 0–48, or one absent from this chip (22–25)
-        - a GPIO wired to the module's own flash or PSRAM (26–32, and 35–37 on
+        - a GPIO wired to the module's own flash or PSRAM (26–32, and 33–37 on
           this board's octal PSRAM), which stops the device booting rather than
           merely failing to drive a target
         - a GPIO carrying the serial console on UART0 (43–44), which would
@@ -1084,32 +1200,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/hardware_config_invalid` — a value the device refuses.
               `detail` names which and why, because the operator has to decide
               what to type instead.
             - `/problems/hardware_config_serial_only` — the body carried
               `targetsShownAtBoot`, which changes only from the serial console.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
-            `/problems/hardware_config_window_closed` — nobody has completed
-            the three-press sequence recently, so the configuration window is
-            shut.
+            `/problems/hardware_config_window_closed` — this request does
+            not carry a token that holds the configuration window (D-52), or no
+            window is open.
 
             Separate from 401, which is about the control lock: this is not a
             question of who you are but of whether somebody is standing at the
             device. Both apply, and both must pass.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running.
 
@@ -1117,16 +1228,14 @@ paths:
             useful of the two instructions. Reconfiguring the machine and
             operating it are different activities, and these values only take
             effect at the next restart.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /config/hardware/reset:
     post:
       tags: [config]
       summary: Forget the stored configuration
       operationId: resetHardwareConfig
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Drops every override so the next boot comes up on the compiled
         defaults. The way back from a configuration that does not suit the
@@ -1150,6 +1259,17 @@ paths:
                 $ref: "#/components/schemas/Message"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Problem"
+          description: |
+            `/problems/hardware_config_window_closed` — the configuration
+            window is shut. The same guard as `PUT /config/hardware`: this
+            rewrites every value at once.
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            `/problems/program_running` — a program is running. Checked before
+            the window, as on `PUT /config/hardware`.
 
   /wifi:
     get:
@@ -1185,6 +1305,8 @@ paths:
       tags: [wifi]
       summary: Store the credentials for a different network
       operationId: putWifiCredentials
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         Saves the credentials to NVS. **Takes effect at the next restart**, the
         same as `PUT /config/hardware`: the station's configuration is read at
@@ -1243,28 +1365,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/wifi_credentials_invalid` — an empty SSID, an SSID over
             32 bytes, or a password over 63. `detail` says which, because the
             operator has to decide what to type instead.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
-            `/problems/hardware_config_window_closed` — nobody has completed
-            the three-press sequence recently, so the configuration window is
-            shut. The same window and the same problem type as
+            `/problems/hardware_config_window_closed` — this request does
+            not carry a token that holds the configuration window (D-52), or no
+            window is open. The same window and the same problem type as
             `PUT /config/hardware` and `GET /diagnostics/bundle`: one window,
             one type, whichever endpoint it is guarding.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/program_running` — a program is running. Checked
               before the window, because "stop the run" is the more useful
@@ -1274,24 +1391,19 @@ paths:
             - `/problems/wifi_unavailable` — this build has no radio
               (`CONFIG_RT_NET_OPENETH`). Permanent for this firmware, not a
               state to retry.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/wifi_store_failed` — NVS refused the write. Nothing was
             saved and the device stays on the network it is on.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /wifi/networks:
     get:
       tags: [wifi]
       summary: Scan for networks in range
       operationId: getWifiNetworks
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
       description: |
         An active scan across every channel, one entry per SSID, strongest
         first — the same list the setup portal offers, from the same
@@ -1317,21 +1429,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/WifiNetworkList"
         "403":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/hardware_config_window_closed` — the configuration
             window is shut, or a program is running.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/wifi_unavailable` — this build has no radio
             (`CONFIG_RT_NET_OPENETH`).
+
+  /ethernet:
+    get:
+      tags: [ethernet]
+      summary: The wired interface, if there is one
+      operationId: getEthernetStatus
+      description: |
+        Public, like every other `GET`. A board probes for a W5500 on SPI at
+        boot and, if one answers, brings it up beside WiFi with a DHCP client;
+        the server answers on both. Under QEMU the emulated OpenCores MAC is
+        reported here the same way.
+
+        Answers on every build, so a client can tell "this device has no
+        Ethernet" (`supported` or `present` false) from "this firmware is older
+        than this endpoint" (a 404).
+      responses:
+        "200":
+          description: The wired interface as it stands.
           content:
-            application/problem+json:
+            application/json:
               schema:
-                $ref: "#/components/schemas/Problem"
+                $ref: "#/components/schemas/EthernetStatus"
 
   /system/restart:
     post:
@@ -1370,35 +1498,21 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [status, restarting]
-                additionalProperties: false
-                properties:
-                  status:
-                    type: string
-                    enum: [accepted]
-                  restarting:
-                    type: boolean
+                $ref: "#/components/schemas/RestartAccepted"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running. Stop it first;
             a restart takes the targets and the audio down mid-sequence.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/restart_failed` — the device could not start the task
             that does the restarting, which on this firmware means it is out of
             memory. Nothing was restarted, so the answer is a refusal rather
             than a `200` the client would sit waiting on.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /ota:
     post:
@@ -1434,6 +1548,10 @@ paths:
         Refused with `409` while a program is running: the targets are
         mid-sequence and somebody may be downrange acting on what the sequence
         is doing.
+      security:
+        - controlLockBearer: []
+        - controlLockCookie: []
+        - {}
       requestBody:
         required: true
         content:
@@ -1454,33 +1572,21 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [status, restarting]
-                properties:
-                  status:
-                    type: string
-                    enum: [accepted]
-                  restarting:
-                    type: boolean
+                $ref: "#/components/schemas/RestartAccepted"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/ota_image_refused` — the upload was empty, too small to
-            be an image, not an image at all or incomplete, or not for this
-            project.
+            be an image, larger than the firmware slot, not an image at all or
+            incomplete, or not for this project. Larger than the slot is
+            answered before any of it is read.
 
             `/problems/upload_missing_file` — the body was not
             `multipart/form-data`. Answered before any of it is read.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "401":
-          description: The control lock is on and the request carried no valid session.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
+          $ref: "#/components/responses/Unauthorized"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/program_running` — a program is running.
 
@@ -1488,11 +1594,8 @@ paths:
             device is about to restart into it. The slot the next upload would
             be written to is that image, so nothing is written until the
             restart.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             `/problems/restart_failed` — the image was written and is the boot
             partition, but the restart could not be started. The update is
@@ -1507,10 +1610,6 @@ paths:
             finalise the inactive slot, or could not make it the boot
             partition. The image may have been fine; the running firmware is
             unchanged.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /audios:
     get:
@@ -1539,8 +1638,8 @@ paths:
         is assigned. Every failure path removes the staging file, so a
         repeated failed upload cannot fill the partition.
 
-        Accepted audio is RIFF/WAVE with a non-zero sample rate and a
-        non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
+        Accepted audio is RIFF/WAVE with a sample rate from 8 to 192 kHz and
+        a non-empty `data` chunk, in one of two encodings: PCM (format tag 1),
         16-bit, mono or stereo; or IMA ADPCM (format tag `0x11`), 4-bit, mono,
         with a block of 5 to 512 bytes - the encoding of the shipped clips,
         and what the web app converts other formats to before uploading.
@@ -1588,6 +1687,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreatedId"
         "400":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/upload_missing_file` — no file part arrived.
             - `/problems/upload_missing_title` — the `title` field is absent
@@ -1595,22 +1695,15 @@ paths:
             - `/problems/audio_format_unsupported` — not a WAV in either
               accepted encoding.
 
-            A body over the 1 MiB ceiling is also answered `400`, but with a
-            `text/html` body rather than a problem detail.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
+            A clip over the 1 MiB ceiling is answered by the HTTP layer with a
+            `text/html` body rather than a problem detail (see Limits in `info`).
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/audio_store_failed` — the clip could not be moved
               into place or indexed.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /audios/{id}/play:
     parameters:
@@ -1645,13 +1738,10 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/audio_not_found` — no such clip.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
 
   /audios/{id}/delete:
     parameters:
@@ -1688,14 +1778,12 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
+          $ref: "#/components/responses/Problem"
           description: |
             - `/problems/audio_not_found` — no such clip.
             - `/problems/route_not_found` — the path did not parse.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
         "409":
+          $ref: "#/components/responses/Problem"
           description: |
             The clip is shipped, or it still matters to a run. Four types
             under one status, in the order the firmware checks them:
@@ -1714,10 +1802,181 @@ paths:
             - `/problems/audio_playing` — the audio task is reading the file
               right now. LittleFS has no unlink-while-open, so removing it
               would corrupt the read.
+
+  /backup:
+    get:
+      tags: [backup]
+      summary: Download a backup of this device
+      operationId: getBackup
+      description: |
+        Everything a club has put on this board, as one `application/zip`
+        that `POST /restore` reads back (#520):
+
+        | Entry | What it is |
+        |---|---|
+        | `backup.json` | where it came from (`format: "revolve-now-backup"`, `formatVersion`, `firmwareVersion`, `hostname`, `displayName`, `includesWifiCredentials: false`), the stored hardware configuration as `hardware`, and the clips' titles as `audios` - described by `contracts/backup.schema.json` |
+        | `audio/<id>.wav` | each uploaded clip, byte for byte |
+        | `programs/<id>.json` | each uploaded program, as `GET /programs/{id}` returns it |
+
+        The entries are in that order, which is the order a restore needs:
+        `backup.json` with the titles before the clips they name, clips before
+        the programs that play them.
+
+        **Uploads only.** Shipped programs and clips come with the firmware
+        image and are not in it.
+
+        **No WiFi credentials, ever.** `backup.json` says so, so whoever
+        holds the file does not have to wonder whether it is safe to pass on.
+        A board that has lost its credentials joins a network through the
+        setup portal first, and only then can it be reached to restore.
+
+        `hardware` holds **only the values that differ from the compiled
+        defaults**, as a `HardwareConfigPatch`, so that a board built for
+        other hardware keeps its own defaults for everything nobody changed.
+        `targetsShownAtBoot` is never in it: it is serial-only (D-31).
+
+        Public, like every other `GET`: the programs and the hardware
+        configuration are already readable one by one, and nothing in it is a
+        credential.
+
+        The filename in `Content-Disposition` is
+        `revolve-now-backup-<hostname>-<version>.zip`, product first so the
+        file says what it is whatever the board is called. The hostname is
+        left out while it is the default, which would only repeat the
+        product name. No date, for the reason the troubleshooting bundle has
+        none: this device has no clock.
+
+        Served chunked, with no `Content-Length`, and streamed from flash.
+      responses:
+        "200":
+          description: The backup.
           content:
-            application/problem+json:
+            application/zip:
               schema:
-                $ref: "#/components/schemas/Problem"
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: >-
+                `attachment` with the generated filename. Characters outside
+                `[A-Za-z0-9._-]` in the hostname or version are replaced with
+                `-`.
+              schema:
+                type: string
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            `/problems/program_running` — a program is running. The server
+            answers one request at a time and a backup takes seconds, so it
+            would hold the stop button's request behind it.
+
+  /restore:
+    post:
+      tags: [backup]
+      summary: Restore a backup onto this device
+      operationId: restoreBackup
+      description: |
+        A `multipart/form-data` body with the file `GET /backup` produced in
+        one file part. Read as it arrives, and each item applied as soon as
+        it has: **nothing is deleted**, and everything goes through the same
+        checks an upload would.
+
+        - **Clips** are added under new ids from 1000 upwards. One with the
+          same title and the same bytes as a clip already here is skipped.
+        - **Programs** are added the same way, and their `audio_ids` are
+          rewritten to the ids the restored clips were given. A program
+          identical to one already here is skipped. An uploaded clip id the
+          backup holds no clip for is removed from the program rather than
+          left pointing at whatever this board numbers that way, and listed
+          in `droppedAudioIds`.
+        - **Hardware**, unless `hardware=false`: this build's compiled
+          defaults with the backup's values applied, saved as
+          `PUT /config/hardware` would save it — so it needs the
+          configuration window, and it takes effect at the next restart
+          (D-42). With the window shut it is skipped and reported, and the
+          rest is restored anyway - unless the board already holds exactly
+          that, which is `unchanged` and needs no window. The hostname and display name stay as they
+          are unless `name=true`, because two boards answering to one name is
+          the usual result of restoring them onto a second board.
+          `targetsShownAtBoot` is never changed.
+
+        Restoring the same backup twice therefore changes nothing the second
+        time.
+
+        **Across versions.** `backup.json` must come first. A file that is
+        not a backup, or a backup in a newer `formatVersion` than this
+        firmware reads, is refused as a whole before anything is applied. An
+        item this firmware cannot read is refused on its own and reported.
+
+        **A broken archive.** If the file ends early or is damaged after
+        `backup.json`, the restore stops there: what was already applied stays,
+        and the `200` lists it with `stoppedEarly` set. Only stored ZIP
+        entries are read — the file as it was downloaded, not one that was
+        unpacked and zipped again.
+      security:
+        - controlLockBearer: []
+        - controlLockCookie: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/ConfigWindowToken"
+        - name: hardware
+          in: query
+          required: false
+          description: Restore the hardware configuration. `false` leaves it alone.
+          schema:
+            type: boolean
+            default: true
+        - name: name
+          in: query
+          required: false
+          description: >-
+            Restore the hostname and display name as well. Ignored when
+            `hardware` is `false`.
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The backup, as `GET /backup` served it.
+            encoding:
+              file:
+                contentType: application/zip
+      responses:
+        "200":
+          description: >-
+            Applied, item by item. Some items may have been refused; each says
+            why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreReport"
+        "400":
+          $ref: "#/components/responses/Problem"
+          description: |
+            Refused as a whole; nothing was applied.
+
+            - `/problems/backup_invalid` — not a ZIP, not a backup, no
+              `backup.json` first, a `formatVersion` this firmware cannot
+              read, or a re-zipped file using compression.
+            - `/problems/upload_missing_file` — not a multipart body, or no
+              file part arrived.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Problem"
+          description: |
+            `/problems/program_running` — a program is running. Refused before
+            the body is read: the upload holds the server for as long as it
+            takes, and the stop button with it.
 
   /sse/v2:
     get:
@@ -1764,6 +2023,18 @@ components:
         `SameSite=Lax`.
 
   parameters:
+    ConfigWindowToken:
+      name: X-Config-Window
+      in: header
+      required: false
+      description: >-
+        The token from `POST /config-window/request`, once three presses of
+        BOOT have opened the window for it (D-52). Without it, or with a token
+        that does not hold the window, a guarded call is refused as if the
+        window were shut.
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{32}$"
     ProgramId:
       name: id
       in: path
@@ -1807,6 +2078,14 @@ components:
             $ref: "#/components/schemas/BankSelection"
 
   responses:
+    Problem:
+      description: >-
+        An RFC 9457 problem detail. Every operation that uses this names its
+        own problem types in a `description` beside the `$ref`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     BankUnavailable:
       description: |
         - `/problems/bank_unavailable` — `banks` names a bank this device does
@@ -1879,7 +2158,7 @@ components:
       maximum: 48
       description: >-
         The GPIO driving a target bank's circuit. 22-25 do not exist on this
-        chip, 26-32 are the module's own flash and PSRAM, 35-37 are the octal
+        chip, 26-32 are the module's own flash and PSRAM, 33-37 are the octal
         PSRAM's extra data lines on the modules we ship, and 43-44 are the
         UART0 console; all are refused, because driving one stops the device
         booting — or takes away the way back from a bad configuration — rather
@@ -1889,15 +2168,30 @@ components:
     TargetBankActiveLow:
       type: boolean
       description: >-
-        Whether a low level shows a target bank. Per bank, not per device: the
-        de-energised state of each bank's wiring is what has to be its resting
-        state. The prototype drives a BC547B whose low state opens the
-        connection; a board that buffers or inverts the signal wants `false`.
+        Whether a low level is the active one. On a `level` bank that is the
+        level that shows it; on a `latching` bank it is the pulse level. Per
+        bank, not per device: the de-energised state of each bank's wiring is
+        what has to be its resting state. The prototype drives a BC547B whose
+        low state opens the connection; a board that buffers or inverts the
+        signal wants `false`.
+
+    TargetBankDrive:
+      type: string
+      enum: [level, latching]
+      description: |
+        How a bank's pins move its targets.
+
+        - **`level`** — `gpio` is held at the shown or hidden level for as long
+          as the state lasts.
+        - **`latching`** — a latching relay: `gpio` is pulsed to show the bank
+          and `hideGpio` to hide it, each for `pulseMs`. Between pulses both
+          rest at the inactive level. The relay cannot be read back, so at
+          boot the device sends the pulse for its boot state.
 
     TargetBank:
       type: object
       description: >-
-        One independently driven target group: one GPIO, one polarity, one
+        One independently driven target group: its pins, one polarity, one
         name. Which letter it answers to is its position in `banks`, not
         anything stored here.
       required: [gpio, activeLow, name]
@@ -1907,6 +2201,26 @@ components:
           $ref: "#/components/schemas/TargetBankGpio"
         activeLow:
           $ref: "#/components/schemas/TargetBankActiveLow"
+        drive:
+          $ref: "#/components/schemas/TargetBankDrive"
+        hideGpio:
+          type: integer
+          format: int32
+          minimum: -1
+          maximum: 48
+          description: >-
+            A `latching` bank's hide pin, checked like `gpio` and distinct from
+            every other pin in use, this bank's `gpio` included. A `level` bank
+            never drives it, so there it is only range-checked; -1 when unset.
+            Omitted from a request, a bank keeps the value it had.
+        pulseMs:
+          type: integer
+          format: int32
+          minimum: 10
+          maximum: 1000
+          description: >-
+            How long a `latching` bank's pulse lasts, in milliseconds. Default
+            100. Omitted from a request, a bank keeps the value it had.
         name:
           type: string
           maxLength: 16
@@ -1947,8 +2261,17 @@ components:
           i2sBckGpio,
           i2sWsGpio,
           i2sDoutGpio,
+          i2sMclkGpio,
           httpPort,
           wifiMaxRetries,
+          wifiEnabled,
+          ethEnabled,
+          ethSclkGpio,
+          ethMosiGpio,
+          ethMisoGpio,
+          ethCsGpio,
+          ethIntGpio,
+          ethRstGpio,
         ]
       additionalProperties: false
       properties:
@@ -2041,6 +2364,15 @@ components:
           minimum: 0
           maximum: 48
           description: The I2S serial data output pin, into the amplifier.
+        i2sMclkGpio:
+          type: integer
+          format: int32
+          minimum: -1
+          maximum: 48
+          description: >-
+            The I2S master clock pin, into the DAC's SCK, or -1 to leave it
+            undriven. Most PCM5102A boards derive their clock from BCK and want
+            -1; some breakouts stay silent without it.
         httpPort:
           type: integer
           format: int32
@@ -2060,11 +2392,113 @@ components:
             portal. At roughly 2.4 s an attempt, 60 is about two and a half
             minutes; beyond that a device that cannot join looks broken rather
             than busy.
+        wifiEnabled:
+          type: boolean
+          description: >-
+            Whether to join WiFi. Off is honoured only while Ethernet has an
+            address at boot; without one the device joins WiFi anyway and
+            falls back to the setup portal, so it cannot be left unreachable.
+            Off together with `ethEnabled` off is refused.
+        ethEnabled:
+          type: boolean
+          description: >-
+            Whether to look for a W5500 at boot. On, the device probes for the
+            chip on the pins below and carries on over WiFi alone if nothing
+            answers, and the pins are checked like any other; off, they are
+            carried but not used.
+        ethSclkGpio:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 48
+          description: The SPI clock to a W5500 Ethernet controller.
+        ethMosiGpio:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 48
+          description: The SPI data line into the W5500 (MOSI).
+        ethMisoGpio:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 48
+          description: The SPI data line out of the W5500 (MISO).
+        ethCsGpio:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 48
+          description: The W5500's chip select (SCS).
+        ethIntGpio:
+          type: integer
+          format: int32
+          minimum: -1
+          maximum: 48
+          description: >-
+            The W5500's interrupt line, or -1 to poll the chip instead.
+        ethRstGpio:
+          type: integer
+          format: int32
+          minimum: -1
+          maximum: 48
+          description: >-
+            The W5500's reset line, or -1 to reset it over SPI instead.
+
+    ConfigWindowState:
+      type: string
+      enum: [closed, pending, open, conflict, elsewhere]
+      description: |
+        - `closed` — this client holds nothing, and no window is open.
+        - `pending` — its request is waiting for three presses of BOOT.
+        - `open` — it holds the open window.
+        - `conflict` — the presses found more than one request waiting and
+          opened the window for nobody. Ask again, from one device only.
+          Reported for two minutes.
+        - `elsewhere` — a window is open, for another client.
+
+        A running program holds the window shut, so while one runs `open` and
+        `elsewhere` read `closed`.
+
+    ConfigWindowStatus:
+      type: object
+      required: [state, remainingSeconds]
+      additionalProperties: false
+      properties:
+        state:
+          $ref: "#/components/schemas/ConfigWindowState"
+        remainingSeconds:
+          type: integer
+          format: int32
+          minimum: 0
+          description: >-
+            Seconds left of the window while `open`, of the request while
+            `pending`, otherwise 0.
+
+    ConfigWindowRequest:
+      type: object
+      required: [token, state, remainingSeconds]
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          description: >-
+            32 hex characters (16 random bytes). Send it as `X-Config-Window`.
+            Not the control lock's token, and not interchangeable with it.
+          pattern: "^[0-9a-f]{32}$"
+        state:
+          $ref: "#/components/schemas/ConfigWindowState"
+        remainingSeconds:
+          type: integer
+          format: int32
+          minimum: 0
 
     ConfigWriteWindow:
       type: object
       description: |
-        Whether the device is currently accepting hardware configuration.
+        Whether the device is currently accepting hardware configuration from
+        the client asking, which is the one whose `X-Config-Window` token
+        holds the window (D-52).
 
         Guarded by a button press rather than a password. The threat is an
         accident - somebody editing a GPIO because it looked interesting - and
@@ -2085,9 +2519,9 @@ components:
         open:
           type: boolean
           description: |
-            Whether `PUT /config/hardware` would be accepted right now. One
-            meaning, so a client can hide the settings entirely rather than
-            offer a form that cannot save.
+            Whether `PUT /config/hardware` from this client would be accepted
+            right now. One meaning, so a client can hide the settings entirely
+            rather than offer a form that cannot save.
 
             False **while a program is running**, as well as when nobody has
             pressed the button. Reconfiguring the machine and operating it are
@@ -2151,10 +2585,28 @@ components:
           $ref: "#/components/schemas/HardwareConfig/properties/i2sWsGpio"
         i2sDoutGpio:
           $ref: "#/components/schemas/HardwareConfig/properties/i2sDoutGpio"
+        i2sMclkGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/i2sMclkGpio"
         httpPort:
           $ref: "#/components/schemas/HardwareConfig/properties/httpPort"
         wifiMaxRetries:
           $ref: "#/components/schemas/HardwareConfig/properties/wifiMaxRetries"
+        wifiEnabled:
+          $ref: "#/components/schemas/HardwareConfig/properties/wifiEnabled"
+        ethEnabled:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethEnabled"
+        ethSclkGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethSclkGpio"
+        ethMosiGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethMosiGpio"
+        ethMisoGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethMisoGpio"
+        ethCsGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethCsGpio"
+        ethIntGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethIntGpio"
+        ethRstGpio:
+          $ref: "#/components/schemas/HardwareConfig/properties/ethRstGpio"
 
     HardwareConfigState:
       type: object
@@ -2206,7 +2658,7 @@ components:
         presence for precisely this reason. A read anyone on the network may
         make is not the second place.
       required:
-        [radioPresent, connected, ssid, rssi, bars, ipAddress, macAddress, provisioned,
+        [radioPresent, enabled, connected, ssid, rssi, bars, ipAddress, macAddress, provisioned,
          restartRequired]
       additionalProperties: false
       properties:
@@ -2217,6 +2669,12 @@ components:
             build (`CONFIG_RT_NET_OPENETH`, QEMU), where every field below is
             empty or zero and the other two operations refuse with
             `/problems/wifi_unavailable`.
+        enabled:
+          type: boolean
+          description: >-
+            `HardwareConfig.wifiEnabled` as the device booted with, false with
+            no radio. Off is honoured only while Ethernet serves, so the
+            station may still be `connected` with this false.
         connected:
           type: boolean
           description: >-
@@ -2254,8 +2712,9 @@ components:
         ipAddress:
           type: string
           description: >-
-            Dotted quad, empty before the interface has an address. The same
-            value as `DiagnosticsInfo.ipAddress`.
+            The station's dotted quad, empty before it has an address. The same
+            value as `DiagnosticsInfo.ipAddress` unless Ethernet is also up,
+            which that field prefers.
         macAddress:
           type: string
           pattern: "^([0-9a-f]{2}:){5}[0-9a-f]{2}$|^$"
@@ -2330,6 +2789,55 @@ components:
             new IDF mode should widen a label, not fail a client's parse.
           examples: ["WPA2"]
 
+    EthernetStatus:
+      type: object
+      description: The wired interface, as it stands.
+      required:
+        [supported, enabled, present, linkUp, speedMbps, fullDuplex, ipAddress, macAddress]
+      additionalProperties: false
+      properties:
+        supported:
+          type: boolean
+          description: >-
+            Whether this build can have a wired interface at all. False on a
+            firmware built without W5500 support; every field below is then
+            false, zero or empty.
+        enabled:
+          type: boolean
+          description: >-
+            `HardwareConfig.ethEnabled` as the device booted with. False means
+            it did not look for a controller, so `present` is false too.
+        present:
+          type: boolean
+          description: >-
+            Whether a controller answered at boot. False when Ethernet is
+            switched off or none responded on the configured pins - the probe
+            runs once, so fitting one needs a restart.
+        linkUp:
+          type: boolean
+          description: Whether a cable is in and something is at the other end.
+        speedMbps:
+          type: integer
+          format: int32
+          enum: [0, 10, 100]
+          description: The negotiated speed, 0 without a link.
+        fullDuplex:
+          type: boolean
+          description: The negotiated duplex, false without a link.
+        ipAddress:
+          type: string
+          description: >-
+            The dotted quad leased over DHCP, empty without one. The device is
+            also at `<hostname>.local` on this interface.
+        macAddress:
+          type: string
+          pattern: "^([0-9a-f]{2}:){5}[0-9a-f]{2}$|^$"
+          description: >-
+            The interface's MAC, lower-case and colon-separated, empty when no
+            controller is present. Distinct from the WiFi station's, so a
+            router lists the device twice when both are connected.
+          examples: ["30:ed:a0:a8:ab:7b"]
+
     WifiNetworkList:
       type: object
       required: [networks]
@@ -2374,9 +2882,10 @@ components:
       type: object
       description: |
         An RFC 9457 problem detail — the shape every handler uses for a
-        failure, served as `application/problem+json` (D-19). The one
-        exception is a request body over the size ceiling, rejected by the
-        HTTP layer with a `text/html` body.
+        failure, served as `application/problem+json` (D-19). The exception
+        is whatever the HTTP layer rejects before a handler runs: an oversized
+        body, a malformed multipart upload or oversized headers (see Limits
+        in `info`).
 
         RFC 9457 permits extension members; this device emits none, which is
         what `additionalProperties: false` records.
@@ -2400,6 +2909,8 @@ components:
             # auth
             - /problems/control_lock_credentials_required
             - /problems/invalid_password
+            - /problems/origin_not_allowed
+            - /problems/host_not_allowed
             # not found
             - /problems/route_not_found
             - /problems/program_not_found
@@ -2431,8 +2942,10 @@ components:
             - /problems/hardware_config_invalid
             - /problems/hardware_config_serial_only
             - /problems/hardware_config_window_closed
+            - /problems/config_window_busy
             - /problems/wifi_credentials_invalid
             - /problems/bank_unavailable
+            - /problems/backup_invalid
             # upload
             - /problems/upload_missing_file
             - /problems/upload_missing_title
@@ -2443,6 +2956,7 @@ components:
             - /problems/wifi_store_failed
             - /problems/restart_failed
             - /problems/ota_write_failed
+            - /problems/control_lock_store_failed
         title:
           type: string
           description: >-
@@ -2474,6 +2988,115 @@ components:
           type: string
       additionalProperties: false
 
+    RestartAccepted:
+      type: object
+      description: >-
+        The answer to a call that ends in a restart: `POST /system/restart`
+        and a successful `POST /ota`.
+      required: [status, restarting]
+      properties:
+        status:
+          type: string
+          enum: [accepted]
+        restarting:
+          type: boolean
+      additionalProperties: false
+
+    RestoreReport:
+      type: object
+      description: What `POST /restore` did with each part of the backup.
+      required: [source, hardware, audios, programs]
+      properties:
+        source:
+          type: object
+          description: What `backup.json` said about where the backup came from.
+          required: [formatVersion, firmwareVersion, hostname, displayName]
+          properties:
+            formatVersion:
+              type: integer
+              format: int32
+            firmwareVersion:
+              type: string
+            hostname:
+              type: string
+            displayName:
+              type: string
+          additionalProperties: false
+        hardware:
+          $ref: "#/components/schemas/RestoreHardware"
+        audios:
+          type: array
+          description: Every clip in the backup, in archive order.
+          items:
+            $ref: "#/components/schemas/RestoreItem"
+        programs:
+          type: array
+          description: Every program in the backup, in archive order.
+          items:
+            $ref: "#/components/schemas/RestoreItem"
+        stoppedEarly:
+          allOf:
+            - $ref: "#/components/schemas/Problem"
+          description: >-
+            Present when the archive broke part way - cut short or damaged.
+            The restore stopped there; everything listed above it was applied.
+      additionalProperties: false
+
+    RestoreItem:
+      type: object
+      required: [sourceId, title, result]
+      properties:
+        sourceId:
+          type: integer
+          format: int32
+          description: Its id on the device the backup was taken from.
+        title:
+          type: string
+          description: >-
+            Empty for a program this firmware could not read; a placeholder
+            for a clip the backup had no title for.
+        result:
+          type: string
+          enum: [added, skipped, refused]
+          description: |
+            - `added` — stored under `id`.
+            - `skipped` — an identical one is already here, as `id`.
+            - `refused` — not stored; `problem` says why.
+        id:
+          type: integer
+          format: int32
+          description: Its id on this device. Absent when refused.
+        problem:
+          $ref: "#/components/schemas/Problem"
+        droppedAudioIds:
+          type: array
+          description: >-
+            Programs only: uploaded clip ids the program played that the
+            backup restored no clip for, removed from its events.
+          items:
+            type: integer
+            format: int32
+      additionalProperties: false
+
+    RestoreHardware:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: string
+          enum: [saved, unchanged, notRequested, notIncluded, skipped, refused]
+          description: |
+            - `saved` — stored; it applies at the next restart.
+            - `unchanged` — already what the backup holds.
+            - `notRequested` — `hardware=false`.
+            - `notIncluded` — `backup.json` has no `hardware`.
+            - `skipped` — there is something to save and the configuration
+              window is shut; `problem` says how to open it.
+            - `refused` — this firmware refuses a value; `problem` names it.
+        problem:
+          $ref: "#/components/schemas/Problem"
+      additionalProperties: false
+
     CreatedId:
       type: object
       required: [id]
@@ -2483,7 +3106,7 @@ components:
           format: int32
           description: >-
             The id the device assigned. Uploaded programs and clips are
-            numbered from 100 upwards, keeping them clear of the shipped ids.
+            numbered from 1000 upwards, keeping them clear of the shipped ids.
       additionalProperties: false
 
     StartRequest:
@@ -2759,7 +3382,7 @@ components:
       properties:
         name:
           type: string
-          description: The partition label from `partitions.csv`, e.g. `storage`.
+          description: The partition label from `partitions.csv`, e.g. `userdata`.
         kind:
           type: string
           enum: [app, data]
@@ -2931,7 +3554,7 @@ components:
           type: integer
           minimum: 0
           description: >-
-            The `storage` partition's size. Kept alongside `partitions`, which
+            The `userdata` partition's size. Kept alongside `partitions`, which
             reports the same figure — this pair predates it and clients still
             read it.
         storageUsedBytes:
@@ -2940,7 +3563,7 @@ components:
         partitions:
           type: array
           description: >-
-            Every partition in the flash table, in flash-offset order. `storage`
+            Every partition in the flash table, in flash-offset order. `userdata`
             is not the only one that can fill: the app slots decide whether an
             over-the-air image will fit, and NVS holds the provisioned
             credentials.
@@ -2954,7 +3577,11 @@ components:
           minimum: 0
         ipAddress:
           type: string
-          description: The device's current address, or empty when it has none.
+          description: >-
+            The device's current address, or empty when it has none. The
+            Ethernet address while that interface has a link and a lease,
+            otherwise the WiFi station's; `GET /ethernet` and `GET /wifi` each
+            report their own.
         banks:
           type: array
           minItems: 1
@@ -2976,7 +3603,19 @@ components:
                 description: The GPIO this bank drives.
               padLevel:
                 type: integer
-                description: The level actually on that pad.
+                description: >-
+                  The level actually on that pad. On a `latching` bank this is
+                  the show pin, which rests released between pulses, so it says
+                  nothing about the targets — read `shown` instead.
+              drive:
+                $ref: "#/components/schemas/TargetBankDrive"
+              shown:
+                type: boolean
+                description: >-
+                  What the device last told this bank. Remembered, not read:
+                  the only state a `latching` bank has, since the relay cannot
+                  be read back. Optional: firmware from before latching banks
+                  omits it, and `drive`.
               name:
                 type: string
                 maxLength: 16

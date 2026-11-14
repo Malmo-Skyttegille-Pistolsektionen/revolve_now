@@ -39,7 +39,7 @@ short and identical for every occurrence of a type, so it says nothing about
 may change at any time. `instance` is omitted: it identifies a single
 occurrence and there are no request ids on this device.
 
-The reason this exists is that four distinct refusals answer `409` and a client
+The reason this exists is that many distinct refusals answer `409` and a client
 has to react differently to each. Before D-19 the only way to tell them apart
 was to string-match English prose — which broke on any rewording and could
 never be translated for a Swedish club.
@@ -172,9 +172,16 @@ to keep in agreement. A `PUT` carrying `banks` replaces the whole array, since
 it is an ordered list and a partial merge of one has no meaning; editing one
 bank therefore means sending them all.
 
-`GET /diagnostics/info` reports `banks` too: `id`, `gpio`, `padLevel` and
-`name` per bank, so the read-back that answers "is the firmware driving what it
-thinks it is" works on a device with more than one line.
+`GET /diagnostics/info` reports `banks` too: `id`, `gpio`, `padLevel`, `drive`,
+`shown` and `name` per bank, so the read-back that answers "is the firmware
+driving what it thinks it is" works on a device with more than one line.
+
+A bank is `level`-driven or a `latching` relay (D-50). A latching bank pulses
+`gpio` to show and `hideGpio` to hide, each for `pulseMs`, with both pins
+released between pulses, and is pulsed to its boot state at every start. Its
+`padLevel` reads the released show pin and so says nothing about the targets;
+`shown` — what the device last sent — is the only state it has. The three
+fields are optional in a `PUT`, and one left out keeps the bank's current value.
 
 `heartbeat` (`{"id": n}`) is emitted every 10 seconds.
 
@@ -230,7 +237,7 @@ different reasons.
 | `unload` | Clears the selection; `409` while running |
 
 When a series finishes and another follows, execution pauses at the start of the
-next series and the targets are hidden. When the last series finishes, execution
+next series and the targets stay where the last event left them (D-31). When the last series finishes, execution
 stops with the series still selected.
 
 `start` carries `{"id": N}` — the program the caller decided to start — and a
@@ -295,10 +302,35 @@ was rounded down to a whole second as well, and a pause 250 ms into a series
 rewound to event 0 with the targets shown again;
 `host_test/test_executor` now asserts it stays in the event it paused in.
 
+## The configuration window
+
+Three presses of BOOT prove somebody is at the board, and the window they open
+belongs to **one client** (D-52, `rt::ConfigWindow`):
+
+- `POST /api/v2/config-window/request` — no body; answers `{token, state,
+  remainingSeconds}` with `state: "pending"`. Send the held token in
+  `X-Config-Window` to ask again as the same request (to keep waiting, or to
+  renew an open window). `409 config_window_busy` when four are already
+  waiting.
+- Three presses within two minutes grant the window, for five minutes, to the
+  one request waiting. With several waiting they grant nobody: `conflict`.
+- `GET /api/v2/config-window` — this token's `state`: `closed`, `pending`,
+  `open`, `conflict` or `elsewhere` (open for another client). A run reports
+  `open` and `elsewhere` as `closed`.
+- The guarded routes take the token in `X-Config-Window`. Without it, or with
+  another client's, they answer `403 hardware_config_window_closed`, as if the
+  window were shut.
+- The `configWindow` SSE event says whether a window is open for somebody; a
+  client asks `GET /config-window` on each one to learn whether it is theirs.
+
+A build without a button tells every client `open`, and its hardware routes
+need no token. Under QEMU GPIO0 reads stuck, so a request waits and is never
+granted.
+
 ## Auth
 
-The control lock is off until a client enables it, and it lives in RAM only — a
-reboot returns the device to the unprotected state. The rule is simple enough
+The control lock is off until a client enables it, and once on it survives a
+restart (D-51); its sessions do not. The rule is simple enough
 to state once: **every `GET` is public; every mutating endpoint is protected
 while the control lock is on, except the three that have to work without a session —
 `control-lock/enable`, `control-lock/login` and `control-lock/logout`.**
@@ -306,12 +338,18 @@ while the control lock is on, except the three that have to work without a sessi
 - `Authorization: Bearer <token>`, or `Cookie: control_lock=<token>`. The header is
   checked first; the cookie is the fallback
 - `POST /api/v2/control-lock/enable` sets the password (any non-empty string) and
-  returns a token; `409` if the control lock is already on
+  returns a token; `409` if the control lock is already on, `403
+  hardware_config_window_closed` unless the configuration window is open
+  (a build without a button, and the QEMU profile, skip that check)
 - `POST /api/v2/control-lock/login` exchanges the active password for another
   token; `409` if the control lock is off
 - Both send `Set-Cookie: control_lock=<token>; Path=/; SameSite=Lax`
 - `POST /api/v2/control-lock/disable` clears the password and invalidates every
-  issued token — note this turns protection *off*, it is not "log out"
+  issued token — note this turns protection *off*, it is not "log out". It
+  takes a session, or an open configuration window instead: the way back from
+  a forgotten password
+- "The configuration window" below means the window held by this request's
+  `X-Config-Window` token (D-52)
 - `POST /api/v2/control-lock/logout` invalidates only the presenting token and
   clears the cookie, leaving the control lock on. This is what a client leaving a
   shared range laptop wants. It is itself unprotected, and answers `200`
@@ -329,6 +367,16 @@ echoed rather than wildcarded. It is echoed only if it matches the device's own
 mDNS name or current IP, or `CONFIG_RT_DEV_ORIGIN`. Any other origin gets no
 CORS headers, so a page the operator happens to be visiting cannot script the
 device or read its responses.
+
+**What CORS cannot stop is checked separately.** A cross-site form post is sent
+without a preflight, and a DNS-rebinding page is same-origin, so neither is
+CORS's to refuse. Every `/api` and `/sse` request must name the device in
+`Host` (its hostname, `<hostname>.local`, an IP literal or `localhost`) or gets
+`421 host_not_allowed`. A write whose `Origin` is neither allowlisted nor the
+origin it was served under gets `403 origin_not_allowed`. Clients that send no
+`Origin` are unaffected. Every response also refuses framing
+(`X-Frame-Options: DENY`, `frame-ancestors 'none'`). The rules are
+`rt::host_allowed` and `rt::same_origin` in `lib/rt_logic/request_host.h`.
 
 Note that `SameSite=Lax` means the cookie is only sent when the webapp is served
 from the device itself. A webapp on another origin authenticates with the bearer
@@ -349,11 +397,11 @@ incident is diagnosable without a USB cable:
   "freePsramBytes": 8210432,
   "runningPartition": "ota_0",
   "coredumpPresent": true,
-  "storageTotalBytes": 10223616, "storageUsedBytes": 7812096,
+  "storageTotalBytes": 7077888, "storageUsedBytes": 524288,
   "programCount": 7, "audioCount": 77,
   "ipAddress": "192.168.1.42",
   "banks": [                        // one entry per bank, lettered by position
-    { "id": "A", "gpio": 5, "padLevel": 1, "name": "Vänster" }
+    { "id": "A", "gpio": 5, "padLevel": 1, "drive": "level", "shown": false, "name": "Vänster" }
   ],
   "controlLockEnabled": false,
   "sseClients": 1,                  // connected /sse/v2 streams
@@ -411,8 +459,9 @@ byte — and `coredump.bin`, the raw coredump partition, when there is one. One
 file to attach to a message; the diagnostics are what makes the dump decodable
 once the board has been reflashed (D-39, #201).
 
-Behind an open configuration window — three presses of the BOOT button within
-ten seconds, the gesture Expert mode is behind — and behind nothing else. This
+Behind the configuration window — three presses of the BOOT button within
+ten seconds, the gesture Expert mode is behind, opening it for the client that
+asked (D-52) — and behind nothing else. This
 is the one response that can carry the WiFi password, so what has to be
 established is that whoever collects it is standing at the board. A run holds
 that window shut, so `403 /problems/hardware_config_window_closed` is also the
@@ -457,7 +506,7 @@ the two writes it applies — D-42 for why, and for why the setup portal
 ## Uploads
 
 `POST /api/v2/programs` takes a JSON body. The id in the document is ignored:
-the device assigns the next free id from 100 and rewrites the file from the
+the device assigns the next free id from 1000 (`kFirstUploadId`) and rewrites the file from the
 parsed program, so what is persisted is what will come back on the next boot.
 Unknown fields are dropped in that rewrite, and each `duration` is clamped to
 1…3600000 ms. Posting a document that carries an existing id creates a second
@@ -505,10 +554,12 @@ whose connection dies mid-body never reaches `onRequest`, which is where that
 cleanup lives, so the next upload — and every boot — starts by discarding
 whatever is still staged.
 
-Uploads and request bodies alike are bounded by `kMaxUploadBytes` (1 MB),
-applied to the HTTP layer — not just when reading files back. That check lives
-above every handler, in the vendored HTTP layer, and is the one failure that
-is **not** a problem detail: it sends `400` with a `text/html` body.
+The vendored HTTP layer refuses anything over the server-wide ceiling before a
+handler runs, and that is the one failure that is **not** a problem detail: it
+sends `400` with a `text/html` body. The ceiling is the largest legitimate
+upload, a restore (`kMaxRestoreUploadBytes`, sized to `userdata`); every other
+upload bounds itself below it — a clip or a program at `kMaxUploadBytes`
+(1 MB), firmware at the slot.
 
 `DELETE /api/v2/audios/{id}/delete` refuses to remove a clip that still matters
 to a run — on a range, a spoken command that silently fails mid-exercise is a
@@ -530,6 +581,27 @@ first:
    Blunt on purpose: it holds for every clip, referenced or not.
 4. **The clip is playing right now** — `/problems/audio_playing`. LittleFS
    has no unlink-while-open, so deleting it would corrupt the read.
+
+## Backup and restore
+
+`GET /api/v2/backup` and `POST /api/v2/restore` move everything uploaded to a
+board, and its hardware configuration, as one stored ZIP (D-48). What is in it
+and what a restore does with each part is in `contracts/openapi.yaml`; the
+rules are `rt::backup::RestoreSession` in `lib/rt_logic/backup.cpp`, covered by
+`host_test/test_backup`.
+
+**Read as it arrives.** A backup can be most of the `userdata` partition, so
+`rt::ZipReader` parses the upload chunk by chunk from the local headers, and
+each item is applied the moment its entry ends: a clip is streamed to its own
+staging file (`.restore`, never the audio upload's), a program is parsed from a
+buffer of at most `kMaxUploadBytes`. `backup.json` must come first, and nothing
+is applied until it has been read — which is what lets a file that is not a
+backup be a whole-request `400` while a backup that breaks part way is a `200`
+listing what was restored, with `stoppedEarly`.
+
+**Refused during a run, both ways.** The server has one task, and a backup or a
+restore holds it for seconds — long enough that the stop button's request
+would wait behind it.
 
 ## Static assets and the SPA fallback
 
