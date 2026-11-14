@@ -6,6 +6,7 @@ revision, rev 2; earlier revisions are not in the repository.
 | Directory | Board | KiCad project |
 |---|---|---|
 | [`main/`](main/README.md) | Main board: ESP32-S3, target outputs, trigger inputs, Ethernet, audio | `revolvenow_main.kicad_pro` |
+| [`controller/`](controller/README.md) | Controller board (the relay box): eight MOSFETs that switch the target outputs, no microcontroller | `revolvenow_controller.kicad_pro` |
 | [`lib/`](lib/) | Symbols, footprints and logos shared by the boards | — |
 
 ## Opening a project
