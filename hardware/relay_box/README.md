@@ -65,6 +65,12 @@ RJ45 openings start 0.5 mm below the board's top face; USB-C openings are centre
 
 The two USB-Cs are bridged on the board (R1/R2), so only one may ever be powered. J8 is therefore closed until it is pushed out from inside: its opening is cut from the inside, leaving a 0.8 mm skin, with a 0.6 mm groove round its edge that leaves 0.4 mm (`KNOCKOUT`).
 
+## What goes inside
+
+![The base from above with the lid off: the 8-channel relay board (blue block) beside the controller board with its jacks against the right wall, the two 230 V connectors and their indicator LEDs in the left wall](../../docs/site/img/hardware/relay-box-boards.png)
+
+The controller board is the real KiCad 3D model of `hardware/controller`. The relay board, the 230 V connectors and the LEDs are stand-in shapes, and so are the J7 and J9 jacks, which have no 3D model. The relay board is the ELEGOO 8-channel board from its listing dimensions, not measured.
+
 ## Printing
 
 ![The relay box opened: the lid lifted off the base, showing the board standoffs, the corner bosses and the connector and indicator holes in the left wall](../../docs/site/img/hardware/relay-box-exploded.png)
