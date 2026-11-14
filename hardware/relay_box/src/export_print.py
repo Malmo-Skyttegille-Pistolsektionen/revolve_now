@@ -1,4 +1,5 @@
-"""Print projects: generated/relay_box_<rev>-{base,lid,logo}.stl -> generated/relay_box_<rev>.3mf.
+"""Print projects: generated/relay_box_<rev>-{base,lid,logo}.stl -> generated/relay_box_<rev>.3mf,
+and the base alone, for test-fitting the boards, -> generated/relay_box_<rev>-base-fittest.3mf.
 
 Base and lid on one plate, the lid upside down; each on its own plate when they do not fit one. The logo is a part of the lid on filament 2,
 so it prints in whatever colour slot 2 holds; as the lid prints face down it is the first
@@ -19,6 +20,7 @@ import zipfile
 GENERATED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "generated")
 PRINTER, PROCESS, FILAMENT = "Bambu Lab P2S 0.4 nozzle", "0.20mm Standard @BBL P2S", "Bambu PLA Basic @BBL P2S"
 SETS = ["enable_support=0", "wall_loops=3"]
+PRINTER_SETS = ["curr_bed_type=Textured PEI Plate"]   # the CLI writes Cool Plate otherwise, which the P2S does not take
 LOGO_COLOUR = "#161616"
 GAP = 10.0
 BED = 256.0   # P2S
@@ -77,7 +79,7 @@ def meshes(rev, tmp):
 def two_filaments(tmp):
     """Flattened preset JSONs: machine, process, and the filament twice, slot 2 in the logo colour."""
     paths = {}
-    for kind, name, sets in (("machine", PRINTER, []), ("process", PROCESS, SETS), ("filament", FILAMENT, [])):
+    for kind, name, sets in (("machine", PRINTER, PRINTER_SETS), ("process", PROCESS, SETS), ("filament", FILAMENT, [])):
         paths[kind] = os.path.join(tmp, kind + ".json")
         json.dump(bambu["apply_overrides"](bambu["resolve"](kind, name), sets), open(paths[kind], "w"))
     logo = bambu["resolve"]("filament", FILAMENT)
@@ -116,23 +118,31 @@ def fold_logo_into_lid(path):
             out.writestr(name, data)
 
 
+def run(cmd, out, tmp, fold=False):
+    r = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.exists(out):
+        sys.exit(f"FAILED {out}\n{(r.stdout + r.stderr)[-2000:]}")
+    if fold:
+        fold_logo_into_lid(out)
+    bambu["record_changes"](out, bambu["changed_keys"]("process", PROCESS, SETS), [])
+    cfg, bad = bambu["check"](out, dict(s.partition("=")[::2] for s in SETS + PRINTER_SETS))
+    if bad:
+        sys.exit(f"{out}: NOT APPLIED {bad}")
+    print(f"wrote {out}  [{cfg['printer_settings_id']} | {cfg['print_settings_id']} | {cfg['filament_settings_id']}]")
+
+
 def export(rev):
     tmp = tempfile.mkdtemp(prefix=f"relay_box_{rev}-")
     stls, one_plate = meshes(rev, tmp)
     p = two_filaments(tmp)
+    settings = ["--load-settings", f"{p['machine']};{p['process']}"]
     out = os.path.abspath(os.path.join(GENERATED, f"relay_box_{rev}.3mf"))
-    cmd = [bambu["find_bambu"](None), "--load-settings", f"{p['machine']};{p['process']}",
-           "--load-filaments", f"{p['filament']};{p['logo']}", "--load-filament-ids", "1,1,2",
-           "--orient", "0", "--arrange", "0" if one_plate else "1", "--export-3mf", out] + stls
-    r = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True)
-    if r.returncode != 0 or not os.path.exists(out):
-        sys.exit(f"FAILED {out}\n{(r.stdout + r.stderr)[-2000:]}")
-    fold_logo_into_lid(out)
-    bambu["record_changes"](out, bambu["changed_keys"]("process", PROCESS, SETS), [])
-    cfg, bad = bambu["check"](out, dict(s.partition("=")[::2] for s in SETS))
-    if bad:
-        sys.exit(f"{out}: NOT APPLIED {bad}")
-    print(f"wrote {out}  [{cfg['printer_settings_id']} | {cfg['print_settings_id']} | {cfg['filament_settings_id']}]")
+    run([bambu["find_bambu"](None)] + settings + ["--load-filaments", f"{p['filament']};{p['logo']}",
+         "--load-filament-ids", "1,1,2", "--orient", "0", "--arrange", "0" if one_plate else "1",
+         "--export-3mf", out] + stls, out, tmp, fold=True)
+    out = os.path.abspath(os.path.join(GENERATED, f"relay_box_{rev}-base-fittest.3mf"))
+    run([bambu["find_bambu"](None)] + settings + ["--load-filaments", p["filament"], "--orient", "0", "--arrange", "1",
+         "--export-3mf", out, os.path.abspath(os.path.join(GENERATED, f"relay_box_{rev}-base.stl"))], out, tmp)
 
 
 for rev in sys.argv[1:] or ["rev2"]:
