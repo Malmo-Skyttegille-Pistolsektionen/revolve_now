@@ -1,0 +1,46 @@
+export const standalone = {
+  heading: 'Program Editor',
+  intro:
+    'Runs entirely in this browser tab, with no device attached. Open a program, edit it, then download it or send it back as a pull request.',
+  repo: {
+    title: 'Open from repo',
+    hint: 'Pre-filled with this project’s own repository — press Browse to see its programs, or point the fields at another club’s.',
+    owner: 'Owner',
+    ownerPlaceholder: 'owner',
+    repo: 'Repo',
+    repoPlaceholder: 'repo',
+    path: 'Path',
+    ref: 'Ref',
+    refPlaceholder: 'branch, tag or commit — blank for the default branch',
+    browse: 'Browse programs',
+    loading: 'Loading…',
+    noFiles: 'No program files found at that path.',
+    fileLabel: (id: number, title: string) => `${id} — ${title}`,
+    declaredIdDiffers: (label: string, declaredId: number) => `${label} (document says id ${declaredId})`,
+  },
+  github: {
+    rateLimited: 'GitHub API rate limit reached for unauthenticated requests — try again in a few minutes.',
+    status: (status: number, url: string) => `GitHub returned ${status} for ${url}.`,
+    fetchStatus: (status: number, path: string) => `GitHub returned ${status} fetching ${path}.`,
+  },
+  localFile: {
+    title: 'Open a local file',
+    readFailed: 'Could not read that file.',
+    origin: (name: string) => `local file "${name}"`,
+  },
+  newDocument: {
+    title: 'Start a new program',
+    button: 'New program',
+    origin: 'new, not opened from anywhere',
+  },
+  confirm: {
+    invalidTitle: 'This is not a program the editor can open',
+    back: 'Back',
+    openTitle: (origin: string) => `Open ${origin}`,
+    idLabel: 'Program id',
+    idHintBefore: 'Used as the filename in a pull request — ',
+    idHintBetween: '. Shipped programs keep ids below 1000 (uploads start there; see ',
+    idHintAfter: ')',
+    open: 'Open in editor',
+  },
+};

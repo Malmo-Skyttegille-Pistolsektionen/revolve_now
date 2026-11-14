@@ -13,28 +13,29 @@
 # dependencies.lock. Never edit the lock by hand.
 dependencies:
   # The toolchain this firmware is built and tested against, exactly. CI's
-  # container is digest-pinned to the same v6.1, and firmware/CONTRIBUTING.md
-  # says so too - this is the copy the component manager enforces.
+  # containers are digest-pinned to the same version, and the docs point here
+  # rather than repeat it - this is the copy the component manager enforces.
   #
   # Deliberately not a range. ">=6.0" claimed IDF 7.x support that nobody has
   # ever built, let alone run on a board; on an untested toolchain a refusal
   # here is better than a binary.
   #
-  # This version is written in FOUR places and they must move together:
+  # This version is written in THREE places and they must move together:
   #   - here
-  #   - `container: espressif/idf:vX.Y.Z@sha256:...` (three jobs, two files)
+  #   - `container: espressif/idf:vX.Y.Z@sha256:...` (six jobs, four files)
   #   - `ref: vX.Y.Z` on the two ESP-IDF checkouts in firmware-build.yml
-  #   - firmware/CONTRIBUTING.md, in prose
   # An exact pin here is what makes a mismatch loud: the component manager
   # refuses the build rather than quietly using whichever IDF is on the
-  # machine. Renovate watches all four (.github/renovate.json5).
+  # machine. Renovate watches all three (.github/renovate.json5).
   idf: "6.1"
   # LittleFS for the `userdata` partition: uploads, and nothing else since
   # #227. Chosen over SPIFFS for real directory support - the shipped and
   # uploaded trees are separate directories, and that separation is what makes
   # a program read-only or not.
-  joltwallet/littlefs: "1.22.3"
+  joltwallet/littlefs: "1.23.1"
   # The onboard WS2812 on the ESP32-S3-DevKitC-1.
-  espressif/led_strip: "3.0.3"
+  espressif/led_strip: "3.1.1"
   # http://revolve-now.local, so the webapp does not need the DHCP lease.
-  espressif/mdns: "1.13.1"
+  espressif/mdns: "1.15.1"
+  # The W5500 SPI Ethernet driver (#262). It left esp_eth core in IDF 6.
+  espressif/w5500: "2.0.1"

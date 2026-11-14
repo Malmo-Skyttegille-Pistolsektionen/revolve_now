@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { openApp } from './device';
+import { openApp, openSettings } from './device';
 
 /**
  * The webapp and the firmware are one artifact under one tag (D-29), and this
  * is the check that says so against the real thing: the bundle the browser is
- * running was baked into the LittleFS image of the firmware answering the API,
+ * running was baked into the application image of the firmware answering the API,
  * so the version it displays must be exactly the one the device reports.
  *
  * A failure here means the two `git describe` invocations - Vite's in
@@ -17,7 +17,7 @@ test('the app reports the same version as the firmware it ships inside', async (
   expect(typeof info.version).toBe('string');
 
   await openApp(page);
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await openSettings(page, 'about');
 
   await expect(page.getByTestId('version-app')).toHaveText(info.version);
   await expect(page.getByTestId('version-firmware')).toHaveText(info.version);

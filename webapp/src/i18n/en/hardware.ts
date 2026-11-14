@@ -1,0 +1,225 @@
+/**
+ * Expert mode: the page, the hardware section and the WiFi section. Sentences
+ * with inline markup are split around it, so the translation keeps its own
+ * word order on either side of the `<strong>` or `<code>`.
+ */
+export const hardware = {
+  page: {
+    back: '← Settings',
+    title: 'Expert mode',
+    unlockedBefore: 'Configuration is unlocked in this browser for ',
+    unlockedAfter: '. Only this browser can change it.',
+  },
+  title: 'Hardware',
+  loading: 'Asking the device…',
+  changed: 'changed',
+  explainBefore: 'Which pins this board uses, what this device calls itself, and how it joins the network. ',
+  explainWarning: 'Getting these wrong can make the device stop working, and the way back is a USB cable.',
+  explainAfter: ' Most clubs never need to change them.',
+  restartRequiredBefore: 'Saved, but ',
+  restartRequiredNotInUse: 'not yet in use',
+  restartRequiredMiddle: ' — the device is still running the configuration it started with. Use ',
+  restartRequiredAction: 'Restart to apply',
+  restartRequiredAfter: ' at the top of this page.',
+  overview: {
+    statusLabel: 'Expert mode status',
+    restart: 'Restart needed',
+    restartPending: 'Yes - saved values are not in use yet',
+    restartNone: 'No',
+    changed: 'Changed',
+    changedCount: (count: number) =>
+      count === 0
+        ? 'Everything is at its default'
+        : count === 1
+          ? '1 setting differs from the default'
+          : `${String(count)} settings differ from the default`,
+    wifi: 'WiFi',
+    groups: {
+      connection: 'Connection',
+      hardware: 'Hardware',
+      fault: 'Fault report',
+    },
+    badgeChanged: 'Changed',
+    badgeUnsaved: 'Not saved',
+    badgeCrashDump: 'Crash dump',
+    banks: (count: number, pins: string) => `${count === 1 ? '1 bank' : `${String(count)} banks`} · ${pins}`,
+    off: 'Off',
+    unused: 'off',
+    wifiNetwork: (ssid: string) => (ssid === '' ? 'No network stored' : `Joins ${ssid}`),
+    crashDump: 'A crash dump is waiting to be collected',
+    noCrashDump: 'No crash dump on the device',
+  },
+  groups: {
+    targets: 'Targets',
+    led: 'Status LED',
+    audio: 'Audio',
+    ethernet: 'Ethernet (W5500)',
+    network: 'Name and network',
+  },
+  fields: {
+    ledGpio: {
+      label: 'Status LED GPIO',
+      hint: 'The addressable LED’s data pin — 48 on a stock DevKitC-1. Kept even on a firmware built without the LED, so the value survives being flashed onto one that has it.',
+    },
+    i2sPort: {
+      label: 'I2S port',
+      hint: 'Which of the chip’s two I2S peripherals drives the DAC. 0 or 1 — a peripheral, not a pin.',
+    },
+    i2sBckGpio: {
+      label: 'I2S bit clock (BCK)',
+      hint: 'To BCLK on the amplifier board.',
+    },
+    i2sWsGpio: {
+      label: 'I2S word select (WS/LRCK)',
+      hint: 'To LRC on the amplifier board.',
+    },
+    i2sDoutGpio: {
+      label: 'I2S data out (DOUT)',
+      hint: 'To DIN on the amplifier board — the names cross over, which is the usual way to wire this wrong.',
+    },
+    i2sMclkGpio: {
+      label: 'I2S master clock (MCLK)',
+      hint: 'To SCK on the DAC board, or -1 to leave it undriven. Most PCM5102A boards make their own clock and want -1; if yours stays silent with the other pins right, it may need this.',
+    },
+    wifiEnabled: {
+      label: 'Use WiFi',
+      hint: 'Off leaves the device on Ethernet only. It is honoured only while the cable gives an address — without one the device uses WiFi anyway, so it can always be reached. WiFi and Ethernet cannot both be off.',
+    },
+    ethEnabled: {
+      label: 'Use Ethernet',
+      hint: 'On, the device looks for a W5500 at every start and carries on over WiFi if there is none. Turn it off to free these pins for something else.',
+    },
+    ethCsGpio: {
+      label: 'W5500 chip select (CS)',
+      hint: 'To SCS on the W5500.',
+    },
+    ethSclkGpio: {
+      label: 'W5500 SPI clock (SCLK)',
+      hint: 'To SCLK on the W5500.',
+    },
+    ethMosiGpio: {
+      label: 'W5500 MOSI',
+      hint: 'To MOSI (sometimes MI) on the W5500 — data into the chip.',
+    },
+    ethMisoGpio: {
+      label: 'W5500 MISO',
+      hint: 'To MISO (sometimes MO) on the W5500 — data out of the chip.',
+    },
+    ethIntGpio: {
+      label: 'W5500 interrupt (INT)',
+      hint: 'To INT on the W5500, or -1 to have the device ask the chip every few milliseconds instead.',
+    },
+    ethRstGpio: {
+      label: 'W5500 reset (RST)',
+      hint: 'To RST on the W5500, or -1 to leave it unconnected — most modules pull it up themselves.',
+    },
+    httpPort: {
+      label: 'HTTP port',
+      hint: 'Where the web app is served. Leave at 80 unless something else on the device needs it — mDNS advertises the port, but a browser typed at by hand does not, so a moved port has to be remembered.',
+    },
+    wifiMaxRetries: {
+      label: 'WiFi join attempts',
+      hint: 'How many times to try the stored network before raising the setup portal. About 2.4 seconds each, so 10 is roughly half a minute of trying.',
+    },
+  },
+  banks: {
+    columnBank: 'Bank',
+    columnName: 'Name',
+    columnNameHint: '(shown to operators)',
+    columnDrive: 'Drive',
+    columnGpio: 'GPIO',
+    columnPulse: 'Pulse (ms)',
+    columnShownWhenLow: 'Active low',
+    columnPadNow: 'Pad now',
+    columnRemove: 'Remove',
+    nameLabel: (letter: string) => `Bank ${letter} name`,
+    driveLabel: (letter: string) => `Bank ${letter} drive`,
+    driveLevel: 'Level',
+    driveLatching: 'Pulse',
+    gpioLabel: (letter: string) => `Bank ${letter} GPIO`,
+    showGpioLabel: (letter: string) => `Bank ${letter} show GPIO`,
+    hideGpioLabel: (letter: string) => `Bank ${letter} hide GPIO`,
+    showGpioTag: 'Show GPIO',
+    hideGpioTag: 'Hide GPIO',
+    pulseLabel: (letter: string) => `Bank ${letter} pulse length in milliseconds`,
+    shownWhenLowLabel: (letter: string) => `Bank ${letter} shown when low`,
+    pulseLowLabel: (letter: string) => `Bank ${letter} pulses low`,
+    lastSentShown: 'last sent: shown',
+    lastSentHidden: 'last sent: hidden',
+    removeLabel: (letter: string) => `Remove bank ${letter}`,
+    cannotRemoveFirst: 'Bank A cannot be removed',
+    removeLastFirst: 'Remove the last bank first: the letters cannot have gaps',
+    padHigh: 'high',
+    padLow: 'low',
+    pinMissing: 'Every bank needs its GPIOs, and a pulsed bank its pulse length, before this can be saved.',
+    add: (letter: string) => `Add bank ${letter}`,
+    limit: 'Eight is the most this firmware drives.',
+    driveHint:
+      'Level: one pin is held shown or hidden, and active low means a low level shows the bank. Pulse: for a latching relay, one pin is pulsed to show the bank and another to hide it, and active low means the pulse is a low one. A latching relay cannot be read back, so its pad level says nothing and the last command sent is shown instead.',
+    pinsHint:
+      'One contact closure per bank. Each needs its own pin: 22–37 are refused — they are absent from this chip or belong to its flash and PSRAM, and driving one stops the device booting — and so are 43–44, which carry the serial console.',
+  },
+  bootTargets: {
+    label: 'Targets at boot',
+    shown: 'Shown',
+    hidden: 'Hidden',
+    hintBefore: 'One setting for every bank, set from the serial console only — ',
+    hintOr: ' or ',
+    hintAfter:
+      '. It decides what the targets do while somebody may be downrange, so changing it needs a cable rather than a web page.',
+  },
+  hostname: {
+    label: 'Hostname',
+    hintBefore: 'Reached at ',
+    hintMiddle: ', and the setup network appears as ',
+    hintAfter: '. Lower-case letters, digits and hyphens.',
+  },
+  displayName: {
+    label: 'Display name',
+    hint: 'What to call this device — “Bana 1”. Cosmetic; nothing depends on it.',
+  },
+  save: 'Save',
+  discard: 'Discard changes',
+  resetDefaults: 'Reset to defaults',
+  locked: 'The controls are locked — log in to change these.',
+  restartHint:
+    'Nothing here takes effect until the device restarts, which is one button at the top of this page rather than one per section.',
+  wifi: {
+    title: 'WiFi',
+    explainBefore:
+      'Which network this device joins. Saving stores the credentials; the device stays on the network it is on until it restarts, so a network, a hostname and a pin can all be corrected before ',
+    explainAction: 'Restart to apply',
+    explainAfter: ' at the top of this page.',
+    restartRequiredBefore: 'Saved, but ',
+    restartRequiredNotInUse: 'not yet in use',
+    restartRequiredAfter: ' — the device is still on the network it started with.',
+    currentBefore: 'On ',
+    currentAfter: ' now.',
+    network: 'Network',
+    scanning: '— scanning… —',
+    noNetworks: '— no networks found —',
+    chooseNetwork: '— choose a network —',
+    rescanning: 'Scanning…',
+    rescan: 'Rescan networks',
+    scanHint: 'A scan takes the radio off its channel for a couple of seconds, so this page may pause while it runs.',
+    typeName: 'Or type the network name',
+    typePlaceholder: 'Network name (optional)',
+    typeHint:
+      'For a hidden network, or one the scan did not find. What you type here is used instead of the choice above.',
+    password: 'Password',
+    hidePassword: 'Hide password',
+    showPassword: 'Show password',
+    hide: 'Hide',
+    show: 'Show',
+    passwordHint: 'Leave empty for an open network.',
+    confirmBefore: 'Save ',
+    confirmAfter: ' as the network to join?',
+    confirmBodyBefore:
+      'Nothing moves until the device restarts. When it does, this page stops responding: if the device joins, it comes back at the same name — if it cannot, it raises its setup network (',
+    confirmBodyAfter: ') and waits there, which is the way back rather than a fault.',
+    saving: 'Saving…',
+    save: 'Save',
+    cancel: 'Cancel',
+    locked: 'The controls are locked — log in to change this.',
+  },
+};

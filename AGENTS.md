@@ -44,9 +44,10 @@ Three numbers exist and only one of them is a version anybody should read:
 **Changes within a major must be additive** — a new endpoint, a new optional
 field, a new enum member a client can ignore. Anything a deployed client could
 break on (a removed field, a narrowed type, a changed status code) is a new
-path prefix, not a version bump. `docs/DECISIONS.md` records four exceptions
-(D-16, D-19, D-23, D-27) taken while no release had been cut; **they stop being
-available once 1.0.0 ships**, because from then on there is a deployed client.
+path prefix, not a version bump. The exceptions taken while no release had
+been cut are listed in [`contracts/README.md`](contracts/README.md); **they stop
+being available once 1.0.0 ships**, because from then on there is a deployed
+client.
 
 **An API change reaches the release version only through the commit.** The
 product tag is semver, and git-cliff derives it from the Conventional Commits
@@ -69,42 +70,25 @@ squash-only, with the subject taken from `PR_TITLE` and the body from
 `COMMIT_MESSAGES`. So the subject on `main` is the pull request title, checked
 by the `conventional commit title` job, while the body is every branch commit
 message concatenated. `cliff.toml` sets `conventional_commits = true`, so a
-`BREAKING CHANGE:` footer **in that body** marks the commit breaking whatever
-the subject says — and the `release bump matches title` job
-(`.github/workflows/check-semantic-pr.yml`, driven by
-`.github/scripts/check_release_bump.py`) catches the disagreement: it
-reconstructs the one commit the squash will actually produce and asks
-git-cliff for its `--bumped-version`, failing the PR when that differs from
-what the title alone implies.
-
-That cuts both ways, and the second way is the one nobody expects:
-
-- A `fix:` subject with a breaking footer bumps as breaking. `4690beb` on
-  `main` predates the check and is exactly this — the footer was right and the
-  subject under-declared; today the check would fail until the title said `!`
-  too.
-- A `BREAKING CHANGE:` written into an intermediate commit to explain a step,
-  or copied from a template, reaches `main` in the squashed body and would
-  bump the release of a pull request whose title says `fix:` — the check fails
-  this the same way.
-
-The title's own bump is already part of what the squashed side computes, so a
-mismatch can only mean the body implies *more* than the title, never less —
-there is no safe direction for this check to miss. Still, treat
-`BREAKING CHANGE:` as a release declaration wherever it is written, not as
-prose: the check catches it late, at PR time, not while you are writing it.
+`BREAKING CHANGE:` (or `BREAKING-CHANGE:`) footer **in that body** marks the
+commit breaking whatever the subject says. The `release bump matches title`
+job (`.github/workflows/check-semantic-pr.yml`) fails a pull request whose
+branch commits carry such a footer while its title has no `!`. `4690beb` on
+`main` predates the check and is exactly this: a `fix:` title over a breaking
+footer. A footer copied from a template, or written to explain an
+intermediate step, fails the same way — so treat `BREAKING CHANGE:` as a
+release declaration wherever it is written, not as prose.
 
 > Below 1.0 git-cliff bumps the **minor** for a breaking change, not the major.
 > The repository has no tag yet, so that is today's behaviour — it stops
 > applying the moment 1.0.0 is cut, which is also when the additive rule starts
 > having a deployed client to protect.
 
-Nothing enforces the additive rule today — it is prose. `contracts/validate.sh`
-lints both documents (Redocly and the AsyncAPI CLI) but is not wired into CI,
-and lint is not breaking-change detection. Tools that would close this exist
-(`oasdiff` for OpenAPI, the AsyncAPI CLI's `diff --type=breaking`); both can
-fail a PR on a breaking change, which is the check that would tie the two steps
-above together.
+`.github/workflows/contracts.yml` enforces the additive rule: it runs
+`contracts/validate.sh` on every PR, and its `breaking change detection` job
+(`oasdiff` for OpenAPI, the AsyncAPI CLI's `diff --type=breaking`) fails a PR
+that breaks either spec, so a breaking change is always a deliberate decision.
+It does not check the commit: the second step above is still yours.
 
 `contracts/history/` holds the v1 documents as an archaeological record. They
 are unmaintained and nothing implements them.
@@ -121,7 +105,11 @@ completion (#135). `webapp/src/lib/run-position.ts` mirrors
 `firmware/lib/rt_logic/executor.cpp` - how a `command` baseline and the
 per-bank `banks` overrides resolve into what each bank is doing.
 `webapp/src/lib/ima-adpcm.ts`, which encodes uploads in the browser (D-43), is
-a byte-identical port of `firmware/tools/wav_to_adpcm.py`.
+a byte-identical port of `firmware/tools/wav_to_adpcm.py`. The mock's
+`restoreArchive` mirrors `rt::backup::RestoreSession` in
+`firmware/lib/rt_logic/backup.cpp` (D-48), and
+`webapp/test/mock-server/config-window.ts` mirrors `rt::ConfigWindow` in
+`firmware/lib/rt_logic/config_window.h` (D-52).
 
 **`webapp/dist` is embedded in the application image, not rebuilt by it.** The
 firmware build bakes whatever `dist` currently holds. A firmware build after a
@@ -177,6 +165,12 @@ exception and stays: it is a framework whose name *is* the contract.
 Renaming one anyway is a two-step, in this order: rename here and let it
 report under the new name, **then** update the ruleset. The reverse order,
 and doing both at once, both wedge the gate shut until an admin bypasses it.
+
+For the same reason a required job never gets a `paths:` filter or a
+job-level `if:` that skips it. A change it cannot affect skips its *steps*
+instead, on the answer of `.github/scripts/changed_areas.py`. A path that
+script does not know about runs everything, so a new top-level directory is
+safe, but it stays slow until somebody adds a rule for it.
 
 ## Hardware rules that bite everyone
 
@@ -238,3 +232,4 @@ the credential has to be rotated.
 - Run `pre-commit run --all-files` before pushing — CI runs the same hooks.
 - Vendored code (`firmware/lib/psychic_http/`, `arduinojson/`, `dns_server/`)
   and `resources/` are never reformatted; fixes go on our side of the boundary.
+  `dns_server/` is a patched fork, not a verbatim copy.

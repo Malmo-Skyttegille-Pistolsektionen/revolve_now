@@ -64,6 +64,108 @@ void tearDown() {
   h = nullptr;
 }
 
+// --- late wake-ups ---------------------------------------------------------
+
+// `1000 show | 1 hide + audio 9 | 1000 show`: the 1 ms event is crossed
+// entirely by any wake-up that is late at all.
+rt::Program short_event_program() {
+  rt::Program p;
+  p.id = kFixtureId;
+  rt::Series s;
+  s.name = "S";
+  s.events.push_back(rt::Event{1000, "show", {}});
+  s.events.push_back(rt::Event{1, "hide", {9}});
+  s.events.push_back(rt::Event{1000, "show", {}});
+  p.series.push_back(s);
+  return p;
+}
+
+void assert_short_event_fires(int32_t jitter_ms) {
+  g_program = short_event_program();
+  h->jitter_ms = jitter_ms;
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->run_to_idle();
+
+  // start() entered the first show; what is left is hide, show.
+  TEST_ASSERT_EQUAL_size_t(2, h->effects.target_history.size());
+  TEST_ASSERT_FALSE(h->effects.target_history[0].shown);
+  TEST_ASSERT_TRUE(h->effects.target_history[1].shown);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.played.size());
+  TEST_ASSERT_EQUAL_INT32(9, h->effects.played[0][0]);
+}
+
+void test_a_short_event_fires_on_an_on_time_wakeup() {
+  assert_short_event_fires(0);
+}
+void test_a_short_event_fires_on_a_1ms_late_wakeup() {
+  assert_short_event_fires(1);
+}
+void test_a_short_event_fires_on_a_30ms_late_wakeup() {
+  assert_short_event_fires(30);
+}
+
+void test_a_long_stall_enters_every_crossed_event_in_order() {
+  g_program = rt::Program{};
+  g_program.id = kFixtureId;
+  rt::Series s;
+  s.name = "S";
+  s.events.push_back(rt::Event{500, "show", {1}});
+  s.events.push_back(rt::Event{500, "hide", {2}});
+  s.events.push_back(rt::Event{500, "show", {3}});
+  s.events.push_back(rt::Event{500, "hide", {4}});
+  s.events.push_back(rt::Event{500, "show", {5}});
+  s.events.push_back(rt::Event{5000, "hide", {6}});
+  g_program.series.push_back(s);
+
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->clock.advance(2750);  // a stall: events 1-4 crossed, now inside 5
+  h->executor.tick();
+
+  TEST_ASSERT_EQUAL_INT32(5, h->state.current_event_index.value);
+  TEST_ASSERT_EQUAL_size_t(5, h->effects.target_history.size());
+  const bool expected[] = {false, true, false, true, false};
+  for (size_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL(expected[i], h->effects.target_history[i].shown);
+  }
+  TEST_ASSERT_EQUAL_size_t(5, h->effects.played.size());
+  for (size_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_INT32(static_cast<int32_t>(i) + 2, h->effects.played[i][0]);
+  }
+  TEST_ASSERT_FALSE(h->state.bank_a_shown());  // event 5 hides
+}
+
+void test_a_stall_past_the_end_still_enters_the_last_events() {
+  g_program = short_event_program();
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->clock.advance(10000);  // well past the 2001 ms series
+  h->executor.tick();
+
+  TEST_ASSERT_FALSE(h->state.running);
+  TEST_ASSERT_EQUAL_size_t(2, h->effects.target_history.size());
+  TEST_ASSERT_TRUE(h->state.bank_a_shown());  // the final "show" ran
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.played.size());
+}
+
+void test_an_on_time_run_enters_each_event_once() {
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->effects.clear();
+
+  h->run_to_idle();
+
+  // S0 is show, hide; start() entered the show.
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.target_history.size());
+}
+
 // --- load ------------------------------------------------------------------
 
 void test_load_sets_the_start_position() {
@@ -222,10 +324,9 @@ void test_stop_keeps_the_position() {
 
   TEST_ASSERT_FALSE(h->state.running);
   TEST_ASSERT_EQUAL_INT32(1, h->state.current_event_index.value);
-  // The last frame went out at the 200 ms event boundary, and the ticker
-  // carries that exact millisecond - not the whole second it rounded to
-  // before D-16.
-  TEST_ASSERT_EQUAL_INT32(200, h->state.ticker_ms.value);
+  // Where the run was when it stopped, not the last frame - which went out at
+  // the 200 ms boundary.
+  TEST_ASSERT_EQUAL_INT32(250, h->state.ticker_ms.value);
   TEST_ASSERT_FALSE(h->state.has_series_start);
 }
 
@@ -417,17 +518,16 @@ void test_pause_and_resume_keeps_the_position() {
   h->run_for(250);
   h->executor.stop();
 
-  TEST_ASSERT_EQUAL_STRING(state("false", "0", "1", "200", "hidden").c_str(),
+  TEST_ASSERT_EQUAL_STRING(state("false", "0", "1", "250", "hidden").c_str(),
                            h->effects.broadcasts.back().c_str());
 
   h->executor.start(kFixtureId);
 
-  // This is what D-16 bought. The whole-second ticker resumed a 250 ms pause
-  // from 0 - back at event 0 with the targets shown again, a visible rewind
-  // the MicroPython backend had too. The millisecond ticker resumes from the
-  // last published position, 200 ms, which is still inside event 1.
+  // The whole-second ticker resumed a 250 ms pause from 0 - back at event 0
+  // with the targets shown again. The millisecond ticker (D-16), captured at
+  // the stop, resumes exactly where the run was.
   TEST_ASSERT_TRUE(h->state.running);
-  TEST_ASSERT_EQUAL_STRING(state("true", "0", "1", "200", "hidden").c_str(),
+  TEST_ASSERT_EQUAL_STRING(state("true", "0", "1", "250", "hidden").c_str(),
                            h->effects.broadcasts.back().c_str());
 }
 
@@ -445,13 +545,66 @@ void test_resume_after_a_multi_second_pause_keeps_the_event() {
   h->executor.stop();
 
   TEST_ASSERT_EQUAL_INT32(1, h->state.current_event_index.value);
-  TEST_ASSERT_EQUAL_INT32(2000, h->state.ticker_ms.value);
+  TEST_ASSERT_EQUAL_INT32(2500, h->state.ticker_ms.value);
 
   h->executor.start(kFixtureId);
 
-  // 2 s lands inside event 1, so the position survives the pause.
   TEST_ASSERT_EQUAL_INT32(1, h->state.current_event_index.value);
-  TEST_ASSERT_EQUAL_INT32(2000, h->state.ticker_ms.value);
+  TEST_ASSERT_EQUAL_INT32(2500, h->state.ticker_ms.value);
+}
+
+void test_resume_just_after_a_boundary_does_not_replay_its_audio() {
+  // The last frame went out on the 200 ms boundary. Resuming from that frame
+  // rather than from 250 ms landed on offset 0 and spoke event 1's command a
+  // second time.
+  rt::Program p;
+  p.id = kFixtureId;
+  rt::Series s;
+  s.events.push_back(rt::Event{200, "show", {1}});
+  s.events.push_back(rt::Event{5000, "hide", {2}});
+  p.series.push_back(s);
+
+  h->executor.load(&p);
+  h->executor.start(kFixtureId);
+  h->run_for(250);
+  h->executor.stop();
+  h->effects.clear();
+
+  h->executor.start(kFixtureId);
+  h->run_for(100);
+
+  TEST_ASSERT_EQUAL_size_t(0, h->effects.played.size());
+  TEST_ASSERT_EQUAL_INT32(1, h->state.current_event_index.value);
+}
+
+void test_stop_after_a_late_wake_up_resumes_onto_the_missed_boundary() {
+  // The run loop wakes late: elapsed has crossed into event 1, which tick()
+  // has not entered yet. Capturing raw elapsed would resume mid-way into
+  // event 1 and never speak it; capping at event 0's end resumes onto the
+  // boundary, which enters it - targets and audio - exactly once.
+  rt::Program p;
+  p.id = kFixtureId;
+  rt::Series s;
+  s.events.push_back(rt::Event{1000, "show", {}});
+  s.events.push_back(rt::Event{1000, "hide", {2}});
+  p.series.push_back(s);
+
+  h->executor.load(&p);
+  h->executor.start(kFixtureId);
+  h->executor.tick();
+  h->clock.advance(1100);
+  h->executor.stop();
+
+  TEST_ASSERT_EQUAL_INT32(0, h->state.current_event_index.value);
+  TEST_ASSERT_EQUAL_INT32(1000, h->state.ticker_ms.value);
+
+  h->effects.clear();
+  h->executor.start(kFixtureId);
+
+  TEST_ASSERT_EQUAL_INT32(1, h->state.current_event_index.value);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.played.size());
+  TEST_ASSERT_EQUAL_INT32(2, h->effects.played[0][0]);
+  TEST_ASSERT_FALSE(h->state.bank_a_shown());
 }
 
 void test_reset_returns_to_the_start_of_the_series() {
@@ -555,6 +708,49 @@ void test_force_unload_drops_a_running_program() {
   TEST_ASSERT_FALSE(h->state.is_loaded());
   TEST_ASSERT_FALSE(h->state.running);
   TEST_ASSERT_EQUAL_size_t(1, h->effects.broadcasts.size());
+}
+
+// The route does not guard it (web_server.cpp), so this is what a load during
+// a run does: the run ends, the new program sits at its start, and the targets
+// stay exactly where the run left them.
+void test_load_while_running_stops_the_run_and_selects_the_new_program_without_moving_targets() {
+  rt::Program other = fixture_program();
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->run_for(300);  // into S0's "hide" event
+  TEST_ASSERT_FALSE(h->state.bank_a_shown());
+  h->effects.clear();
+
+  TEST_ASSERT_TRUE(h->executor.load(&other));
+
+  TEST_ASSERT_FALSE(h->state.running);
+  TEST_ASSERT_FALSE(h->state.has_series_start);
+  TEST_ASSERT_EQUAL_PTR(&other, h->state.program);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.broadcasts.size());
+  TEST_ASSERT_EQUAL_STRING(state("false", "0", "0", "null", "hidden").c_str(),
+                           h->effects.broadcasts[0].c_str());
+  TEST_ASSERT_EQUAL_size_t(0, h->effects.target_history.size());
+  TEST_ASSERT_EQUAL_INT32(rt::Executor::kIdleSleepMs, h->executor.tick());
+}
+
+// --- tick()'s safety stops ---------------------------------------------------
+
+// The series the run is in no longer exists. Unreachable through the API -
+// D-15 refuses replacing the loaded program, and delete unloads it first - so
+// the program is mutated under the executor here to get there.
+void test_tick_stops_the_run_when_its_series_has_vanished() {
+  h->executor.load(&g_program);
+  h->executor.start(kFixtureId);
+  h->run_for(100);
+  h->effects.clear();
+
+  g_program.series.clear();
+
+  TEST_ASSERT_EQUAL_INT32(rt::Executor::kIdleSleepMs, h->executor.tick());
+  TEST_ASSERT_FALSE(h->state.running);
+  TEST_ASSERT_FALSE(h->state.has_series_start);
+  TEST_ASSERT_EQUAL_size_t(1, h->effects.broadcasts.size());
+  TEST_ASSERT_EQUAL_size_t(0, h->effects.target_history.size());
 }
 
 // --- targets ---------------------------------------------------------------
@@ -911,6 +1107,8 @@ int main() {
   RUN_TEST(test_a_long_event_publishes_once_a_second_not_once_a_tick);
   RUN_TEST(test_pause_and_resume_keeps_the_position);
   RUN_TEST(test_resume_after_a_multi_second_pause_keeps_the_event);
+  RUN_TEST(test_resume_just_after_a_boundary_does_not_replay_its_audio);
+  RUN_TEST(test_stop_after_a_late_wake_up_resumes_onto_the_missed_boundary);
   RUN_TEST(test_reset_returns_to_the_start_of_the_series);
   RUN_TEST(test_reset_leaves_the_targets_where_they_are);
   RUN_TEST(test_unloading_clears_the_published_state);
@@ -918,6 +1116,9 @@ int main() {
   RUN_TEST(test_unload_after_a_stop_is_allowed);
   RUN_TEST(test_unload_with_nothing_loaded_publishes_nothing);
   RUN_TEST(test_force_unload_drops_a_running_program);
+  RUN_TEST(
+      test_load_while_running_stops_the_run_and_selects_the_new_program_without_moving_targets);
+  RUN_TEST(test_tick_stops_the_run_when_its_series_has_vanished);
 
   RUN_TEST(test_completing_a_series_leaves_the_targets_where_the_last_event_left_them);
   RUN_TEST(test_toggle_targets_flips_the_published_flag_and_the_pin);
@@ -933,6 +1134,12 @@ int main() {
   RUN_TEST(test_toggling_a_bank_the_device_does_not_have_changes_nothing);
   RUN_TEST(test_flip_moves_each_named_bank_against_its_own_state);
   RUN_TEST(test_a_split_flip_drives_each_direction_once);
+  RUN_TEST(test_a_short_event_fires_on_an_on_time_wakeup);
+  RUN_TEST(test_a_short_event_fires_on_a_1ms_late_wakeup);
+  RUN_TEST(test_a_short_event_fires_on_a_30ms_late_wakeup);
+  RUN_TEST(test_a_long_stall_enters_every_crossed_event_in_order);
+  RUN_TEST(test_a_stall_past_the_end_still_enters_the_last_events);
+  RUN_TEST(test_an_on_time_run_enters_each_event_once);
   RUN_TEST(test_flipping_no_banks_does_nothing);
   RUN_TEST(test_setting_one_bank_leaves_the_others_alone);
   RUN_TEST(test_init_banks_adopts_the_boot_state_on_every_bank);

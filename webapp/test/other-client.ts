@@ -16,6 +16,7 @@ export function requestElsewhere(
   method: string,
   path: string,
   body?: unknown,
+  extraHeaders: Record<string, string> = {},
 ): Promise<ElsewhereResponse> {
   return new Promise((resolve, reject) => {
     const payload = body === undefined ? null : JSON.stringify(body);
@@ -28,9 +29,10 @@ export function requestElsewhere(
         // No keep-alive: a test that rebinds the same port would otherwise get
         // a pooled socket pointing at the previous, now dead, listener.
         agent: false,
-        headers: payload
-          ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-          : undefined,
+        headers: {
+          ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
+          ...extraHeaders,
+        },
       },
       (res) => {
         let text = '';
@@ -46,8 +48,30 @@ export function requestElsewhere(
   });
 }
 
-/** Turns the control lock on as some other client would, and hands back its token. */
-export async function enableControlLockElsewhere(port: number, password: string): Promise<string> {
-  const { body } = await requestElsewhere(port, 'POST', '/api/v2/control-lock/enable', { password });
+/**
+ * Turns the control lock on as some other client would, and hands back its
+ * token. On a device with a button that client needs a window of its own
+ * (D-52): pass `pressBoot` and it asks for one first.
+ */
+export async function enableControlLockElsewhere(
+  port: number,
+  password: string,
+  pressBoot?: () => unknown,
+): Promise<string> {
+  const window = pressBoot === undefined ? '' : await openWindowElsewhere(port, pressBoot);
+  const { body } = await requestElsewhere(
+    port,
+    'POST',
+    '/api/v2/control-lock/enable',
+    { password },
+    window === '' ? {} : { 'X-Config-Window': window },
+  );
+  return (JSON.parse(body) as { token: string }).token;
+}
+
+/** Another client asks for the configuration window and BOOT is pressed for it. */
+export async function openWindowElsewhere(port: number, pressBoot: () => unknown): Promise<string> {
+  const { body } = await requestElsewhere(port, 'POST', '/api/v2/config-window/request');
+  pressBoot();
   return (JSON.parse(body) as { token: string }).token;
 }

@@ -36,18 +36,20 @@ Node 22+. Nothing else, and no device:
 ```bash
 cd webapp
 npm ci
-npm run dev            # http://localhost:5173, against the mock server
+npm run dev            # http://localhost:8080, against the mock server
 ```
 
 ### The firmware
 
-Install ESP-IDF **v6.0.2** — CI pins that exact version, and `>= 6.0` is
-required. Follow
-[Espressif's setup guide](https://docs.espressif.com/projects/esp-idf/en/v6.0.2/esp32s3/get-started/);
-the short form on Linux/macOS, with `<esp-idf>` wherever you keep it:
+Install the ESP-IDF version pinned by `idf:` in
+[`firmware/main/idf_component.yml`](firmware/main/idf_component.yml). CI builds
+with exactly that version, and the build refuses any other. Follow
+[Espressif's setup guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
+for that version. The short form on Linux/macOS, with `<version>` the pinned
+version and `<esp-idf>` wherever you keep it:
 
 ```bash
-git clone -b v6.0.2 --recursive https://github.com/espressif/esp-idf.git <esp-idf>
+git clone -b v<version> --recursive https://github.com/espressif/esp-idf.git <esp-idf>
 <esp-idf>/install.sh esp32s3       # downloads the toolchain, several GB
 . <esp-idf>/export.sh              # every new shell
 ```
@@ -80,19 +82,11 @@ cd ../firmware && idf.py build
 
 ### Flashing a board
 
-`idf.py flash` works. If you would rather flash explicitly, the arguments are
-printed at the end of `idf.py build`:
-
-```bash
-python -m esptool --chip esp32s3 --port /dev/ttyACM0 \
-  --before default-reset --after hard-reset \
-  write-flash --flash-mode dio --flash-freq 80m --flash-size 16MB \
-  0x0 build/bootloader/bootloader.bin \
-  0x8000 build/partition_table/partition-table.bin \
-  0xf000 build/ota_data_initial.bin \
-  0x20000 build/revolve_now.bin \
-  0x620000 build/storage.bin
-```
+`idf.py flash` works, and is the command to use. To flash the published images
+by hand instead, take the offsets from the asset table in
+[`docs/RELEASING.md`](docs/RELEASING.md#release-assets): they moved with the
+partition table in #227, and an older copy of them writes into the wrong
+partition.
 
 **Reading the whole chip is the one operation that needs `--no-stub`** — the
 stub fails on reads above roughly 3 MB. The measurements behind that, the
@@ -104,7 +98,7 @@ wiring and the partition layout are in
 Two ways, and they answer different questions.
 
 **QEMU** runs the real firmware — the real REST API, the real SSE stream, the
-real web app out of the same LittleFS image a board is flashed with:
+real web app out of the same application image a board is flashed with:
 
 ```bash
 . <esp-idf>/export.sh
@@ -124,8 +118,10 @@ web app's tests run against:
 cd webapp
 npm run dev            # dev server, mock server started for you
 npm run test           # vitest, against the mock
-npm run e2e:local      # Playwright, against the mock
 ```
+
+`npm run e2e:local` is not a mock run: it is the Playwright suite against the
+firmware in QEMU, above.
 
 If you change run behaviour in `firmware/lib/rt_logic/executor.cpp`, change
 `webapp/test/mock-server/server.ts` with it — see
@@ -146,6 +142,9 @@ cd firmware/host_test && cmake -S . -B build && cmake --build build && \
   (cd build && ctest --output-on-failure)
 
 contracts/validate.sh               # if you touched the API
+
+# if you touched the Python tooling; needs pytest and PyYAML
+python3 -m pytest firmware/tools firmware/scripts .github/scripts
 ```
 
 Every check runs on every pull request, deliberately — a required check that

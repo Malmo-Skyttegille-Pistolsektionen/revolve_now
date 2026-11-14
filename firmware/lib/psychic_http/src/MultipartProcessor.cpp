@@ -60,11 +60,19 @@ esp_err_t MultipartProcessor::process()
 
   /* Content length of the request gives the size of the file being uploaded */
   int remaining = _request->contentLength();
+  const int64_t startUs = esp_timer_get_time();
 
   while (remaining > 0) {
 #ifdef ENABLE_ASYNC
     httpd_sess_update_lru_counter(request->server()->server, request->client()->socket());
 #endif
+
+    // Local patch (see CMakeLists.txt): see PSYCHIC_BODY_GRACE_MS.
+    if (psychicBodyTooSlow(startUs, index)) {
+      ESP_LOGE(PH_TAG, "Body too slow, giving up.");
+      err = ESP_FAIL;
+      break;
+    }
 
     /* Receive the file part by part into a buffer */
     if ((received = httpd_req_recv(_request->request(), buf, std::min(remaining, (int)FILE_CHUNK_SIZE))) <= 0) {
@@ -72,7 +80,8 @@ esp_err_t MultipartProcessor::process()
       if (received == HTTPD_SOCK_ERR_TIMEOUT)
         continue;
       // bail if we got an error
-      else if (received == HTTPD_SOCK_ERR_FAIL) {
+      // Local patch (see CMakeLists.txt): 0 (peer FIN) and other errors fail too.
+      else {
         ESP_LOGE(PH_TAG, "Socket error");
         err = ESP_FAIL;
         break;
@@ -125,6 +134,15 @@ esp_err_t MultipartProcessor::process(const char* body)
 
 void MultipartProcessor::_handleUploadByte(uint8_t data, bool last)
 {
+  // Local patch (see CMakeLists.txt): a file part's buffer is freed at its
+  // closing boundary, but a byte after that boundary that is not '-' or '\r'
+  // re-emits the delimiter as file data. That wrote through NULL.
+  if (_itemBuffer == NULL) {
+    if (_multiParseState != PARSE_ERROR)
+      ESP_LOGE(PH_TAG, "Multipart: data after a closed file part");
+    _multiParseState = PARSE_ERROR;
+    return;
+  }
   _itemBuffer[_itemBufferIndex++] = data;
 
   if (last || _itemBufferIndex == FILE_CHUNK_SIZE) {

@@ -22,6 +22,13 @@ namespace rt {
 // declaration a *parse* failure instead of an overrun two layers down.
 constexpr uint16_t kMaxAdpcmBlockBytes = 512;
 
+// Sample rates the player accepts: every standard rate from telephone to
+// 192 kHz. The bound is load-bearing, not tidiness: IDF's I2S clock setup
+// computes rate * 256 in uint32_t, which wraps to 0 for a multiple of 2^24 and
+// is then used as a divisor - a reboot, which also drops the control lock.
+constexpr uint32_t kMinSampleRate = 8000;
+constexpr uint32_t kMaxSampleRate = 192000;
+
 // Random-access byte source.
 //
 // Absolute offsets, unsigned, deliberately: the previous relative-`fseek(...,

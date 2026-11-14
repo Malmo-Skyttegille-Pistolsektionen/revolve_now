@@ -7,7 +7,7 @@ cd "$(dirname "$0")" || exit 1
 status=0
 
 # pip install check-jsonschema
-check-jsonschema --check-metaschema program.schema.json || status=1
+check-jsonschema --check-metaschema program.schema.json backup.schema.json || status=1
 
 # Every shipped program must validate against the schema.
 check-jsonschema --schemafile program.schema.json ../resources/programs/files/*.json || status=1
@@ -18,12 +18,19 @@ check-jsonschema --schemafile program.schema.json ../resources/programs/files/*.
 # dependency.
 python3 ./check_problem_types.py || status=1
 
+# Program, Series and Event are declared in both the OpenAPI document and the
+# program schema; this fails when their structure drifts apart.
+python3 ./check_program_schema.py || status=1
+
+# backup.json's `hardware` is HardwareConfigPatch, written out the same way.
+python3 ./check_backup_schema.py || status=1
+
 # Pinned: an unpinned CLI can turn main red from an upstream rule change with
 # no commit of ours behind it. redocly.yaml configures the rules.
 # renovate: datasource=npm depName=@redocly/cli
-npx --yes @redocly/cli@2.57.0 lint openapi.yaml || status=1
+npx --yes @redocly/cli@2.77.0 lint openapi.yaml || status=1
 
 # renovate: datasource=npm depName=@asyncapi/cli
-npx --yes @asyncapi/cli@6.2.0 validate asyncapi.yaml || status=1
+npx --yes @asyncapi/cli@6.3.0 validate asyncapi.yaml || status=1
 
 exit "$status"

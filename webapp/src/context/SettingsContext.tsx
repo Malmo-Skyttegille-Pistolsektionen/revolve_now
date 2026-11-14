@@ -1,12 +1,23 @@
 import { createContext, use, useState, useEffect } from 'react';
 import { DEFAULT_THEME, THEME_STORAGE_KEY, applyTheme, parseTheme, type ThemePreference } from '../lib/theme';
+import {
+  DEFAULT_LANGUAGE_PREFERENCE,
+  LANGUAGE_STORAGE_KEY,
+  applyLanguage,
+  parseLanguagePreference,
+  resolveLanguage,
+  useBrowserLanguages,
+  type LanguagePreference,
+} from '../i18n/language';
 
 const STORAGE_PREFIX = 'rt_settings_';
 const STORAGE_KEYS = {
   serverBaseUrl: `${STORAGE_PREFIX}server_base_url`,
   startDelaySeconds: `${STORAGE_PREFIX}start_delay_seconds`,
   controlLockToken: `${STORAGE_PREFIX}control_lock_token`,
+  configWindowToken: `${STORAGE_PREFIX}config_window_token`,
   theme: THEME_STORAGE_KEY,
+  language: LANGUAGE_STORAGE_KEY,
 } as const;
 
 import { DEFAULT_BASE_URL } from '../api/base-url';
@@ -17,6 +28,7 @@ const DEFAULT_VALUES = {
   serverBaseUrl: DEFAULT_BASE_URL,
   startDelaySeconds: 10,
   theme: DEFAULT_THEME,
+  language: DEFAULT_LANGUAGE_PREFERENCE,
 } as const satisfies Settings;
 
 /**
@@ -24,9 +36,9 @@ const DEFAULT_VALUES = {
  * value, not the absence of one: it means start at once, which is the branch
  * `run.tsx` has always had for it.
  */
-export const START_DELAY_MIN_SECONDS = 0;
-export const START_DELAY_MAX_SECONDS = 60;
-export const START_DELAY_STEP_SECONDS = 5;
+const START_DELAY_MIN_SECONDS = 0;
+const START_DELAY_MAX_SECONDS = 60;
+const START_DELAY_STEP_SECONDS = 5;
 
 /**
  * Every delay that can be chosen: 0, then 5 s to 60 s. The editors are
@@ -58,10 +70,11 @@ function clampStartDelaySeconds(seconds: number): number {
   );
 }
 
-export interface Settings {
+interface Settings {
   serverBaseUrl: string;
   startDelaySeconds: number;
   theme: ThemePreference;
+  language: LanguagePreference;
 }
 
 export interface SettingsContextType {
@@ -70,11 +83,19 @@ export interface SettingsContextType {
   setServerBaseUrl: (url: string) => void;
   setStartDelaySeconds: (seconds: number) => void;
   setTheme: (theme: ThemePreference) => void;
+  setLanguage: (language: LanguagePreference) => void;
   setControlLockToken: (token: string | null) => void;
   logoutControlLock: () => void;
+  /**
+   * The configuration window token this browser asked with (D-52). Kept in
+   * localStorage so every tab of this browser is the same client, rather than
+   * two tabs asking and turning the presses into a conflict.
+   */
+  configWindowToken: string | null;
+  setConfigWindowToken: (token: string | null) => void;
 }
 
-const SettingsContext = createContext<SettingsContextType | null>(null);
+export const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export function useSettings(): SettingsContextType {
   const context = use(SettingsContext);
@@ -93,12 +114,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     const storedUrl = localStorage.getItem(STORAGE_KEYS.serverBaseUrl);
     const storedDelay = localStorage.getItem(STORAGE_KEYS.startDelaySeconds);
     const storedTheme = localStorage.getItem(STORAGE_KEYS.theme);
+    const storedLanguage = localStorage.getItem(STORAGE_KEYS.language);
 
     return {
       serverBaseUrl: storedUrl ?? DEFAULT_VALUES.serverBaseUrl,
       startDelaySeconds:
         storedDelay === null ? DEFAULT_VALUES.startDelaySeconds : clampStartDelaySeconds(Number(storedDelay)),
       theme: parseTheme(storedTheme),
+      language: parseLanguagePreference(storedLanguage),
     };
   });
 
@@ -110,6 +133,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
       return null;
     }
     return localStorage.getItem(STORAGE_KEYS.controlLockToken);
+  });
+
+  // eslint-disable-next-line @eslint-react/use-state
+  const [configWindowToken, setConfigWindowTokenState] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return localStorage.getItem(STORAGE_KEYS.configWindowToken);
   });
 
   function setServerBaseUrl(url: string): void {
@@ -128,6 +159,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     setSettings((prev) => ({ ...prev, theme }));
   }
 
+  function setLanguage(language: LanguagePreference): void {
+    localStorage.setItem(STORAGE_KEYS.language, language);
+    setSettings((prev) => ({ ...prev, language }));
+  }
+
   function setControlLockToken(token: string | null): void {
     if (token) {
       localStorage.setItem(STORAGE_KEYS.controlLockToken, token);
@@ -135,6 +171,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
       localStorage.removeItem(STORAGE_KEYS.controlLockToken);
     }
     setControlLockTokenState(token);
+  }
+
+  function setConfigWindowToken(token: string | null): void {
+    if (token) {
+      localStorage.setItem(STORAGE_KEYS.configWindowToken, token);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.configWindowToken);
+    }
+    setConfigWindowTokenState(token);
   }
 
   function logoutControlLock(): void {
@@ -154,8 +199,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
         setSettings((prev) => ({ ...prev, startDelaySeconds: clampStartDelaySeconds(Number(e.newValue)) }));
       } else if (e.key === STORAGE_KEYS.theme) {
         setSettings((prev) => ({ ...prev, theme: parseTheme(e.newValue) }));
+      } else if (e.key === STORAGE_KEYS.language) {
+        setSettings((prev) => ({ ...prev, language: parseLanguagePreference(e.newValue) }));
       } else if (e.key === STORAGE_KEYS.controlLockToken) {
         setControlLockTokenState(e.newValue);
+      } else if (e.key === STORAGE_KEYS.configWindowToken) {
+        setConfigWindowTokenState(e.newValue);
       }
     };
 
@@ -167,14 +216,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
     applyTheme(settings.theme);
   }, [settings.theme]);
 
+  const language = resolveLanguage(settings.language, useBrowserLanguages());
+  useEffect(() => {
+    applyLanguage(language);
+  }, [language]);
+
   const value: SettingsContextType = {
     settings,
     controlLockToken,
     setServerBaseUrl,
     setStartDelaySeconds,
     setTheme,
+    setLanguage,
     setControlLockToken,
     logoutControlLock,
+    configWindowToken,
+    setConfigWindowToken,
   };
 
   return <SettingsContext value={value}>{children}</SettingsContext>;

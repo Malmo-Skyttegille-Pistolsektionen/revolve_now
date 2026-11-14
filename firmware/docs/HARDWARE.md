@@ -7,8 +7,10 @@ are in use:
 
 | Board | Module | Notes |
 |---|---|---|
-| ESP32-S3-DevKitC-1 N16R8 | ESP32-S3-WROOM-1 N16R8 | Development board. Has an onboard WS2812 on GPIO48. |
-| REVOLVENOW Rev 1 | ESP32-S3-WROOM-1 N16R8 | The club's own board (open source hardware). Trigger outputs with selectable 3.3 / 5 / 12 V rails, Ethernet section, hand-fitted PCM5102A audio breakout on the Rev 1 prototypes. No onboard WS2812. |
+| **PoC** — ESP32-S3-DevKitC-1 N16R8 | ESP32-S3-WROOM-1 N16R8 | The proof of concept: a development board with a BC547B stage and a PCM5102A on jumper wires. Has an onboard WS2812 on GPIO48. |
+| **PCB rev 1** — REVOLVENOW Rev 1 | ESP32-S3-WROOM-1 N16R8 | The club's own board (open source hardware). Trigger outputs with selectable 3.3 / 5 / 12 V rails, Ethernet section, hand-fitted PCM5102A audio breakout on the Rev 1 prototypes. No onboard WS2812. |
+
+Each has its own pin settings; see [Board profiles](#board-profiles).
 
 Confirmed against real silicon with `esptool flash-id`: ESP32-S3 (QFN56)
 rev v0.2, 16 MB **quad** flash at 3.3 V, embedded **8 MB octal** PSRAM. The
@@ -27,6 +29,7 @@ loudly.
 |---|---|---|
 | `RT_TARGET_GPIO` | 5 | Drives the transistor that turns **bank A** |
 | `RT_TARGET_ACTIVE_LOW` | y | Whether **low** shows bank A |
+| `RT_TARGETS_HIDE_AT_BOOT` | n | Hide the targets at boot rather than leave them shown (D-31) |
 | `RT_RGB_LED_ENABLED` | y | Board has an addressable WS2812 |
 | `RT_RGB_LED_GPIO` | 48 | Its pin |
 | `RT_AUDIO_ENABLED` | y | Board has an I2S DAC |
@@ -34,6 +37,13 @@ loudly.
 | `RT_I2S_BCK_GPIO` | 10 | Bit clock |
 | `RT_I2S_WS_GPIO` | 12 | Word select (LRCK) |
 | `RT_I2S_DOUT_GPIO` | 11 | Data out → the DAC's DIN |
+| `RT_I2S_MCLK_GPIO` | -1 | Master clock → the DAC's SCK; -1 leaves it undriven |
+| `RT_ETH_W5500_ENABLED` | y | Probe for a W5500 at boot (see [Ethernet](#ethernet-w5500)) |
+| `RT_ETH_SCLK_GPIO` / `MOSI` / `MISO` | 41 / 39 / 40 | The W5500's SPI bus |
+| `RT_ETH_CS_GPIO` | 42 | Its chip select; -1 means no W5500 |
+| `RT_ETH_INT_GPIO` | 38 | Its interrupt; -1 polls instead |
+| `RT_ETH_RST_GPIO` | -1 | Its reset; -1 resets it over SPI |
+| `RT_ETH_SPI_CLOCK_MHZ` | 20 | SPI clock, 33 at most |
 
 Defaults are the wiring the MicroPython backend used on this hardware
 (`src/backend/config.py` in that repository). Note its "ESP32-C6" comments are
@@ -45,6 +55,90 @@ stale — the pin numbers beside them are correct, the chip name is not.
 > switches a relay directly needs it off — and if it is wrong, the boot state in
 > `targets::init()` is inverted, so the targets face away when they should be
 > face-on (D-31).
+
+**Latching banks** (D-50) are runtime configuration only: Kconfig ships one
+level bank. A latching bank's `gpio` and `hideGpio` both rest released, and
+`targets::init()` pulses the one for the boot state, since the relay kept
+whatever it held at power-off. `level` on the console and `padLevel` read the
+show pin, so for those banks they say nothing; the console prints the last
+command sent instead.
+
+### Board profiles
+
+`sdkconfig.defaults` is the PoC. The PCB adds `sdkconfig.defaults.pcb-rev1` on
+top, the same way the [QEMU profile](QEMU.md) does:
+
+```bash
+idf.py -B build-pcb -D SDKCONFIG=build-pcb/sdkconfig \
+       -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.pcb-rev1" build
+```
+
+| Setting | PoC | PCB rev 1 |
+|---|---|---|
+| Bank A | GPIO5 | GPIO3 (Turn0) |
+| Banks B–D | — | GPIO18, 12, 10 (Turn1–3), added in Expert mode |
+| Active low | yes | yes |
+| I2S BCK / WS / DIN | 10 / 12 / 11 | 47 / 14 / 21 |
+| I2S MCLK | not used | GPIO48, required by the hand-fitted breakout from a cold power-up |
+| Status LED | WS2812 on GPIO48 | off: six APA102s on GPIO0/46, which the driver cannot drive |
+| Serial console | USB Serial/JTAG | off: the native USB pins are not wired. Logs reach UART0 |
+
+**Test MCLK from a cold power-up.** The DAC stays powered through an ESP
+restart and keeps the clock a previous boot gave it, so after a soft restart
+the breakout plays even with MCLK undriven.
+
+**Polarity is the same on both boards.** On the PCB, a high pin lights the
+LTV-847's LED and its transistor conducts, which is the same job the BC547B
+does on the PoC. So high is hidden and low is shown, and R28's pull-down
+leaves the targets shown at boot.
+
+**Gaps on the PCB rev 1:**
+
+- **Power0–3** (GPIO9, 8, 13, 11) have no firmware support and stay low.
+- **Trigger inputs** (GPIO7, 15, 16, 17) have no firmware support.
+- **U10, the W5500**, and its MagJack are not fitted. A W5500 module wired to
+  the same nets works (see [Ethernet](#ethernet-w5500)).
+
+The PCB pin map, from the KiCad netlist in #436:
+
+| Function | GPIO | Connector |
+|---|---|---|
+| Turn0 / Power0 | 3 / 9 | J1 pins 3-4 / 1-2 |
+| Turn1 / Power1 | 18 / 8 | J1 pins 7-8 / 5-6 |
+| Turn2 / Power2 | 12 / 13 | J2 pins 3-4 / 1-2 |
+| Turn3 / Power3 | 10 / 11 | J2 pins 7-8 / 5-6 |
+| Trigger0–3 (inputs, active low) | 7, 15, 16, 17 | J3 |
+| I2S BCK / WS / DIN / MCLK | 47 / 14 / 21 / 48 | PCM5102A (U2) |
+| APA102 data / clock | 0 / 46 | — |
+| UART0 TX / RX | 43 / 44 | R25 / R24 (U7, the FT232RL, is not fitted on rev 1) |
+| FLASH button | 0 | shared with the APA102 data line |
+| W5500 SCLK / MOSI / MISO | 41 / 39 / 40 | U10; the bus is shared with U8, the SPI flash (CS on GPIO6) |
+| W5500 SCS / INT | 42 / 38 | U10; its RST is not connected |
+
+Each output is a bare LTV-847 phototransistor, isolated from the board:
+collector on the odd pin, emitter on the even pin.
+
+### Ethernet (W5500)
+
+Optional on both boards (#262). At boot `net/ethernet.cpp` brings up the SPI
+bus and installs the W5500 driver; installing reads the chip's version
+register, which is the probe. Nothing answering logs one line and the device
+carries on over WiFi. A chip that answers gets a DHCP client and the MAC
+`esp_read_mac(ESP_MAC_ETH)` gives it, and the server and mDNS answer on it
+beside WiFi. `net_mgr::connect()` returns as soon as either interface has an
+address; the setup portal comes up only when neither can get one. Either
+interface can be switched off (`wifiEnabled`, `ethEnabled`), never both, and
+WiFi off holds only while Ethernet has an address. The serial console's
+`status` shows both interfaces and `eth-info` the wired one in detail.
+
+The pins are the PCB's U10 nets, so a module on the PoC uses the same
+`sdkconfig`. On the DevKitC-1, GPIO39–42 are the pad-JTAG pins, which do not
+matter while JTAG goes over USB. **GPIO38 is the RGB LED on DevKitC-1 v1.1**
+(v1.0, which this project uses, has it on 48): on a v1.1 board, set INT to -1
+or another free pin.
+
+The PCB shares the bus with U8. If U8 is ever fitted, its CS on GPIO6 has no
+pull-up and has to be held high, or it answers W5500 transfers too.
 
 ### Target banks
 
@@ -69,16 +163,16 @@ recovery from getting one wrong is a USB cable and a reflash.
 
 | Pins | Why |
 |---|---|
-| 0, 3, 45 | Strapping — latched at reset; the board simply does not come up |
+| 0, 45 | Strapping — latched at reset; the board simply does not come up. GPIO3 is strapping too, but only for the JTAG source, so it is allowed |
 | 19, 20 | USB Serial/JTAG D-/D+ — the recovery path |
 | 22–25 | Absent from the ESP32-S3 package |
 | 26–32 | In-package SPI flash and PSRAM |
-| **35–37** | The **octal** PSRAM's extra data lines on the N16R8 |
+| **33–37** | The **octal** PSRAM's extra data lines on the N16R8 |
 | **43, 44** | UART0 — the serial console |
 | 46 | Input-only on many modules, so it cannot drive anything |
 
-35–37 are the ones to know about; D-41 records why they were missed. That
-leaves 22 output-capable pins after the stock five (target 5, LED 48, I2S
+33–37 are the ones to know about; D-41 records why they were missed. That
+leaves 20 output-capable pins after the stock five (target 5, LED 48, I2S
 10/11/12) — comfortably more than eight banks need.
 
 Disabling `RT_RGB_LED_ENABLED` or `RT_AUDIO_ENABLED` compiles the driver out
@@ -86,7 +180,7 @@ entirely rather than failing at runtime. A target that only turns, with no
 audio, is a supported configuration: programs still run and the API still lists
 clips, they simply do not play.
 
-## Wiring (prototype)
+## Wiring (PoC)
 
 | ESP32 pin | Connects to | Function |
 |---|---|---|
@@ -214,7 +308,8 @@ The console is the asymmetric one and it catches people out. `console.cpp`
 writes with `usb_serial_jtag_write_bytes()`, so **the `rt>` prompt exists only
 on the native USB socket.** On the UART bridge the log output still streams,
 which makes the port look right — but every command typed there is silently
-ignored. That covers `boot-targets` (#144), `wifi-scan` and `wifi-info`.
+ignored. That covers `boot-targets` (#144), `wifi-scan`, `wifi-info` and
+`eth-info`.
 
 If a documented serial-only command appears to do nothing, check the vendor ID
 before checking anything else.

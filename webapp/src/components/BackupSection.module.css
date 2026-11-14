@@ -1,0 +1,112 @@
+.section {
+  background-color: var(--rt-surface);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--rt-text-strong);
+  font-weight: 600;
+}
+
+.subTitle {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  color: var(--rt-text-strong);
+  font-weight: 600;
+}
+
+.explain {
+  margin: 0;
+  color: var(--rt-text-strong);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--rt-control-height);
+  color: var(--rt-text-strong);
+  font-size: 0.95rem;
+}
+
+.hint {
+  margin: -0.5rem 0 0;
+  color: var(--rt-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.fileInput {
+  display: none;
+}
+
+.button {
+  min-height: var(--rt-control-height);
+  padding: 0 1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background-color: var(--rt-accent-fill);
+  color: var(--rt-on-fill);
+}
+
+.button:hover:not(:disabled) {
+  background-color: var(--rt-accent-fill-deep);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.muted {
+  margin: 0;
+  color: var(--rt-text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.notice,
+.report {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background-color: var(--rt-accent-tint);
+  border: 1px solid var(--rt-accent-border);
+  color: var(--rt-accent-ink);
+  font-size: 0.9rem;
+}
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-self: stretch;
+}
+
+.report p {
+  margin: 0;
+}
+
+.counts,
+.problems {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.warning {
+  font-weight: 500;
+}

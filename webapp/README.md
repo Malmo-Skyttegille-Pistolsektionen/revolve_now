@@ -148,7 +148,7 @@ workflows both calling `deploy-pages` would race each other for it.
 
 The E2E suite (`e2e/`, Playwright) runs against the **real firmware** booted in
 QEMU — not the mock server, and not a dev-server proxy. The webapp is built,
-its `dist` is baked into the LittleFS image through `RT_WEBAPP_DIR`, that image
+its `dist` is baked into the application image through `RT_WEBAPP_DIR`, that image
 is booted, and the browser is pointed at the forwarded guest port. The bundle
 under test is the artefact the board actually serves, so the webapp cannot
 drift away from the backend without a red build.
@@ -167,12 +167,14 @@ the guest serial log when something fails.
 
 `npm run e2e` runs the tests alone, against whatever is already serving on
 `RT_E2E_BASE_URL` (default `http://localhost:8080`) — a QEMU instance you
-started yourself, or a real board.
+started yourself. The suite targets the QEMU image, not a board: it asserts the
+emulator's audio refusals and exactly the shipped program list.
 
 Notes for writing tests:
 
 - There is **one device** and its state persists across tests, so the config
-  pins `workers: 1` and every spec calls `resetDevice()` in `beforeEach`.
+  pins `workers: 1` and every spec calls `resetDevice()` in `beforeEach`. It
+  leaves the lock off, nothing loaded and the targets shown.
 - Deep links are fine to navigate to: the firmware answers a non-API `GET` miss
   with `index.html`, so `/run` reloads as the page it is.
 - `backend_issue` is not covered — it needs audio hardware, and QEMU emulates

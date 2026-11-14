@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -21,9 +22,11 @@ void play(const std::vector<std::string> &paths);
 // Parses and validates the header; see lib/rt_logic/wav_header.h.
 bool probe_wav(const char *path, rt::WavInfo &out);
 
-// Whether `path` is the clip the audio task currently has open. LittleFS has
-// no POSIX unlink-while-open semantics, so deleting a playing clip corrupts
-// the read rather than deferring - callers check first and refuse.
-bool is_playing(const std::string &path);
+// Calls `fn` unless `path` is the clip the audio task currently has open, and
+// keeps the task from opening it until `fn` returns; false, without calling
+// `fn`, if it is playing. LittleFS has no POSIX unlink-while-open semantics, so
+// deleting a playing clip corrupts the read rather than deferring - the unlink
+// goes in `fn`. Never waits for a clip to finish.
+bool run_unless_playing(const std::string &path, const std::function<void()> &fn);
 
 }  // namespace audio

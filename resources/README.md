@@ -4,7 +4,7 @@ The programs and audio shipped with Revolve Now, Malmö Skyttegille Pistolsektio
 
 ## Overview
 
-This repository provides:
+This directory provides:
 
 - **Program files** for shooting sequences
 - **Audio files** for use with the target system
@@ -17,13 +17,6 @@ program document schema these files are validated against.
 
 - `programs/` — Template program series files, plus `validate_programs.sh`
 - `audios/` — Audio files for use with the system
-
-## Related Projects
-
-- **Backend (ESP32 MicroPython):**  
-  [rotation_target_backend_esp32_micropython](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_backend_esp32_micropython)
-- **Frontend (Web App):**  
-  [rotation_target_frontend_webapp](https://github.com/Malmo-Skyttegille-Pistolsektionen/rotation_target_frontend_webapp)
 
 ## License
 

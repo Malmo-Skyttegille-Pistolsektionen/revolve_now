@@ -1,35 +1,20 @@
-import { useId } from 'react';
-import clsx from 'clsx';
 import { useSettings } from '../context/SettingsContext';
-import { THEME_PREFERENCES, type ThemePreference } from '../lib/theme';
-import styles from './ThemePicker.module.css';
+import { useT } from '../i18n';
+import { THEME_PREFERENCES } from '../lib/theme';
+import { SegmentedControl } from './SegmentedControl';
 
-const LABELS: Record<ThemePreference, string> = {
-  system: 'System',
-  light: 'Light',
-  dark: 'Dark',
-};
-
-/** System / Light / Dark as one segmented control - the way a phone offers it. */
-export function ThemePicker({ label = 'Theme' }: { label?: string }): React.ReactNode {
+/** System / Light / Dark as one segmented control. */
+export function ThemePicker(): React.ReactNode {
   const { settings, setTheme } = useSettings();
-  const groupId = useId();
+  const t = useT();
 
   return (
-    <div className={styles.picker} role='radiogroup' aria-label={label}>
-      {THEME_PREFERENCES.map((theme) => (
-        <label key={theme} className={clsx(styles.option, settings.theme === theme && styles.optionActive)}>
-          <input
-            className={styles.radio}
-            type='radio'
-            name={groupId}
-            value={theme}
-            checked={settings.theme === theme}
-            onChange={() => setTheme(theme)}
-          />
-          {LABELS[theme]}
-        </label>
-      ))}
-    </div>
+    <SegmentedControl
+      label={t.settings.theme.title}
+      options={THEME_PREFERENCES}
+      value={settings.theme}
+      labels={t.settings.theme.options}
+      onChange={setTheme}
+    />
   );
 }

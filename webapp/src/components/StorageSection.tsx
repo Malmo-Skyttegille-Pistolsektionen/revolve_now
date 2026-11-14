@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useDiagnosticsApi } from '../api/diagnostics';
+import { useT } from '../i18n';
 import styles from './StorageSection.module.css';
+import { formatBytes } from '../lib/format-bytes';
 
 /**
  * What is on the flash, and how much room is left.
@@ -17,15 +19,6 @@ import styles from './StorageSection.module.css';
  * (the Three Signals Rule). "Nearly full" is said in words instead, which is
  * also the only version a colourblind operator can read.
  */
-
-const KIB = 1024;
-
-function formatBytes(bytes: number): string {
-  if (bytes < KIB) return `${String(bytes)} B`;
-  const mib = bytes / (KIB * KIB);
-  if (mib >= 1) return `${mib.toFixed(mib < 10 ? 2 : 1)} MB`;
-  return `${(bytes / KIB).toFixed(0)} KB`;
-}
 
 // Warn before it bites, not as it bites. An upload is a megabyte or so, so a
 // partition past this has room for very few more.
@@ -49,6 +42,8 @@ function formatPercent(fraction: number): string {
 
 export function StorageSection(): React.ReactNode {
   const diagnosticsApi = useDiagnosticsApi();
+  const t = useT();
+  const s = t.settings.storage;
 
   const { data: diagnostics, isPending } = useQuery({
     queryKey: ['diagnostics'],
@@ -59,10 +54,10 @@ export function StorageSection(): React.ReactNode {
 
   return (
     <section className={styles.section} data-testid='storage-section'>
-      <h2 className={styles.sectionTitle}>Storage</h2>
+      <h2 className={styles.sectionTitle}>{s.title}</h2>
 
       {partitions.length === 0 ? (
-        <p className={styles.muted}>{isPending ? 'Checking…' : 'unavailable'}</p>
+        <p className={styles.muted}>{isPending ? t.common.checking : t.common.unavailable}</p>
       ) : (
         <ul className={styles.list}>
           {partitions.map((partition) => {
@@ -76,11 +71,11 @@ export function StorageSection(): React.ReactNode {
                 <div className={styles.head}>
                   <span className={styles.name}>
                     {partition.name}
-                    {partition.running === true && <span className={styles.badge}>running</span>}
+                    {partition.running === true && <span className={styles.badge}>{s.running}</span>}
                   </span>
                   <span className={styles.figures}>
                     {known
-                      ? `${formatBytes(used)} of ${formatBytes(partition.sizeBytes)}`
+                      ? s.usedOf(formatBytes(used), formatBytes(partition.sizeBytes))
                       : formatBytes(partition.sizeBytes)}
                     {/* The bar already encodes this, and a percentage is the
                         form the question is actually asked in — "how full is
@@ -99,7 +94,7 @@ export function StorageSection(): React.ReactNode {
                   <div
                     className={styles.track}
                     role='progressbar'
-                    aria-label={`${partition.name} used`}
+                    aria-label={s.usedLabel(partition.name)}
                     aria-valuenow={Math.round(fraction * 100)}
                     aria-valuemin={0}
                     aria-valuemax={100}
@@ -110,13 +105,11 @@ export function StorageSection(): React.ReactNode {
                   // No bar rather than an empty one: an empty bar reads as
                   // "nothing used", which is a stronger claim than "we cannot
                   // tell".
-                  <p className={styles.unknown}>size only — the device cannot report what is used here</p>
+                  <p className={styles.unknown}>{s.sizeOnly}</p>
                 )}
 
                 {nearlyFull && (
-                  <p className={styles.warning}>
-                    Nearly full — {formatBytes(partition.sizeBytes - used)} left. Delete something before uploading.
-                  </p>
+                  <p className={styles.warning}>{s.nearlyFull(formatBytes(partition.sizeBytes - used))}</p>
                 )}
               </li>
             );

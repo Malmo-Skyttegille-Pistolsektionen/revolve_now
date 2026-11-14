@@ -52,7 +52,10 @@ size_t popcount(BankMask mask, size_t bank_count) {
 bool same_wiring(const std::vector<TargetBank> &a, const std::vector<TargetBank> &b) {
   if (a.size() != b.size()) return false;
   for (size_t i = 0; i < a.size(); ++i) {
-    if (a[i].gpio != b[i].gpio || a[i].active_low != b[i].active_low) return false;
+    if (a[i].gpio != b[i].gpio || a[i].active_low != b[i].active_low || a[i].drive != b[i].drive ||
+        a[i].hide_gpio != b[i].hide_gpio || a[i].pulse_ms != b[i].pulse_ms) {
+      return false;
+    }
   }
   return true;
 }
@@ -62,7 +65,8 @@ BankSelection parse_bank_selection(const std::vector<std::string> &letters, size
   if (letters.empty()) return selection;
 
   for (const std::string &entry : letters) {
-    const bool well_formed = entry.size() == 1 && entry[0] >= 'A' && entry[0] <= 'H';
+    const bool well_formed =
+        entry.size() == 1 && entry[0] >= 'A' && entry[0] <= bank_letter(kMaxTargetBanks - 1);
     const size_t index = well_formed ? static_cast<size_t>(entry[0] - 'A') : kMaxTargetBanks;
     if (!well_formed || index >= bank_count) {
       selection.offender = entry;

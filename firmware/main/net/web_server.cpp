@@ -9,6 +9,7 @@
 #include "web_server.h"
 
 #include "ota.h"
+#include "device_backup.h"
 
 #include <ArduinoJson.h>
 #include <PsychicHttp.h>
@@ -35,13 +36,19 @@
 #include "esp_partition.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "psa/crypto.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "control_lock_store.h"
+#include "ethernet.h"
+#include "hardware_json.h"
 #include "issue_buffer.h"
 #include "json_util.h"
 #include "net_mgr.h"
 #include "problem.h"
+#include "request_host.h"
 #include "restart.h"
+#include "text_parse.h"
 #include "uri_path.h"
 #include "version.h"
 #include "program_executor.h"
@@ -82,6 +89,29 @@ bool s_upload_in_flight = false;
 // server-wide ceiling is sized for firmware, so audio bounds itself.
 size_t s_upload_bytes = 0;
 
+// The staging file, open from the first chunk until the last one or the first
+// failure. Null mid-body means the upload already failed and later chunks are
+// dropped - the multipart parser ignores the callback's return and keeps
+// delivering them.
+FILE *s_upload_file = nullptr;
+
+// Closes the staging file if it is open; false if the close failed, which is
+// where a write the stdio buffer was still holding reports running out of space.
+bool close_upload_file() {
+  if (s_upload_file == nullptr) return true;
+  const bool ok = fclose(s_upload_file) == 0;
+  s_upload_file = nullptr;
+  return ok;
+}
+
+// Abandons the upload in flight: closes the staging file and removes it, so a
+// repeated failed upload cannot fill the partition.
+void fail_upload() {
+  s_upload_in_flight = false;
+  (void)close_upload_file();
+  (void)::remove(kStagedUploadPath);
+}
+
 // Drops whatever a previous upload left staged. Safe to call outside a
 // request: every completion path either renames the staging file into the
 // repository or removes it, so a survivor is always dead weight.
@@ -90,6 +120,9 @@ void discard_dead_upload() {
     ESP_LOGW(TAG, "Previous upload died mid-body - discarding its staged bytes");
     s_upload_in_flight = false;
   }
+  // A connection that died mid-body never reached the last chunk, so its
+  // staging file is still open.
+  (void)close_upload_file();
   // Deliberately ignored: this is best-effort cleanup, and the next upload
   // truncates the path anyway. The cast is how that is written down.
   (void)::remove(kStagedUploadPath);
@@ -103,7 +136,30 @@ int64_t now_ms() {
   return esp_timer_get_time() / 1000;
 }
 
-rt::ControlLock s_control_lock(esp_random_bytes, now_ms);
+// PBKDF2-HMAC-SHA256 through PSA. A failure fills the key with random bytes,
+// so no password can match it: refusing every login is the safe way to fail.
+void derive_lock_key(const std::string &password, const uint8_t *salt, size_t salt_len,
+                     uint8_t *out, size_t out_len) {
+  psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
+  const bool ok =
+      psa_crypto_init() == PSA_SUCCESS &&
+      psa_key_derivation_setup(&op, PSA_ALG_PBKDF2_HMAC(PSA_ALG_SHA_256)) == PSA_SUCCESS &&
+      psa_key_derivation_input_integer(&op, PSA_KEY_DERIVATION_INPUT_COST,
+                                       kControlLockKdfIterations) == PSA_SUCCESS &&
+      psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT, salt, salt_len) ==
+          PSA_SUCCESS &&
+      psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_PASSWORD,
+                                     reinterpret_cast<const uint8_t *>(password.data()),
+                                     password.size()) == PSA_SUCCESS &&
+      psa_key_derivation_output_bytes(&op, out, out_len) == PSA_SUCCESS;
+  psa_key_derivation_abort(&op);
+  if (!ok) {
+    ESP_LOGE(TAG, "Could not derive the control lock key");
+    esp_fill_random(out, out_len);
+  }
+}
+
+rt::ControlLock s_control_lock(esp_random_bytes, now_ms, derive_lock_key);
 
 // --- response helpers ------------------------------------------------------
 
@@ -122,6 +178,74 @@ esp_err_t send_problem(PsychicResponse *res, const rt::ProblemType &type,
 
 esp_err_t send_message(PsychicResponse *res, const std::string &message) {
   return send_json(res, 200, rt::json_message(message));
+}
+
+// Endpoint middleware bounding a JSON body at kMaxUploadBytes. The server-wide
+// ceiling is sized for firmware, and PsychicWebHandler mallocs the whole body
+// before the handler runs, so a check inside the handler would come too late.
+// Answered as the HTTP layer answers its own ceiling - 400, text/html, and the
+// connection closed so the unread body does not hold the socket - because that
+// is what contracts/openapi.yaml documents for an oversized body.
+esp_err_t bound_body(PsychicRequest *req, PsychicResponse *res, const PsychicMiddlewareNext &next) {
+  if (req->contentLength() <= kMaxUploadBytes) return next();
+  ESP_LOGW(TAG, "Rejected %s %s: %u-byte body past the %u-byte ceiling", req->methodStr(),
+           req->uri(), static_cast<unsigned>(req->contentLength()),
+           static_cast<unsigned>(kMaxUploadBytes));
+  const std::string error =
+      "Request body must be at most " + std::to_string(kMaxUploadBytes) + " bytes";
+  res->send(400, "text/html", error.c_str());
+  return ESP_FAIL;
+}
+
+// Reads and discards what a handler left of the body, before the close that
+// follows. Closing on unread data sends an RST, which can destroy the response
+// still in the client's receive buffer: a refused restore then read as a
+// network failure rather than the 401 it was. Bounded like any body read, with
+// a shorter grace because the answer has already gone out.
+void drain_unread_body(httpd_req_t *req) {
+  constexpr int64_t kGraceUs = 2'000'000;
+  static char sink[2048];  // the httpd task is the only caller
+  const int64_t start = esp_timer_get_time();
+  uint64_t drained = 0;
+  while (drained <= kMaxRestoreUploadBytes) {
+    const int64_t allowed_us =
+        kGraceUs +
+        static_cast<int64_t>(drained * 1000000 / static_cast<uint64_t>(PSYCHIC_BODY_MIN_RATE));
+    if (esp_timer_get_time() - start > allowed_us) return;
+    const int n = httpd_req_recv(req, sink, sizeof(sink));
+    if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (n <= 0) return;  // 0: nothing left to read; below: the peer is gone
+    drained += static_cast<uint64_t>(n);
+  }
+}
+
+// s_server.on() with bound_body in front of the handler.
+void on_bounded(const char *uri, int method, const PsychicHttpRequestCallback &handler) {
+  s_server.on(uri, method, handler)->addMiddleware(bound_body);
+}
+
+// Refuses with program_running while a run is in progress; `what` finishes
+// "stop it before ...". True once it has answered the request.
+bool refuse_if_running(PsychicResponse *res, const char *what) {
+  if (!executor::is_running()) return false;
+  send_problem(res, rt::problem::kProgramRunning,
+               std::string("A program is running - stop it before ") + what);
+  return true;
+}
+
+// The configuration window token a request carries (D-52), or empty. Its own
+// header, never the control lock's: the two are different credentials.
+std::string window_token(PsychicRequest *req) {
+  const char *raw = req->header(kConfigWindowHeader);
+  return raw != nullptr ? raw : "";
+}
+
+// Refuses unless this request holds the open configuration window.
+// True once it has answered the request.
+bool refuse_if_window_closed(PsychicRequest *req, PsychicResponse *res) {
+  if (boot_button::config_window_open(window_token(req))) return false;
+  send_problem(res, rt::problem::kHardwareConfigWindowClosed, rt::kOpenWindowHint);
+  return true;
 }
 
 // --- auth ------------------------------------------------------------------
@@ -193,13 +317,38 @@ bool origin_allowed(const std::string &origin) {
   const std::string host = hardware_store::current().hostname;
   if (origin == "http://" + host + ".local" || origin == "https://" + host + ".local") return true;
 
-  const std::string ip = net_mgr::ip_address();
-  if (!ip.empty() && (origin == "http://" + ip || origin == "https://" + ip)) return true;
+  // Either interface's address: a browser on the wired side and one on WiFi
+  // reach the same device by different numbers.
+  for (const std::string &ip : {net_mgr::wifi_ip_address(), ethernet::status().ip}) {
+    if (!ip.empty() && (origin == "http://" + ip || origin == "https://" + ip)) return true;
+  }
 
   const std::string dev = CONFIG_RT_DEV_ORIGIN;
   if (!dev.empty() && origin == dev) return true;
 
   return false;
+}
+
+// Refuses to be framed, so another site cannot overlay the web app and click
+// it for the operator. Called wherever add_cors_headers is.
+void add_frame_headers(PsychicResponse *res) {
+  res->addHeader("X-Frame-Options", "DENY");
+  res->addHeader("Content-Security-Policy", "frame-ancestors 'none'");
+}
+
+// Reflects an allowlisted Origin. The server middleware calls it for every
+// matched route; onNotFound has to call it itself.
+void add_cors_headers(PsychicRequest *req, PsychicResponse *res) {
+  const char *origin = req->header("Origin");
+  if (origin == nullptr || *origin == '\0' || !origin_allowed(origin)) return;
+  const std::string reflected = origin;
+  res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
+  res->addHeader("Access-Control-Allow-Credentials", "true");
+  res->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res->addHeader("Access-Control-Allow-Headers",
+                 "Authorization, Content-Type, " RT_CONFIG_WINDOW_HEADER);
+  res->addHeader("Access-Control-Max-Age", "600");
+  res->addHeader("Vary", "Origin");
 }
 
 // --- path parsing ---------------------------------------------------------
@@ -218,20 +367,38 @@ void register_control_lock_routes() {
         std::string("{\"enabled\":") + (s_control_lock.enabled() ? "true" : "false") + "}");
   });
 
-  s_server.on("/api/v2/control-lock/enable", HTTP_POST,
-              [](PsychicRequest *req, PsychicResponse *res) {
-                if (s_control_lock.enabled()) {
-                  return send_problem(res, rt::problem::kControlLockAlreadyEnabled,
-                                      "The control lock is already on. Log in, or turn it off "
-                                      "before turning it on again.");
-                }
-                const std::string token = s_control_lock.enable(password_from(req));
-                if (token.empty())
-                  return send_problem(res, rt::problem::kInvalidPassword, "Invalid password");
+  s_server.on(
+      "/api/v2/control-lock/enable", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
+        if (s_control_lock.enabled()) {
+          return send_problem(res, rt::problem::kControlLockAlreadyEnabled,
+                              "The control lock is already on. Log in, or turn it off "
+                              "before turning it on again.");
+        }
+    // The lock now outlives a reboot (D-51), so whoever sets it has
+    // to be at the board - otherwise the first caller on the network
+    // would own the device for good. A build with no button cannot
+    // prove that, and would otherwise never be lockable.
+#if CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW
+        if (boot_button::available() && !boot_button::presence_window_open(window_token(req))) {
+          return send_problem(res, rt::problem::kHardwareConfigWindowClosed, rt::kOpenWindowHint);
+        }
+#endif
+        const int64_t started = esp_timer_get_time();
+        const std::string token = s_control_lock.enable(password_from(req));
+        if (token.empty())
+          return send_problem(res, rt::problem::kInvalidPassword, "Invalid password");
+        if (!control_lock_store::save(s_control_lock.verifier())) {
+          // Off rather than on in RAM only, which a reboot would undo
+          // without telling anybody.
+          s_control_lock.disable();
+          return send_problem(res, rt::problem::kControlLockStoreFailed,
+                              "Could not store the control lock - it is still off");
+        }
 
-                ESP_LOGI(TAG, "Control lock on");
-                return send_control_lock_session(res, token);
-              });
+        ESP_LOGI(TAG, "Control lock on (key derived in %d ms)",
+                 static_cast<int>((esp_timer_get_time() - started) / 1000));
+        return send_control_lock_session(res, token);
+      });
 
   s_server.on("/api/v2/control-lock/login", HTTP_POST,
               [](PsychicRequest *req, PsychicResponse *res) {
@@ -263,11 +430,65 @@ void register_control_lock_routes() {
 
   s_server.on("/api/v2/control-lock/disable", HTTP_POST,
               [](PsychicRequest *req, PsychicResponse *res) {
-                if (!require_control_lock(req, res)) return ESP_OK;
+                // A session, or somebody at the board: the way back from a
+                // forgotten password, now that a restart no longer is (D-51).
+                if (!boot_button::presence_window_open(window_token(req)) &&
+                    !require_control_lock(req, res)) {
+                  return ESP_OK;
+                }
+                if (!control_lock_store::erase()) {
+                  return send_problem(res, rt::problem::kControlLockStoreFailed,
+                                      "Could not clear the stored control lock - it is still on");
+                }
                 s_control_lock.disable();
                 ESP_LOGI(TAG, "Control lock off");
                 return send_message(
                     res, "Control lock off - anyone on the network can operate the device again");
+              });
+}
+
+const char *window_state_name(rt::ConfigWindow::State state) {
+  switch (state) {
+    case rt::ConfigWindow::State::kPending:
+      return "pending";
+    case rt::ConfigWindow::State::kOpen:
+      return "open";
+    case rt::ConfigWindow::State::kConflict:
+      return "conflict";
+    case rt::ConfigWindow::State::kElsewhere:
+      return "elsewhere";
+    case rt::ConfigWindow::State::kClosed:
+      break;
+  }
+  return "closed";
+}
+
+std::string window_status_json(const std::string &token) {
+  const boot_button::WindowStatus status = boot_button::window_status(token);
+  return std::string("{\"state\":\"") + window_state_name(status.state) +
+         "\",\"remainingSeconds\":" + std::to_string(status.remaining_s) + "}";
+}
+
+// The configuration window, bound to the client that asked for it (D-52).
+// Neither route is behind the control lock: asking proves nothing by itself,
+// the presses at the board do.
+void register_config_window_routes() {
+  s_server.on("/api/v2/config-window", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
+    return send_json(res, 200, window_status_json(window_token(req)));
+  });
+
+  s_server.on("/api/v2/config-window/request", HTTP_POST,
+              [](PsychicRequest *req, PsychicResponse *res) {
+                const std::string token = boot_button::request_window(window_token(req));
+                if (token.empty()) {
+                  return send_problem(res, rt::problem::kConfigWindowBusy,
+                                      "Too many devices are already asking for the configuration "
+                                      "window. Wait two minutes and ask again.");
+                }
+                std::string out = window_status_json(token);
+                out.pop_back();
+                out += ",\"token\":" + rt::json_quote(token) + "}";
+                return send_json(res, 200, out);
               });
 }
 
@@ -412,7 +633,7 @@ void register_program_routes() {
     return send_json(res, 200, out);
   });
 
-  s_server.on("/api/v2/programs", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
+  on_bounded("/api/v2/programs", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
     const char *body = req->body();
@@ -424,6 +645,8 @@ void register_program_routes() {
     // otherwise be parsed as the prefix before it and rejected with a
     // misleading error.
     const int32_t id = programs::add_uploaded(body, length);
+    if (id == programs::kUploadWriteFailed)
+      return send_problem(res, rt::problem::kProgramStoreFailed, "Could not store program");
     if (id < 0) return send_problem(res, rt::problem::kProgramInvalid, "Invalid program");
 
     sse_hub::broadcast_library_changed(rt::library_kind::kProgram);
@@ -444,7 +667,7 @@ void register_program_routes() {
 
   // Currently the only PUT route, so this wildcard shadows nothing; a fixed
   // PUT path under /api/v2/programs/ would have to be registered above it.
-  s_server.on("/api/v2/programs/*", HTTP_PUT, [](PsychicRequest *req, PsychicResponse *res) {
+  on_bounded("/api/v2/programs/*", HTTP_PUT, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
     int32_t id = 0;
@@ -634,6 +857,10 @@ std::string diagnostics_info_json() {
     out += std::to_string(targets::pin(i));
     out += ",\"padLevel\":";
     out += std::to_string(targets::level(i));
+    out += ",\"drive\":";
+    out += targets::latching(i) ? "\"latching\"" : "\"level\"";
+    out += ",\"shown\":";
+    out += targets::shown(i) ? "true" : "false";
     out += ",\"name\":";
     out += rt::json_quote(i < active_banks.size() ? active_banks[i].name : std::string());
     out += '}';
@@ -683,22 +910,6 @@ std::string diagnostics_info_json() {
   out += "}";
 
   return out;
-}
-
-// The characters a filename may carry into a `Content-Disposition` header.
-// Everything else is replaced rather than escaped: the parts being joined are
-// a `git describe` string and an operator-chosen hostname, and a header is the
-// one place where letting an unexpected byte through is a header-splitting bug
-// rather than an ugly filename.
-std::string filename_safe(const std::string &in) {
-  std::string out;
-  out.reserve(in.size());
-  for (const char c : in) {
-    const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                       c == '.' || c == '_' || c == '-';
-    out += plain ? c : '-';
-  }
-  return out.empty() ? "unknown" : out;
 }
 
 // Bytes read from flash per pass. Small enough that two of these on the heap is
@@ -753,81 +964,77 @@ void register_diagnostics_routes() {
   // would add nothing in the state that matters, while in the state it is on
   // it would stop a club member collecting a fault report during the event
   // where a fault matters most. It is a lock on writing, and this is a read.
-  s_server.on("/api/v2/diagnostics/bundle", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+  s_server.on(
+      "/api/v2/diagnostics/bundle", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
+        if (refuse_if_window_closed(req, res)) return ESP_OK;
 
-    const std::string info = diagnostics_info_json();
+        const std::string info = diagnostics_info_json();
 
-    const esp_partition_t *part = nullptr;
-    size_t dump_offset = 0, dump_size = 0;
-    bool with_dump = coredump_extent(&part, &dump_offset, &dump_size);
+        const esp_partition_t *part = nullptr;
+        size_t dump_offset = 0, dump_size = 0;
+        bool with_dump = coredump_extent(&part, &dump_offset, &dump_size);
 
-    // A stored entry carries its CRC in the header that precedes it, and
-    // nothing here can seek backwards, so the dump is read once to sum and
-    // once to send. On flash that is a few milliseconds; buffering 128 KB to
-    // avoid it is memory this device does not have.
-    std::vector<uint8_t> buffer(kBundleChunkBytes);
-    uint32_t dump_crc = 0;
-    for (size_t read = 0; with_dump && read < dump_size; read += kBundleChunkBytes) {
-      const size_t want = std::min(kBundleChunkBytes, dump_size - read);
-      if (esp_partition_read(part, dump_offset + read, buffer.data(), want) != ESP_OK) {
-        // Still worth having without it: the diagnostics are most of what
-        // a triage needs, and a download that fails outright leaves the
-        // operator with nothing at all.
-        ESP_LOGW(TAG, "Could not read the coredump - serving the bundle without it");
-        with_dump = false;
-        break;
-      }
-      dump_crc = rt::crc32(dump_crc, buffer.data(), want);
-    }
-
-    const std::string name = filename_safe(hardware_store::current().hostname) + "-" +
-                             filename_safe(esp_app_get_description()->version) + "-" +
-                             filename_safe(diagnostics::reset_reason_name(esp_reset_reason())) +
-                             ".zip";
-    // No date in it: this device never learns one. The browser adds that
-    // on the way to the Downloads folder.
-    const std::string disposition = "attachment; filename=\"" + name + "\"";
-
-    res->setCode(200);
-    res->setContentType("application/zip");
-    res->addHeader("Content-Disposition", disposition.c_str());
-    res->sendHeaders();
-
-    rt::ZipWriter zip(send_bundle_chunk, res);
-    const uint8_t *json = reinterpret_cast<const uint8_t *>(info.data());
-    zip.begin("diagnostics.json", static_cast<uint32_t>(info.size()),
-              rt::crc32(0, json, info.size()));
-    zip.write(json, info.size());
-
-    if (with_dump) {
-      // Named for what it is: the coredump *partition*, not a bare ELF.
-      // `idf.py coredump-info` reads it as it stands, and calling it `.elf`
-      // invites somebody to open it with something that will not.
-      zip.begin("coredump.bin", static_cast<uint32_t>(dump_size), dump_crc);
-      for (size_t sent = 0; zip.ok() && sent < dump_size; sent += kBundleChunkBytes) {
-        const size_t want = std::min(kBundleChunkBytes, dump_size - sent);
-        if (esp_partition_read(part, dump_offset + sent, buffer.data(), want) != ESP_OK) {
-          break;
+        // A stored entry carries its CRC in the header that precedes it, and
+        // nothing here can seek backwards, so the dump is read once to sum and
+        // once to send. On flash that is a few milliseconds; buffering 128 KB to
+        // avoid it is memory this device does not have.
+        std::vector<uint8_t> buffer(kBundleChunkBytes);
+        uint32_t dump_crc = 0;
+        for (size_t read = 0; with_dump && read < dump_size; read += kBundleChunkBytes) {
+          const size_t want = std::min(kBundleChunkBytes, dump_size - read);
+          if (esp_partition_read(part, dump_offset + read, buffer.data(), want) != ESP_OK) {
+            // Still worth having without it: the diagnostics are most of what
+            // a triage needs, and a download that fails outright leaves the
+            // operator with nothing at all.
+            ESP_LOGW(TAG, "Could not read the coredump - serving the bundle without it");
+            with_dump = false;
+            break;
+          }
+          dump_crc = rt::crc32(dump_crc, buffer.data(), want);
         }
-        zip.write(buffer.data(), want);
-      }
-    }
 
-    zip.finish();
-    if (!zip.ok()) {
-      // Nothing to answer with: the 200 and its headers are long gone. The
-      // client sees a short archive and says so; this is the only place the
-      // reason can be recorded.
-      ESP_LOGW(TAG, "Bundle download did not complete");
-    }
-    return res->finishChunking();
-  });
+        const std::string name =
+            rt::filename_safe(hardware_store::current().hostname) + "-" +
+            rt::filename_safe(esp_app_get_description()->version) + "-" +
+            rt::filename_safe(diagnostics::reset_reason_name(esp_reset_reason())) + ".zip";
+        // No date in it: this device never learns one. The browser adds that
+        // on the way to the Downloads folder.
+        const std::string disposition = "attachment; filename=\"" + name + "\"";
+
+        res->setCode(200);
+        res->setContentType("application/zip");
+        res->addHeader("Content-Disposition", disposition.c_str());
+        res->sendHeaders();
+
+        rt::ZipWriter zip(send_bundle_chunk, res);
+        const uint8_t *json = reinterpret_cast<const uint8_t *>(info.data());
+        zip.begin("diagnostics.json", static_cast<uint32_t>(info.size()),
+                  rt::crc32(0, json, info.size()));
+        zip.write(json, info.size());
+
+        if (with_dump) {
+          // Named for what it is: the coredump *partition*, not a bare ELF.
+          // `idf.py coredump-info` reads it as it stands, and calling it `.elf`
+          // invites somebody to open it with something that will not.
+          zip.begin("coredump.bin", static_cast<uint32_t>(dump_size), dump_crc);
+          for (size_t sent = 0; zip.ok() && sent < dump_size; sent += kBundleChunkBytes) {
+            const size_t want = std::min(kBundleChunkBytes, dump_size - sent);
+            if (esp_partition_read(part, dump_offset + sent, buffer.data(), want) != ESP_OK) {
+              break;
+            }
+            zip.write(buffer.data(), want);
+          }
+        }
+
+        zip.finish();
+        if (!zip.ok()) {
+          // Nothing to answer with: the 200 and its headers are long gone. The
+          // client sees a short archive and says so; this is the only place the
+          // reason can be recorded.
+          ESP_LOGW(TAG, "Bundle download did not complete");
+        }
+        return res->finishChunking();
+      });
 }
 
 // What a /targets/* request asked for. `named` false is the bodyless call -
@@ -977,10 +1184,7 @@ void register_audio_routes() {
       return send_problem(res, rt::problem::kAudioInUse,
                           "Audio is used by the loaded program - unload the program first");
     }
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before deleting audio");
-    }
+    if (refuse_if_running(res, "deleting audio")) return ESP_OK;
 
     switch (audios::remove(id)) {
       case audios::RemoveResult::kNotFound:
@@ -1018,6 +1222,15 @@ void register_audio_routes() {
       s_upload_in_flight = true;
       s_upload_bytes = 0;
       storage::make_dirs(kUploadAudioDir);
+      (void)close_upload_file();
+      s_upload_file = fopen(kStagedUploadPath, "wb");
+      if (s_upload_file == nullptr) {
+        fail_upload();
+        return ESP_FAIL;
+      }
+    } else if (s_upload_file == nullptr) {
+      // An earlier chunk failed and the upload is already abandoned.
+      return ESP_FAIL;
     }
 
     // The server-wide ceiling is sized for firmware now, so a clip has to be
@@ -1026,25 +1239,13 @@ void register_audio_routes() {
     if (s_upload_bytes > kMaxUploadBytes) {
       ESP_LOGW(TAG, "Rejected upload '%s': past the %u-byte ceiling", filename,
                static_cast<unsigned>(kMaxUploadBytes));
-      s_upload_in_flight = false;
-      (void)::remove(kStagedUploadPath);
+      fail_upload();
       return ESP_FAIL;
     }
 
-    FILE *f = fopen(kStagedUploadPath, index == 0 ? "wb" : "ab");
-    if (f == nullptr) {
-      s_upload_in_flight = false;
-      (void)::remove(kStagedUploadPath);
-      return ESP_FAIL;
-    }
-    const size_t written = fwrite(data, 1, len, f);
-    fclose(f);
-
-    if (written != len) {
-      // Out of space, most likely. Never leave the partial behind: a repeated
-      // failed upload would otherwise fill the partition.
-      s_upload_in_flight = false;
-      (void)::remove(kStagedUploadPath);
+    // Out of space, most likely, either here or in the final flush.
+    if (fwrite(data, 1, len, s_upload_file) != len || (final && !close_upload_file())) {
+      fail_upload();
       return ESP_FAIL;
     }
 
@@ -1076,6 +1277,9 @@ void register_audio_routes() {
     const bool uploaded = req->hasSessionKey("upload_done");
     req->setSessionKey("upload_done", "");
     s_upload_in_flight = false;
+    // Still open only if the body ended without a last chunk; it is incomplete
+    // either way, and the guard below removes it.
+    (void)close_upload_file();
 
     // From here every failure path removes the staged file.
     struct Staged {
@@ -1111,67 +1315,14 @@ void register_audio_routes() {
   s_server.on("/api/v2/audios", HTTP_POST, &s_audio_upload);
 }
 
-// kWebappDir and kWebappIndex are in config.h: the web app is inside the app
-// image now (#227), not on the filesystem, and where it lives is a property of
-// the build rather than of this server.
-
 // Whether the build bundled a webapp at all. An API-only image has no
 // index.html to fall back to and keeps the JSON 404 for everything.
 bool s_webapp_bundled = false;
 
-// Serves the built webapp from LittleFS when one has been uploaded. Kept last
-// so it never shadows an API route.
 // --- Hardware configuration (#144) ----------------------------------------
 
-// The three views the contract promises, plus the two booleans a client needs
-// to say anything useful about them.
-std::string hardware_config_json(const rt::HardwareConfig &config) {
-  std::string out = "{\"banks\":[";
-  for (size_t i = 0; i < config.banks.size(); ++i) {
-    if (i > 0) out += ',';
-    out += "{\"gpio\":";
-    out += std::to_string(config.banks[i].gpio);
-    out += ",\"activeLow\":";
-    out += config.banks[i].active_low ? "true" : "false";
-    out += ",\"name\":";
-    out += rt::json_quote(config.banks[i].name);
-    out += '}';
-  }
-  out += ']';
-  out += ",\"hostname\":";
-  out += rt::json_quote(config.hostname);
-  out += ",\"displayName\":";
-  out += rt::json_quote(config.display_name);
-  out += ",\"targetsShownAtBoot\":";
-  out += config.targets_shown_at_boot ? "true" : "false";
-  out += ",\"ledGpio\":";
-  out += std::to_string(config.led_gpio);
-  out += ",\"i2sPort\":";
-  out += std::to_string(config.i2s_port);
-  out += ",\"i2sBckGpio\":";
-  out += std::to_string(config.i2s_bck_gpio);
-  out += ",\"i2sWsGpio\":";
-  out += std::to_string(config.i2s_ws_gpio);
-  out += ",\"i2sDoutGpio\":";
-  out += std::to_string(config.i2s_dout_gpio);
-  out += ",\"httpPort\":";
-  out += std::to_string(config.http_port);
-  out += ",\"wifiMaxRetries\":";
-  out += std::to_string(config.wifi_max_retries);
-  out += "}";
-  return out;
-}
-
-bool same_config(const rt::HardwareConfig &a, const rt::HardwareConfig &b) {
-  // targets_shown_at_boot included even though HTTP cannot change it: the
-  // serial console can, and that needs a restart to take effect too. Leaving it
-  // out would report restartRequired false right after `boot-targets hidden`.
-  return rt::same_wiring(a.banks, b.banks) && a.hostname == b.hostname &&
-         a.display_name == b.display_name && a.targets_shown_at_boot == b.targets_shown_at_boot;
-}
-
 void register_config_routes() {
-  s_server.on("/api/v2/config/hardware", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
+  s_server.on("/api/v2/config/hardware", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
     // `active` is what boot latched; `saved` is what NVS holds now. They differ
     // exactly between a write and the restart that adopts it, which is the one
     // thing a client must not hide - a pin change that appears to have done
@@ -1181,24 +1332,25 @@ void register_config_routes() {
     const rt::HardwareConfig defaults = hardware_store::defaults();
 
     std::string out = "{\"active\":";
-    out += hardware_config_json(active);
+    out += rt::hardware_config_json(active);
     out += ",\"saved\":";
-    out += hardware_config_json(saved);
+    out += rt::hardware_config_json(saved);
     out += ",\"defaults\":";
-    out += hardware_config_json(defaults);
+    out += rt::hardware_config_json(defaults);
     out += ",\"overridden\":";
     out += hardware_store::overridden() ? "true" : "false";
-    // One meaning: "would a PUT be accepted right now". The run is already part
-    // of that answer - boot_button owns the composite - so this does not
-    // recompute it and cannot drift from the guard on the write below.
-    const bool window_open = boot_button::config_window_open();
+    // One meaning: "would a PUT from this client be accepted right now". The
+    // run is already part of that answer - boot_button owns the composite - so
+    // this does not recompute it and cannot drift from the guard on the write.
+    const std::string token = window_token(req);
+    const bool window_open = boot_button::config_window_open(token);
     out += ",\"writeWindow\":{\"open\":";
     out += window_open ? "true" : "false";
     out += ",\"remainingSeconds\":";
-    out += std::to_string(window_open ? boot_button::config_window_remaining_s() : 0);
+    out += std::to_string(window_open ? boot_button::window_status(token).remaining_s : 0);
     out += "}";
     out += ",\"restartRequired\":";
-    out += same_config(active, saved) ? "false" : "true";
+    out += rt::same_config(active, saved) ? "false" : "true";
     out += "}";
     return send_json(res, 200, out);
   });
@@ -1206,27 +1358,25 @@ void register_config_routes() {
   s_server.on("/api/v2/config/hardware", HTTP_PUT, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
+    // Patched onto a copy of what is stored: absent fields keep their value
+    // rather than reverting to a compiled default (rt::apply_hardware_patch).
     const char *body = req->body();
-    JsonDocument doc;
-    if (body == nullptr || deserializeJson(doc, body) != DeserializationError::Ok ||
-        !doc.is<JsonObject>()) {
-      return send_problem(res, rt::problem::kHardwareConfigInvalid,
-                          "Expected a JSON object of hardware configuration fields");
+    rt::HardwareConfig config = hardware_store::saved();
+    const rt::PatchError shape =
+        rt::apply_hardware_patch(body, body == nullptr ? 0 : strlen(body), config);
+
+    // A body that is not an object, or that names `targetsShownAtBoot`, is
+    // refused ahead of the guards. The latter is refused, not ignored (D-31,
+    // #144): where the targets rest at boot is what protects somebody standing
+    // downrange, so it changes only from the serial console.
+    if (shape == rt::PatchError::kNotObject || shape == rt::PatchError::kSerialOnly) {
+      return send_problem(res,
+                          shape == rt::PatchError::kSerialOnly
+                              ? rt::problem::kHardwareConfigSerialOnly
+                              : rt::problem::kHardwareConfigInvalid,
+                          rt::patch_error_message(shape));
     }
 
-    // Refused, not ignored (D-31, #144). Where the targets rest at boot is
-    // what protects somebody standing downrange, so it changes only from the
-    // serial console - and an operator who believes they changed it is worse
-    // off than one who was told they could not.
-    if (!doc["targetsShownAtBoot"].isNull()) {
-      return send_problem(res, rt::problem::kHardwareConfigSerialOnly,
-                          "targetsShownAtBoot changes only from the serial console: "
-                          "'boot-targets shown' or 'boot-targets hidden'");
-    }
-
-    // Absent fields keep what is stored rather than reverting to a compiled
-    // default: a client that knows about fewer fields than this firmware must
-    // not silently undo the ones it cannot see.
     // Not while a program is running. Reconfiguring the machine and operating
     // it are different activities, and these values only take effect at the
     // next restart - so the only thing changing them mid-run can do is confuse
@@ -1234,62 +1384,17 @@ void register_config_routes() {
     //
     // Checked before the window, because "stop the run" is the more useful of
     // the two instructions to be given.
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before changing the hardware "
-                          "configuration");
-    }
+    if (refuse_if_running(res, "changing the hardware configuration")) return ESP_OK;
 
     // Expert mode is a place, not a per-field rule: the whole endpoint is
     // behind the window. Hostname belongs inside it as much as the pins do -
     // a wrong pin leaves the web app reachable to fix it from, a wrong
     // hostname changes mDNS and does not.
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
+    if (refuse_if_window_closed(req, res)) return ESP_OK;
+
+    if (shape != rt::PatchError::kNone) {
+      return send_problem(res, rt::problem::kHardwareConfigInvalid, rt::patch_error_message(shape));
     }
-
-    rt::HardwareConfig config = hardware_store::saved();
-
-    // `banks` replaces the whole array - it is an ordered list, and a partial
-    // merge of one has no meaning.
-    if (!doc["banks"].isNull()) {
-      if (!doc["banks"].is<JsonArray>()) {
-        return send_problem(res, rt::problem::kHardwareConfigInvalid,
-                            "'banks' must be an array of target banks");
-      }
-      std::vector<rt::TargetBank> banks;
-      for (JsonVariant entry : doc["banks"].as<JsonArray>()) {
-        if (!entry.is<JsonObject>()) {
-          return send_problem(res, rt::problem::kHardwareConfigInvalid,
-                              "Each entry in 'banks' must be an object with gpio, activeLow and "
-                              "name");
-        }
-        rt::TargetBank bank;
-        bank.gpio = entry["gpio"] | 0;
-        bank.active_low = entry["activeLow"] | true;
-        bank.name = entry["name"] | "";
-        banks.push_back(bank);
-      }
-      // The count is checked by validate() below, which owns every bound this
-      // struct has; an empty array reaches it and comes back kBankCountOutOfRange.
-      config.banks = banks;
-    }
-
-    if (!doc["hostname"].isNull()) config.hostname = doc["hostname"] | config.hostname;
-    if (!doc["displayName"].isNull())
-      config.display_name = doc["displayName"] | config.display_name;
-    if (!doc["ledGpio"].isNull()) config.led_gpio = doc["ledGpio"] | config.led_gpio;
-    if (!doc["i2sPort"].isNull()) config.i2s_port = doc["i2sPort"] | config.i2s_port;
-    if (!doc["i2sBckGpio"].isNull()) config.i2s_bck_gpio = doc["i2sBckGpio"] | config.i2s_bck_gpio;
-    if (!doc["i2sWsGpio"].isNull()) config.i2s_ws_gpio = doc["i2sWsGpio"] | config.i2s_ws_gpio;
-    if (!doc["i2sDoutGpio"].isNull())
-      config.i2s_dout_gpio = doc["i2sDoutGpio"] | config.i2s_dout_gpio;
-    if (!doc["httpPort"].isNull()) config.http_port = doc["httpPort"] | config.http_port;
-    if (!doc["wifiMaxRetries"].isNull())
-      config.wifi_max_retries = doc["wifiMaxRetries"] | config.wifi_max_retries;
 
     rt::ValidationDetail detail;
     const rt::ConfigRefusal refusal = hardware_store::save(config, &detail);
@@ -1309,17 +1414,8 @@ void register_config_routes() {
         // non-stock board it is the most destructive call in the API, so
         // guarding the PUT and leaving this open protected nothing - one
         // click undid it.
-        if (executor::is_running()) {
-          return send_problem(res, rt::problem::kProgramRunning,
-                              "A program is running - stop it before resetting the hardware "
-                              "configuration");
-        }
-        if (!boot_button::config_window_open()) {
-          return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                              "Press the BOOT button on the device (marked BOOT or FLASH) three "
-                              "times within ten seconds to open a five-minute configuration "
-                              "window, then try again.");
-        }
+        if (refuse_if_running(res, "resetting the hardware configuration")) return ESP_OK;
+        if (refuse_if_window_closed(req, res)) return ESP_OK;
 
         hardware_store::reset();
         return send_message(res, "Hardware configuration reset - restart the device to apply it");
@@ -1344,6 +1440,10 @@ std::string wifi_status_json(bool radio, const std::string &ssid, int rssi, int 
 
   std::string out = "{\"radioPresent\":";
   out += radio ? "true" : "false";
+  // Switched off in the hardware configuration (#262). Off is honoured only
+  // while Ethernet serves, so `connected` can still be true with this false.
+  out += ",\"enabled\":";
+  out += radio && hardware_store::current().wifi_enabled ? "true" : "false";
   out += ",\"connected\":";
   out += connected ? "true" : "false";
   out += ",\"ssid\":";
@@ -1353,7 +1453,7 @@ std::string wifi_status_json(bool radio, const std::string &ssid, int rssi, int 
   out += ",\"bars\":";
   out += std::to_string(connected ? bars : 0);
   out += ",\"ipAddress\":";
-  out += rt::json_quote(net_mgr::ip_address());
+  out += rt::json_quote(net_mgr::wifi_ip_address());
   out += ",\"macAddress\":";
   out += rt::json_quote(net_mgr::mac_address());
   out += ",\"provisioned\":";
@@ -1363,6 +1463,32 @@ std::string wifi_status_json(bool radio, const std::string &ssid, int rssi, int 
   out += restart_required ? "true" : "false";
   out += "}";
   return out;
+}
+
+// The wired interface (#262). Answers on every build, so a client can tell "no
+// Ethernet" from "firmware older than this endpoint".
+void register_ethernet_routes() {
+  s_server.on("/api/v2/ethernet", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
+    const ethernet::Status eth = ethernet::status();
+    std::string out = "{\"supported\":";
+    out += ethernet::supported() ? "true" : "false";
+    out += ",\"enabled\":";
+    out += eth.enabled ? "true" : "false";
+    out += ",\"present\":";
+    out += eth.present ? "true" : "false";
+    out += ",\"linkUp\":";
+    out += eth.link_up ? "true" : "false";
+    out += ",\"speedMbps\":";
+    out += std::to_string(eth.speed_mbps);
+    out += ",\"fullDuplex\":";
+    out += eth.full_duplex ? "true" : "false";
+    out += ",\"ipAddress\":";
+    out += rt::json_quote(eth.ip);
+    out += ",\"macAddress\":";
+    out += rt::json_quote(eth.mac);
+    out += "}";
+    return send_json(res, 200, out);
+  });
 }
 
 #if CONFIG_RT_NET_OPENETH
@@ -1400,13 +1526,8 @@ void register_wifi_routes() {
   // the radio off its channel for about two seconds, so this is a read that
   // costs the network it is served over. Only somebody standing at the device
   // with a reason should be spending that.
-  s_server.on("/api/v2/wifi/networks", HTTP_GET, [](PsychicRequest *, PsychicResponse *res) {
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+  s_server.on("/api/v2/wifi/networks", HTTP_GET, [](PsychicRequest *req, PsychicResponse *res) {
+    if (refuse_if_window_closed(req, res)) return ESP_OK;
 
     const std::vector<wifi_scan::AccessPoint> found =
         wifi_scan::strongest_per_ssid(wifi_scan::scan());
@@ -1448,22 +1569,13 @@ void register_wifi_routes() {
     // the restart does, and it is a separate call - but the same rule as the
     // hardware PUT applies: reconfiguring the machine and operating it are
     // different activities.
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before changing which network the "
-                          "device joins");
-    }
+    if (refuse_if_running(res, "changing which network the device joins")) return ESP_OK;
 
     // #208: being on the network proves nothing, since the setup AP's password
     // is compile-time, identical on every device and published. What has to be
     // established is that somebody is standing at the device, and three
     // presses of BOOT is that same proof.
-    if (!boot_button::config_window_open()) {
-      return send_problem(res, rt::problem::kHardwareConfigWindowClosed,
-                          "Press the BOOT button on the device (marked BOOT or FLASH) three times "
-                          "within ten seconds to open a five-minute configuration window, then "
-                          "try again.");
-    }
+    if (refuse_if_window_closed(req, res)) return ESP_OK;
 
     const std::string ssid = doc["ssid"] | "";
     const std::string password = doc["password"] | "";
@@ -1503,10 +1615,7 @@ void register_system_routes() {
   s_server.on("/api/v2/system/restart", HTTP_POST, [](PsychicRequest *req, PsychicResponse *res) {
     if (!require_control_lock(req, res)) return ESP_OK;
 
-    if (executor::is_running()) {
-      return send_problem(res, rt::problem::kProgramRunning,
-                          "A program is running - stop it before restarting the device");
-    }
+    if (refuse_if_running(res, "restarting the device")) return ESP_OK;
 
     // No configuration window guard, deliberately - D-42.
     if (!device_restart::schedule("requested over POST /api/v2/system/restart")) {
@@ -1518,6 +1627,8 @@ void register_system_routes() {
   });
 }
 
+// Serves the web app baked into the image (kWebappDir, #227). Registered last
+// so it never shadows an API route.
 void register_static_routes() {
   // Only .gz survives the build for the text assets (firmware/CMakeLists.txt),
   // so the uncompressed name is not the one to probe for.
@@ -1533,21 +1644,14 @@ void register_static_routes() {
 }  // namespace
 
 bool start() {
-  // PsychicHttpServer::start() computes max_uri_handlers itself (one wildcard
-  // meta-handler per HTTP method; it dispatches endpoints from its own list),
-  // so setting it here was dead and the "keep it above the route count"
-  // comment described a guard this library version does not have.
-
-  // The documented 1 MB ceiling was only ever consulted when reading files
-  // *back* off flash. Without these the real limits were PsychicHttp's
-  // defaults - 16 KB for a JSON body and 2 MB for an upload.
-  // The server-wide ceiling has to admit the largest legitimate upload, which
-  // is firmware: a 1 MB cap rejected every real app image outright. Raising it
-  // here would leave audio and programs unbounded, so each now counts its own
-  // bytes against kMaxUploadBytes - the ceiling that used to do that job for
-  // them.
-  s_server.maxUploadSize = kMaxFirmwareUploadBytes;
-  s_server.maxRequestBodySize = kMaxFirmwareUploadBytes;
+  // The upload ceiling has to admit the largest legitimate upload, which is a
+  // restore (PsychicHttp's own defaults are 16 KB for a body and 2 MB for an
+  // upload). Every smaller upload bounds itself: firmware against the slot,
+  // audio against kMaxUploadBytes.
+  s_server.maxUploadSize = kMaxRestoreUploadBytes;
+  // Uploads stream; this one is a body PsychicWebHandler mallocs whole before
+  // the route's lock check runs, and no route takes more than a program.
+  s_server.maxRequestBodySize = kMaxUploadBytes;
   // Every connected client holds a socket open indefinitely for /sse/v2 on top
   // of its REST traffic. Bounded by LWIP: httpd requires
   // max_open_sockets <= CONFIG_LWIP_MAX_SOCKETS - 3, and sdkconfig.defaults
@@ -1568,17 +1672,61 @@ bool start() {
   // is why this is hand-rolled.
   s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
                             const PsychicMiddlewareNext &next) -> esp_err_t {
-    const char *origin = req->header("Origin");
-    if (origin != nullptr && *origin != '\0' && origin_allowed(origin)) {
-      const std::string reflected = origin;
-      res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
-      res->addHeader("Access-Control-Allow-Credentials", "true");
-      res->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res->addHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-      res->addHeader("Access-Control-Max-Age", "600");
-      res->addHeader("Vary", "Origin");
+    add_cors_headers(req, res);
+    add_frame_headers(res);
+    return next();
+  });
+
+  // What CORS cannot stop. A cross-site form or `fetch(..., {mode:
+  // 'no-cors'})` is sent without a preflight and changes state even though its
+  // response is unreadable, and a DNS-rebinding page is same-origin, so CORS
+  // never applies to it. The first carries a foreign Origin on a write; the
+  // second, a foreign name in Host. Clients that send no Origin (curl, the
+  // console docs) are unaffected.
+  s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
+                            const PsychicMiddlewareNext &next) -> esp_err_t {
+    const std::string_view uri = req->uriCStr();
+    const bool api = uri.rfind("/api/", 0) == 0 || uri.rfind("/sse/", 0) == 0;
+    // Copied: header() returns one buffer that the next call overwrites.
+    const std::string host = req->header("Host");
+    if (api && !rt::host_allowed(host, hardware_store::current().hostname)) {
+      ESP_LOGW(TAG, "Refused %s %s for Host '%s'", req->methodStr(), req->uri(), host.c_str());
+      send_problem(res, rt::problem::kHostNotAllowed,
+                   "This device answers only to its own name or address");
+      return ESP_FAIL;
+    }
+    const http_method method = req->method();
+    const bool writes = method != HTTP_GET && method != HTTP_HEAD && method != HTTP_OPTIONS;
+    const std::string origin = req->header("Origin");
+    if (api && writes && !origin.empty() && !origin_allowed(origin) &&
+        !rt::same_origin(origin, host)) {
+      ESP_LOGW(TAG, "Refused %s %s from Origin '%s'", req->methodStr(), req->uri(), origin.c_str());
+      send_problem(res, rt::problem::kOriginNotAllowed,
+                   "Changes are accepted only from pages the device serves");
+      return ESP_FAIL;
     }
     return next();
+  });
+
+  // Closes the connection after any request that arrived with a body.
+  //
+  // ESP-IDF drains whatever Content-Length a handler leaves unread, with no
+  // byte cap and no deadline, on the only httpd task. A GET for a static file,
+  // or an upload refused before it was read, carrying a huge Content-Length
+  // and then a slow drip, held every other request off. So the rest is drained
+  // here, bounded, and a failed handler then makes httpd close the socket
+  // instead of draining it itself.
+  s_server.addMiddleware([](PsychicRequest *req, PsychicResponse *res,
+                            const PsychicMiddlewareNext &next) -> esp_err_t {
+    if (req->contentLength() == 0) return next();
+    // Said up front, so the client does not reuse the socket and race the close.
+    res->addHeader("Connection", "close");
+    const esp_err_t ret = next();
+    // An unmatched URI would otherwise be answered by onNotFound after this
+    // returns, and then drained. No SPA fallback: a page GET has no body.
+    if (ret == HTTPD_404_NOT_FOUND) send_problem(res, rt::problem::kRouteNotFound, "Not found");
+    drain_unread_body(req->request());
+    return ESP_FAIL;
   });
 
   s_server.setPort(static_cast<uint16_t>(hardware_store::current().http_port));
@@ -1603,18 +1751,30 @@ bool start() {
                          ",\"patch\":" + std::to_string(version.patch) + "}");
   });
 
+  // D-51: the lock survives a restart; its sessions do not.
+  const std::string verifier = control_lock_store::load();
+  if (!verifier.empty()) {
+    if (s_control_lock.restore(verifier)) {
+      ESP_LOGW(TAG, "Control lock on, as it was before the restart - log in to make changes");
+    } else {
+      ESP_LOGE(TAG, "The stored control lock is malformed - starting with the lock off");
+    }
+  }
   register_control_lock_routes();
+  register_config_window_routes();
   register_program_routes();
   register_diagnostics_routes();
   register_target_routes();
   register_audio_routes();
   register_config_routes();
   register_wifi_routes();
+  register_ethernet_routes();
   register_system_routes();
   // Lives in its own translation unit: the ESP-IDF OTA calls have a lifetime
   // discipline of their own (a handle that must be aborted, not ended, before
   // it is finalised) and do not belong mixed into the request handlers here.
   ota::register_routes(s_server, require_control_lock);
+  device_backup::register_routes(s_server, require_control_lock);
 
   sse_hub::attach(s_server, "/sse/v2");
 
@@ -1623,13 +1783,10 @@ bool start() {
   // headers - which a browser surfaces as an opaque CORS failure rather than
   // the 404 it is. The headers are therefore set here rather than inherited.
   s_server.onNotFound([](PsychicRequest *req, PsychicResponse *res) {
-    const char *origin = req->header("Origin");
-    if (origin != nullptr && *origin != '\0' && origin_allowed(origin)) {
-      const std::string reflected = origin;
-      res->addHeader("Access-Control-Allow-Origin", reflected.c_str());
-      res->addHeader("Access-Control-Allow-Credentials", "true");
-      res->addHeader("Vary", "Origin");
-    }
+    add_cors_headers(req, res);
+    // The SPA fallback serves index.html from here, so a deep link such as
+    // /programs would otherwise be frameable.
+    add_frame_headers(res);
 
     // SPA fallback. The webapp routes client-side, so GET /run is a real page
     // with no file behind it and a reload would otherwise answer a JSON 404.

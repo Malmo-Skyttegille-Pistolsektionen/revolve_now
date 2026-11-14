@@ -1,5 +1,6 @@
 #include "hardware_config.h"
 
+#include <string>
 #include <vector>
 
 namespace rt {
@@ -46,19 +47,35 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
 
   // Every pin in use, with the bank that owns it, so a collision can say which
   // two banks are on it. Grown rather than a fixed array: the count is now the
-  // bank count plus the LED plus the three I2S lines.
+  // bank count plus the LED, up to four I2S lines and up to six Ethernet lines.
   struct PinUse {
     int32_t gpio;
     size_t bank;  // kNoBank for the LED and the audio pins.
   };
   std::vector<PinUse> in_use;
-  in_use.reserve(config.banks.size() + 4);
+  in_use.reserve(2 * config.banks.size() + 11);
 
   // The bank pins first: they are the ones whose recovery needs a cable.
   for (size_t i = 0; i < config.banks.size(); i++) {
-    const ConfigRefusal pin = validate_pin(config.banks[i].gpio);
+    const TargetBank &bank = config.banks[i];
+    const ConfigRefusal pin = validate_pin(bank.gpio);
     if (pin != ConfigRefusal::kNone) return pin;
-    in_use.push_back({config.banks[i].gpio, i});
+    in_use.push_back({bank.gpio, i});
+
+    // Range-checked on every bank, so whatever is stored is something the
+    // contract can report back; only a latching bank drives its hide pin.
+    if (bank.pulse_ms < kMinPulseMs || bank.pulse_ms > kMaxPulseMs) {
+      return ConfigRefusal::kPulseOutOfRange;
+    }
+    if (bank.drive != BankDrive::kLatching) {
+      if (bank.hide_gpio < kPinUnused || bank.hide_gpio > kMaxGpio) {
+        return ConfigRefusal::kGpioOutOfRange;
+      }
+      continue;
+    }
+    const ConfigRefusal hide = validate_pin(bank.hide_gpio);
+    if (hide != ConfigRefusal::kNone) return hide;
+    in_use.push_back({bank.hide_gpio, i});
   }
 
   // Pins belonging to a peripheral this build does not have are not checked.
@@ -74,6 +91,26 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
     if (config.i2s_port < 0 || config.i2s_port > kMaxI2sPort)
       return ConfigRefusal::kI2sPortOutOfRange;
     for (const int32_t gpio : {config.i2s_bck_gpio, config.i2s_ws_gpio, config.i2s_dout_gpio}) {
+      const ConfigRefusal pin = validate_pin(gpio);
+      if (pin != ConfigRefusal::kNone) return pin;
+      in_use.push_back({gpio, ValidationDetail::kNoBank});
+    }
+    if (config.i2s_mclk_gpio != kI2sPinUnused) {
+      const ConfigRefusal pin = validate_pin(config.i2s_mclk_gpio);
+      if (pin != ConfigRefusal::kNone) return pin;
+      in_use.push_back({config.i2s_mclk_gpio, ValidationDetail::kNoBank});
+    }
+  }
+
+  if (present.ethernet && config.eth_enabled) {
+    for (const int32_t gpio :
+         {config.eth_sclk_gpio, config.eth_mosi_gpio, config.eth_miso_gpio, config.eth_cs_gpio}) {
+      const ConfigRefusal pin = validate_pin(gpio);
+      if (pin != ConfigRefusal::kNone) return pin;
+      in_use.push_back({gpio, ValidationDetail::kNoBank});
+    }
+    for (const int32_t gpio : {config.eth_int_gpio, config.eth_rst_gpio}) {
+      if (gpio == kPinUnused) continue;
       const ConfigRefusal pin = validate_pin(gpio);
       if (pin != ConfigRefusal::kNone) return pin;
       in_use.push_back({gpio, ValidationDetail::kNoBank});
@@ -100,6 +137,10 @@ ConfigRefusal validate(const HardwareConfig &config, Peripherals present,
     if (bank.name.size() > kMaxBankNameLength) return ConfigRefusal::kBankNameTooLong;
   }
 
+  if (!config.wifi_enabled && !(present.ethernet && config.eth_enabled)) {
+    return ConfigRefusal::kNoNetwork;
+  }
+
   const ConfigRefusal hostname = validate_hostname(config.hostname);
   if (hostname != ConfigRefusal::kNone) return hostname;
 
@@ -120,41 +161,60 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
     case ConfigRefusal::kNone:
       return "";
     case ConfigRefusal::kGpioOutOfRange:
-      return "A target GPIO must be between 0 and 48.";
+      return "A target GPIO must be between 0 and " + std::to_string(kMaxGpio) + ".";
     case ConfigRefusal::kGpioNotOutputCapable:
       return "That GPIO cannot drive an output on this chip.";
     case ConfigRefusal::kGpioReserved:
-      return "That GPIO is wired to the module's flash or PSRAM (26-32, and 35-37 for this "
+      return "That GPIO is wired to the module's flash or PSRAM (26-32, and 33-37 for this "
              "board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not "
              "exist on this chip (22-25). Driving it stops the device booting or takes away the "
              "way back in.";
     case ConfigRefusal::kHostnameEmpty:
       return "The hostname cannot be empty - it is how the device is reached.";
     case ConfigRefusal::kHostnameTooLong:
-      return "The hostname is too long; 20 characters at most.";
+      return "The hostname is too long; " + std::to_string(kMaxHostnameLength) +
+             " characters at most.";
     case ConfigRefusal::kHostnameCharset:
       return "The hostname may contain only lower-case letters, digits and hyphens.";
     case ConfigRefusal::kHostnameHyphen:
       return "The hostname cannot start or end with a hyphen.";
     case ConfigRefusal::kDisplayNameTooLong:
-      return "The display name is too long; 40 characters at most.";
+      return "The display name is too long; " + std::to_string(kMaxDisplayNameLength) +
+             " characters at most.";
     case ConfigRefusal::kI2sPortOutOfRange:
       return "The I2S port must be 0 or 1 - this chip has two.";
     case ConfigRefusal::kGpioUsbSerial:
       return "GPIO 19 and 20 are the USB serial connection. Using one would remove the serial "
              "console, which is how this setting is put back if it turns out to be wrong.";
     case ConfigRefusal::kGpioStrapping:
-      return "GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can "
+      return "GPIO 0 and 45 are read at reset to decide how the chip boots. Driving one can "
              "stop the device starting at all.";
     case ConfigRefusal::kHttpPortOutOfRange:
-      return "The HTTP port must be between 1 and 65535.";
+      return "The HTTP port must be between " + std::to_string(kMinHttpPort) + " and " +
+             std::to_string(kMaxHttpPort) + ".";
     case ConfigRefusal::kWifiRetriesOutOfRange:
-      return "WiFi attempts must be between 1 and 60 - each takes about 2.4 seconds.";
+      return "WiFi attempts must be between " + std::to_string(kMinWifiRetries) + " and " +
+             std::to_string(kMaxWifiRetries) + " - each takes about 2.4 seconds.";
     case ConfigRefusal::kBankCountOutOfRange:
-      return "A device drives between 1 and 8 target banks, called A to H.";
+      return "A device drives between 1 and " + std::to_string(kMaxTargetBanks) +
+             " target banks, called A to " + bank_letter(kMaxTargetBanks - 1) + ".";
+    case ConfigRefusal::kNoNetwork:
+      return "WiFi and Ethernet cannot both be off - the device would have no network to be "
+             "reached on.";
     case ConfigRefusal::kBankNameTooLong:
-      return "A bank name is at most 16 characters.";
+      return "A bank name is at most " + std::to_string(kMaxBankNameLength) + " characters.";
+    case ConfigRefusal::kPulseOutOfRange:
+      return "A latching bank's pulse must last between " + std::to_string(kMinPulseMs) + " and " +
+             std::to_string(kMaxPulseMs) + " ms.";
     case ConfigRefusal::kPinCollision:
+      if (detail.names_two_banks() && detail.bank_a == detail.bank_b) {
+        std::string out = "Bank ";
+        out += bank_letter(detail.bank_a);
+        out += "'s show and hide pins are both GPIO ";
+        out += std::to_string(detail.gpio);
+        out += ". A latching bank needs two different pins.";
+        return out;
+      }
       // Two banks are named, because with eight of them the generic sentence
       // no longer tells the operator which field to change.
       if (detail.names_two_banks()) {
@@ -167,9 +227,9 @@ std::string refusal_message(ConfigRefusal refusal, const ValidationDetail &detai
         out += ". Each bank needs a pin of its own.";
         return out;
       }
-      return "Two of these are on the same GPIO. The target banks, the status LED and the three "
-             "audio pins each need one of their own, or whichever is set up last takes the pad "
-             "and the other silently stops working.";
+      return "Two of these are on the same GPIO. The target banks, the status LED, the audio "
+             "pins and the Ethernet pins each need one of their own, or whichever is set up last "
+             "takes the pad and the other silently stops working.";
   }
   return "";
 }

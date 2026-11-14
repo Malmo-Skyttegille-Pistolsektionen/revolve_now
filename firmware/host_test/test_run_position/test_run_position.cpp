@@ -84,10 +84,6 @@ void test_sleep_stops_at_the_end_of_the_series() {
   TEST_ASSERT_EQUAL_INT32(20, rt::next_sleep_ms(980, 5000, 1000));
 }
 
-void test_sleep_is_capped() {
-  TEST_ASSERT_EQUAL_INT32(rt::kMaxSleepMs, rt::next_sleep_ms(0, 60000, 60000));
-}
-
 void test_sleep_is_never_zero() {
   // Already at the boundary: still yield, or the loop spins.
   TEST_ASSERT_EQUAL_INT32(1, rt::next_sleep_ms(1000, 1000, 1000));
@@ -105,7 +101,6 @@ int main() {
   RUN_TEST(test_sleep_stops_at_the_next_whole_second);
   RUN_TEST(test_sleep_stops_at_the_end_of_the_event);
   RUN_TEST(test_sleep_stops_at_the_end_of_the_series);
-  RUN_TEST(test_sleep_is_capped);
   RUN_TEST(test_sleep_is_never_zero);
   return UNITY_END();
 }

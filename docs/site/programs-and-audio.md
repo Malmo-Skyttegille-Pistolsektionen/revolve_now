@@ -85,9 +85,10 @@ missing when it resumes. Unload the program, or load a different one.
 
 ## Getting a program into the shipped set
 
-Uploaded programs live on one device. A program that should be on every
-device — and survive a reflash — belongs in the repository, where it ships
-with the next firmware.
+Uploaded programs live on one device. They survive updates, and a
+[backup](settings.md#backup) moves them to another device. A program that
+should be on every device belongs in the repository, where it ships with the
+next firmware.
 
 The route is: **Download** the program from the Programs page, then open a
 pull request adding it under `resources/programs/files/` with a filename of

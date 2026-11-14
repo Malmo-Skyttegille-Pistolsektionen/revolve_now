@@ -13,7 +13,7 @@ import type { Program, StateUpdatePayload } from '../src/api/types';
 import { RunView } from '../src/routes/run';
 import { FakeEventSource } from './fake-event-source';
 import { PROGRAM_FALT_TRANING, PROGRAM_MILITARY_SNABBMATCH } from './fixtures';
-import { createFakeClock } from './mock-server/clock';
+import { createFakeClock, type FakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
 import { openSSE, type SSEReader } from './mock-server/sse-reader';
 import { requestElsewhere } from './other-client';
@@ -35,6 +35,8 @@ const START_DELAY_SECONDS = 10;
 
 let server: MockServer;
 let queryClient: QueryClient;
+/** The mock's time, advanced by hand when a test needs a series to move. */
+let clock: FakeClock;
 
 /** The device's own stream, read over HTTP as a second client would read it. */
 let stream: SSEReader;
@@ -144,8 +146,9 @@ async function selectProgram(id: number): Promise<void> {
 }
 
 beforeAll(async () => {
+  clock = createFakeClock();
   server = createMockServer({
-    clock: createFakeClock(),
+    clock,
     port: PORT,
     seed: {
       programs: { [MILITARY.id]: MILITARY, [FALT.id]: FALT, [UPLOADED.id]: UPLOADED },
@@ -652,6 +655,51 @@ describe('D-22: unloading from the run controls', () => {
       fireEvent.click(unloadButton());
     });
     await until(() => shownProgramId() === '-', 'the device to report nothing loaded');
+  });
+});
+
+describe('D-31: Reset rewinds the series and leaves the targets alone', () => {
+  function lastState(): StateUpdatePayload {
+    const states = stream.payloads<StateUpdatePayload>('stateUpdate');
+    return states[states.length - 1];
+  }
+
+  it('sends reset, and the device reports event 0, no ticker, the same banks', async () => {
+    await ready();
+    await selectProgram(FALT.id);
+
+    await pressStart();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Now' }));
+    });
+    await until(
+      () => screen.queryByRole('button', { name: 'Pause' }) !== null,
+      'the device to report the program running',
+    );
+
+    // Into series 1's third event (10 s hide, 3 s show, then hide): hidden,
+    // which is not where a reset that "tidied up" would put the targets.
+    await act(async () => {
+      clock.advance(14_000);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    });
+    await until(() => screen.queryByRole('button', { name: 'Start' }) !== null, 'the run to pause');
+
+    const paused = lastState();
+    expect(paused.programState?.currentEventIndex).toBe(2);
+    expect(paused.targetBanks).toEqual({ A: 'hidden' });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    });
+    await until(() => lastState().programState?.currentEventIndex === 0, 'the device to report the reset');
+
+    const reset = lastState();
+    expect(reset.programState).toMatchObject({ running: false, currentEventIndex: 0, tickerMs: null });
+    expect(reset.targetBanks).toEqual(paused.targetBanks);
+    expect(screen.getByTestId('run-target-status').textContent).toBe('hidden');
   });
 });
 

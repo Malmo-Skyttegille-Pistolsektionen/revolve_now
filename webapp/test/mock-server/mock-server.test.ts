@@ -1,10 +1,24 @@
+/**
+ * The mock-only half of the mock server's suite: cases that drive the fake
+ * clock, seed state only a mock can take, or would restart or reflash a real
+ * device. Everything that holds on the firmware too is in `contract.test.ts`,
+ * which CI also runs against QEMU (#452).
+ */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AudioFile, DiagnosticsInfo, LibraryChangedPayload, StateUpdatePayload } from '../../src/api/types';
+import type {
+  AudioFile,
+  DiagnosticsInfo,
+  HardwareConfigState,
+  LibraryChangedPayload,
+  RestoreReport,
+  StateUpdatePayload,
+} from '../../src/api/types';
 import { PROGRAM_FALT_TRANING } from '../fixtures';
 import { createFakeClock, type FakeClock } from './clock';
 import { HARDWARE_DEFAULTS, createMockServer, fakeFirmwareImage, loadSeedFromDisk, type MockServer } from './server';
 import { flushIO, openSSE, type SSEReader } from './sse-reader';
+import { writeStoredZip, type ZipEntry } from './zip';
 
 /** The app's tsconfig targets ES2020, so no `Array.prototype.at`. */
 function last<T>(items: T[]): T {
@@ -27,18 +41,6 @@ async function api(path: string, init?: RequestInit): Promise<Response> {
 /** `POST /programs/start` for a named program - the body is required (D-27). */
 async function start(id: number, init?: RequestInit): Promise<Response> {
   return api('/programs/start', { method: 'POST', body: JSON.stringify({ id }), ...init });
-}
-
-/**
- * `POST /programs/series/{index}/skip_to` for a named program - the body is
- * required, same shape as `start` (D-27, #105).
- */
-async function skipTo(index: number, id: number, init?: RequestInit): Promise<Response> {
-  return api(`/programs/series/${String(index)}/skip_to`, {
-    method: 'POST',
-    body: JSON.stringify({ id }),
-    ...init,
-  });
 }
 
 /**
@@ -79,520 +81,137 @@ afterEach(async () => {
   await server.close();
 });
 
-describe('REST surface', () => {
-  it('lists programs as summaries, without the series payload', async () => {
-    const res = await api('/programs');
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([
-      { id: 40, title: 'Fältträning', description: expect.any(String), banksRequired: 1, readonly: true },
-    ]);
+/** Replaces the default device with one that has a BOOT button (D-52). */
+async function withButton(): Promise<void> {
+  await server.close();
+  server = createMockServer({ clock, seed: { programs: { 40: PROGRAM_FALT_TRANING }, audios: [], button: true } });
+  base = `http://127.0.0.1:${await server.listen()}/api/v2`;
+}
+
+/** Asks for the window; the token it was given. */
+async function requestWindow(token = ''): Promise<string> {
+  const res = await api('/config-window/request', {
+    method: 'POST',
+    headers: token === '' ? {} : { 'X-Config-Window': token },
   });
+  expect(res.status).toBe(200);
+  return ((await res.json()) as { token: string }).token;
+}
 
-  it('serves the full program by id and 404s an unknown one', async () => {
-    const program = await (await api('/programs/40')).json();
-    expect(program.series).toHaveLength(PROGRAM_FALT_TRANING.series.length);
-    expect((await api('/programs/999')).status).toBe(404);
-  });
-
-  it('rejects a start with no program loaded', async () => {
-    await expectProblem(await start(40), {
-      type: '/problems/no_program_loaded',
-      title: 'No program loaded',
-      status: 400,
-      detail: 'No program loaded',
-    });
-  });
-
-  // --- D-27: a start names the program it is for ---------------------------
-
-  it('rejects a start with no body, a non-object body or a non-integer id', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-    const malformed = 'Expected a JSON body naming the program to start: {"id": <id>}';
-
-    for (const body of [undefined, '', 'not json', '[]', '{}', '{"id":null}', '{"id":"40"}', '{"id":40.5}']) {
-      const res = await api('/programs/start', { method: 'POST', body });
-      expect(res.status, `body: ${String(body)}`).toBe(400);
-      expect(await res.json()).toMatchObject({
-        type: '/problems/start_id_required',
-        status: 400,
-        detail: malformed,
-      });
-    }
-  });
-
-  it('refuses a start for a program the device no longer holds, naming both', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-
-    const res = await start(1);
-    expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({
-      type: '/problems/start_program_mismatch',
-      status: 409,
-      detail: 'Start refused: the device has program 40 loaded, not program 1',
-    });
-  });
-
-  it('leaves the run untouched when it refuses, and the right id still starts', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-    const sse = await openSSE(server.port);
-    const before = sse.payloads<StateUpdatePayload>('stateUpdate').length;
-
-    expect((await start(1)).status).toBe(409);
-    await flushIO();
-    // A refused start publishes nothing: nothing about the device changed.
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate')).toHaveLength(before);
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState?.running).toBe(false);
-
-    expect((await start(40)).status).toBe(200);
-    await flushIO();
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState?.running).toBe(true);
-
-    sse.close();
-  });
-
-  it('refuses a stale start even while a run is in progress', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-    expect((await start(40)).status).toBe(200);
-
-    // Never "fine, it is running": the caller asked for a different program.
-    expect((await start(1)).status).toBe(409);
-  });
-
-  it('answers 400 rather than 409 when nothing is loaded at all', async () => {
-    // The more precise diagnosis wins: the client has to load something, not
-    // re-read what is loaded.
-    expect((await start(1)).status).toBe(400);
-  });
-
-  it('bounds-checks skip_to', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-    expect((await skipTo(1, 40)).status).toBe(200);
-    expect((await skipTo(99, 40)).status).toBe(400);
-  });
-
-  // --- #105: a skip names the program the index is for, mirroring D-27 -----
-
-  it('rejects a skip_to with no body, a non-object body or a non-integer id', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-    const malformed = 'Expected a JSON body naming the program to skip: {"id": <id>}';
-
-    for (const body of [undefined, '', 'not json', '[]', '{}', '{"id":null}', '{"id":"40"}', '{"id":40.5}']) {
-      const res = await api('/programs/series/1/skip_to', { method: 'POST', body });
-      expect(res.status, `body: ${String(body)}`).toBe(400);
-      expect(await res.json()).toMatchObject({
-        type: '/problems/skip_id_required',
-        status: 400,
-        detail: malformed,
-      });
-    }
-  });
-
-  it('refuses a skip for a program the device no longer holds, naming both', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-
-    const res = await skipTo(1, 1);
-    expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({
-      type: '/problems/skip_program_mismatch',
-      status: 409,
-      detail: 'Skip refused: the device has program 40 loaded, not program 1',
-    });
-  });
-
-  it('leaves the selection untouched when a skip refuses, and the right id still skips', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-    const sse = await openSSE(server.port);
-    const before = sse.payloads<StateUpdatePayload>('stateUpdate').length;
-
-    expect((await skipTo(1, 1)).status).toBe(409);
-    await flushIO();
-    // A refused skip publishes nothing: nothing about the device changed.
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate')).toHaveLength(before);
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState?.currentSeriesIndex).toBe(0);
-
-    expect((await skipTo(1, 40)).status).toBe(200);
-    await flushIO();
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState?.currentSeriesIndex).toBe(1);
-
-    sse.close();
-  });
-
-  it('answers 400 rather than 409 when nothing is loaded at all', async () => {
-    // The more precise diagnosis wins, same precedence as start's.
-    expect((await skipTo(0, 1)).status).toBe(400);
-  });
-
-  it('refuses a mismatched skip ahead of an out-of-bounds index', async () => {
-    await api('/programs/40/load', { method: 'POST' });
-
-    // The id check runs before the bounds check, so a wrong program and an
-    // out-of-range index both being true still answers the mismatch.
-    const res = await skipTo(99, 1);
-    expect(res.status).toBe(409);
-    expect(await res.json()).toMatchObject({ type: '/problems/skip_program_mismatch' });
-  });
-
-  it('gates writes on a token once the control lock is on', async () => {
-    const { token } = await (
-      await api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'range-2026' }) })
-    ).json();
-
-    expect((await api('/control-lock/status')).status).toBe(200);
-    expect((await api('/programs')).status).toBe(200);
-    expect((await api('/programs/40/load', { method: 'POST' })).status).toBe(401);
-    expect(
-      (await api('/programs/40/load', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status,
-    ).toBe(200);
-  });
-});
-
-describe('program storage', () => {
-  /** A document with everything the device is documented to ignore or fix up. */
-  const document = {
-    id: 7,
-    readonly: true,
-    title: 'Klubbserie',
-    description: 'Uploaded from a file',
-    nickname: 'dropped',
-    series: [
-      {
-        name: 'Serie 1',
-        optional: true,
-        colour: 'dropped',
-        events: [
-          { duration: 0, command: 'show', audio_ids: [26], start: true },
-          { duration: 9_000_000, command: 'hide' },
-        ],
-      },
-    ],
+async function windowState(token: string): Promise<{ state: string; remainingSeconds: number }> {
+  return (await (await api('/config-window', { headers: { 'X-Config-Window': token } })).json()) as {
+    state: string;
+    remainingSeconds: number;
   };
+}
 
-  async function upload(body: unknown = document): Promise<Response> {
-    return api('/programs', { method: 'POST', body: JSON.stringify(body) });
-  }
+/**
+ * The configuration window belongs to the client that asked for it (D-52,
+ * #656): `rt::ConfigWindow`, whose host test drives the same cases.
+ */
+describe('the configuration window', () => {
+  beforeEach(withButton);
 
-  it("assigns the lowest free id from 1000 up and ignores the document's", async () => {
-    const res = await upload();
-    expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: 1000 });
+  const PUT_HARDWARE = { method: 'PUT', body: JSON.stringify({ displayName: 'Range A' }) } as const;
 
-    expect(await (await upload()).json()).toEqual({ id: 1001 });
-    expect(await (await upload()).json()).toEqual({ id: 1002 });
+  it('opens for the client that asked, and for nobody else', async () => {
+    const mine = await requestWindow();
+    expect(await windowState(mine)).toEqual({ state: 'pending', remainingSeconds: 120 });
+    expect(server.pressBoot()).toBe('granted');
 
-    // A freed id is handed straight back out - the firmware scans up from 1000
-    // rather than counting from the highest in use.
-    await api('/programs/1001/delete', { method: 'DELETE' });
-    expect(await (await upload()).json()).toEqual({ id: 1001 });
+    expect(await windowState(mine)).toEqual({ state: 'open', remainingSeconds: 300 });
+    expect((await windowState('')).state).toBe('elsewhere');
+
+    expect((await api('/config/hardware', { ...PUT_HARDWARE, headers: { 'X-Config-Window': mine } })).status).toBe(200);
+    // The finding: a client that was not at the board, with no token or a guess.
+    expect((await api('/config/hardware', PUT_HARDWARE)).status).toBe(403);
+    expect(
+      (await api('/config/hardware', { ...PUT_HARDWARE, headers: { 'X-Config-Window': 'f'.repeat(32) } })).status,
+    ).toBe(403);
+    expect((await api('/diagnostics/bundle')).status).toBe(403);
+    expect((await api('/diagnostics/bundle', { headers: { 'X-Config-Window': mine } })).status).toBe(200);
   });
 
-  it('stores what it parsed: unknown fields dropped, duration clamped, never read-only', async () => {
-    const { id } = await (await upload()).json();
-
-    expect(await (await api(`/programs/${id}`)).json()).toEqual({
-      id,
-      title: 'Klubbserie',
-      description: 'Uploaded from a file',
-      readonly: false,
-      series: [
-        {
-          name: 'Serie 1',
-          optional: true,
-          events: [
-            { duration: 1, command: 'show', audio_ids: [26] },
-            { duration: 3600000, command: 'hide' },
-          ],
-        },
-      ],
-    });
+  it('reports writeWindow for the client asking', async () => {
+    const mine = await requestWindow();
+    server.pressBoot();
+    const read = async (headers: Record<string, string>): Promise<HardwareConfigState['writeWindow']> =>
+      ((await (await api('/config/hardware', { headers })).json()) as HardwareConfigState).writeWindow;
+    expect(await read({ 'X-Config-Window': mine })).toEqual({ open: true, remainingSeconds: 300 });
+    expect(await read({})).toEqual({ open: false, remainingSeconds: 0 });
   });
 
-  // The anchor has to survive a round trip through storage. It is the field
-  // the firmware parsed but did not serialise, so a mock that drops it would
-  // agree with that bug rather than with the fix.
-  it('carries timer_start_index through an upload, and refuses one past the end', async () => {
-    const anchored = (timer_start_index: unknown) => ({
-      title: 'Anchored',
-      series: [
-        {
-          name: 'Serie 1',
-          timer_start_index,
-          events: [
-            { duration: 7000, command: 'hide' },
-            { duration: 4000, command: 'show' },
-          ],
-        },
-      ],
-    });
-
-    const { id } = await (await upload(anchored(1))).json();
-    expect((await (await api(`/programs/${id}`)).json()).series[0].timer_start_index).toBe(1);
-
-    // Absent stays absent rather than becoming an explicit 0.
-    const { id: plain } = await (await upload(anchored(undefined))).json();
-    expect((await (await api(`/programs/${plain}`)).json()).series[0]).not.toHaveProperty('timer_start_index');
-
-    // Refused rather than clamped: 2 names an event this series does not have.
-    expect((await upload(anchored(2))).status).toBe(400);
-    expect((await upload(anchored(-1))).status).toBe(400);
+  it('opens nothing for presses nobody asked for', async () => {
+    expect(server.pressBoot()).toBe('nothingPending');
+    expect((await windowState('')).state).toBe('closed');
   });
 
-  it('rejects an upload that is not a JSON object', async () => {
-    expect((await upload('[]')).status).toBe(400);
-    expect((await api('/programs', { method: 'POST' })).status).toBe(400);
+  // The race #642 closed for the setup portal.
+  it('opens for nobody when two clients asked, and says so to both', async () => {
+    const operator = await requestWindow();
+    const other = await requestWindow();
+    expect(server.pressBoot()).toBe('conflict');
+    expect((await windowState(operator)).state).toBe('conflict');
+    expect((await windowState(other)).state).toBe('conflict');
+    expect((await api('/config/hardware', { ...PUT_HARDWARE, headers: { 'X-Config-Window': other } })).status).toBe(
+      403,
+    );
   });
 
-  // `parse_command` in firmware/lib/rt_logic/program.cpp: a command it does not
-  // recognise is a typo, not an instruction, and fails the whole program.
-  it('refuses a command that is not show or hide, on create and on replace', async () => {
-    const withCommand = (command: unknown) => ({
-      ...document,
-      series: [{ name: 'Serie 1', optional: false, events: [{ duration: 1000, command }] }],
-    });
-
-    for (const command of ['sideways', 'Show', 'SHOW', 'show ', 5, true, ['show']]) {
-      expect((await upload(withCommand(command))).status, `command ${JSON.stringify(command)}`).toBe(400);
-    }
-
-    // Absent, null and "" all mean "leave the targets where they are".
-    for (const command of [null, '']) {
-      const created = await upload(withCommand(command));
-      expect(created.status, `command ${JSON.stringify(command)}`).toBe(201);
-      const { id } = await created.json();
-      expect((await (await api(`/programs/${id}`)).json()).series[0].events[0]).toEqual({ duration: 1000 });
-
-      const replaced = await api(`/programs/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(withCommand('sideways')),
-      });
-      expect(replaced.status).toBe(400);
-      // Not the id-mismatch error, though the body still carries the fixture's
-      // id 7: `update_uploaded` parses before it compares ids.
-      await expectProblem(replaced, {
-        type: '/problems/program_invalid',
-        title: 'Invalid program',
-        status: 400,
-        detail: 'Invalid program',
-      });
-
-      // And the stored program is untouched by the refused replace.
-      expect((await (await api(`/programs/${id}`)).json()).series[0].events[0]).toEqual({ duration: 1000 });
-    }
+  it('treats asking again with the token as the same request', async () => {
+    const mine = await requestWindow();
+    expect(await requestWindow(mine)).toBe(mine);
+    expect(server.pressBoot()).toBe('granted');
   });
 
-  it('replaces through PUT and answers with the stored form', async () => {
-    const { id } = await (await upload()).json();
-
-    const res = await api(`/programs/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...document, id, title: 'Klubbserie v2' }),
-    });
-
-    expect(res.status).toBe(200);
-    expect((await res.json()).title).toBe('Klubbserie v2');
-    expect((await (await api(`/programs/${id}`)).json()).title).toBe('Klubbserie v2');
-  });
-
-  it('keeps the path id when the body declares none, and 400s a body that declares another', async () => {
-    const { id } = await (await upload()).json();
-
-    const kept = await api(`/programs/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ title: 'No id here', description: '', readonly: false, series: [] }),
-    });
-    expect(kept.status).toBe(200);
-    expect((await kept.json()).id).toBe(id);
-
-    const mismatched = await api(`/programs/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...document, id: id + 1 }),
-    });
-    await expectProblem(mismatched, {
-      type: '/problems/program_id_mismatch',
-      title: 'Program id does not match the path',
-      status: 400,
-      detail: 'Program id in the document does not match the path',
-    });
-  });
-
-  it('refuses to replace a shipped program, and 404s an unknown one', async () => {
-    const shipped = await api('/programs/40', { method: 'PUT', body: JSON.stringify(document) });
-    // `type` alone — the two sentences are not what distinguishes them.
-    await expectProblem(shipped, {
-      type: '/problems/program_readonly',
-      title: 'Program is read-only',
+  it('refuses a fifth waiting request rather than pushing one out', async () => {
+    for (let i = 0; i < 4; i++) await requestWindow();
+    await expectProblem(await api('/config-window/request', { method: 'POST' }), {
+      type: '/problems/config_window_busy',
+      title: 'Too many requests for the configuration window',
       status: 409,
-      detail: 'Program is read-only and cannot be updated',
+      detail: 'Too many devices are already asking for the configuration window. Wait two minutes and ask again.',
     });
-
-    expect((await api('/programs/999', { method: 'PUT', body: JSON.stringify(document) })).status).toBe(404);
   });
 
-  it('refuses to replace the loaded program until something else is loaded (D-15)', async () => {
-    const { id } = await (await upload()).json();
-    await api(`/programs/${id}/load`, { method: 'POST' });
+  it('lets a request lapse after two minutes, and the window after five', async () => {
+    const stale = await requestWindow();
+    clock.advance(120_000);
+    expect((await windowState(stale)).state).toBe('closed');
+    expect(server.pressBoot()).toBe('nothingPending');
 
-    const refused = await api(`/programs/${id}`, { method: 'PUT', body: JSON.stringify({ ...document, id }) });
-    await expectProblem(refused, {
-      type: '/problems/program_loaded',
-      title: 'Program is loaded',
-      status: 409,
-      detail: 'Program is loaded; unload it before updating',
-    });
+    const mine = await requestWindow();
+    server.pressBoot();
+    clock.advance(300_000);
+    expect((await windowState(mine)).state).toBe('closed');
+  });
 
-    // The way out is POST /programs/unload (D-22); loading something else does
-    // it too, and is what this asserts because it also proves the refusal is
-    // about *this* program being loaded.
-    await api('/programs/40/load', { method: 'POST' });
-    expect((await api(`/programs/${id}`, { method: 'PUT', body: JSON.stringify({ ...document, id }) })).status).toBe(
+  // The control lock is the one guard a run does not hold shut (D-51).
+  it('turns the lock on and off with the window, and only with this client’s', async () => {
+    const enable = (headers: Record<string, string>): Promise<Response> =>
+      api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'pw' }), headers });
+    expect((await enable({})).status).toBe(403);
+
+    const mine = await requestWindow();
+    server.pressBoot();
+    expect((await enable({ 'X-Config-Window': mine })).status).toBe(200);
+    expect((await api('/control-lock/disable', { method: 'POST' })).status).toBe(401);
+    expect((await api('/control-lock/disable', { method: 'POST', headers: { 'X-Config-Window': mine } })).status).toBe(
       200,
     );
   });
 
-  it('deletes an uploaded program, and tells "gone" apart from "read-only" (D-23)', async () => {
-    const { id } = await (await upload()).json();
-
-    expect((await api(`/programs/${id}/delete`, { method: 'DELETE' })).status).toBe(200);
-    expect((await api(`/programs/${id}`)).status).toBe(404);
-    // Now it really is gone, which is the one thing 404 means.
-    expect((await api(`/programs/${id}/delete`, { method: 'DELETE' })).status).toBe(404);
-
-    // A shipped program is refused, not hidden: it exists, GET still serves it,
-    // and only the write is refused - so a client can tell "refused because it
-    // is shipped" from "not there" and offer upload-as-new instead of a refresh.
-    const shipped = await api('/programs/40/delete', { method: 'DELETE' });
-    await expectProblem(shipped, {
-      type: '/problems/program_readonly',
-      title: 'Program is read-only',
-      status: 409,
-      detail: 'Program is read-only and cannot be deleted',
-    });
-    expect((await api('/programs/40')).status).toBe(200);
-  });
-
-  it('unloads the loaded program when it is deleted, and says so', async () => {
-    const { id } = await (await upload()).json();
-    await api(`/programs/${id}/load`, { method: 'POST' });
-
+  it('publishes a conflict, so the waiting clients look again', async () => {
     const sse = await openSSE(server.port);
-    await flushIO();
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).loadedProgramId).toBe(id);
-
-    await api(`/programs/${id}/delete`, { method: 'DELETE' });
-    await flushIO();
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).loadedProgramId).toBeNull();
-
-    sse.close();
-  });
-
-  it('gates create, replace and delete on the control lock token', async () => {
-    const { id } = await (await upload()).json();
-    const { token } = await (
-      await api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'range-2026' }) })
-    ).json();
-    const authorized = { Authorization: `Bearer ${token}` };
-
-    expect((await api('/programs', { method: 'POST', body: JSON.stringify(document) })).status).toBe(401);
-    expect((await api(`/programs/${id}`, { method: 'PUT', body: JSON.stringify({ ...document, id }) })).status).toBe(
-      401,
-    );
-    expect((await api(`/programs/${id}/delete`, { method: 'DELETE' })).status).toBe(401);
-
-    expect(
-      (await api('/programs', { method: 'POST', body: JSON.stringify(document), headers: authorized })).status,
-    ).toBe(201);
-    expect(
-      (await api(`/programs/${id}`, { method: 'PUT', body: JSON.stringify({ ...document, id }), headers: authorized }))
-        .status,
-    ).toBe(200);
-    expect((await api(`/programs/${id}/delete`, { method: 'DELETE', headers: authorized })).status).toBe(200);
-  });
-});
-
-describe('unloading (D-22)', () => {
-  async function loadFalt(): Promise<void> {
-    expect((await api('/programs/40/load', { method: 'POST' })).status).toBe(200);
-  }
-
-  it('clears the selection and publishes it', async () => {
-    await loadFalt();
-    const sse = await openSSE(server.port);
-    await flushIO();
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).loadedProgramId).toBe(40);
-
-    const res = await api('/programs/unload', { method: 'POST' });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ message: 'Program unloaded' });
-
-    await flushIO();
-    const published = last(sse.payloads<StateUpdatePayload>('stateUpdate'));
-    expect(published.loadedProgramId).toBeNull();
-    expect(published.programState).toBeNull();
-
-    sse.close();
-  });
-
-  it('leaves the targets where the run left them - unloading moves no hardware', async () => {
-    await loadFalt();
-    await api('/targets/show', { method: 'POST' });
-
-    await api('/programs/unload', { method: 'POST' });
-    const sse = await openSSE(server.port);
-    await flushIO();
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate')[0].targetBanks).toEqual({ A: 'shown' });
-
-    sse.close();
-  });
-
-  it('answers 200 and publishes nothing when nothing is loaded', async () => {
-    const sse = await openSSE(server.port);
-    await flushIO();
-    // The connect frame, and nothing after it.
-    const before = sse.payloads<StateUpdatePayload>('stateUpdate').length;
-
-    const res = await api('/programs/unload', { method: 'POST' });
-    expect(res.status).toBe(200);
-    // The same message either way: a 200 says "nothing is loaded now", not
-    // "something was unloaded just now". That is what makes a retry safe.
-    expect(await res.json()).toEqual({ message: 'Program unloaded' });
-
-    await flushIO();
-    // A repeat frame would teach clients that a stateUpdate need not mean a
-    // state update.
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate')).toHaveLength(before);
-
-    sse.close();
-  });
-
-  it('refuses a run in progress, and the refusal lifts with a stop', async () => {
-    await loadFalt();
-    await start(40);
-
-    const refused = await api('/programs/unload', { method: 'POST' });
-    await expectProblem(refused, {
-      type: '/problems/program_running',
-      title: 'A program is running',
-      status: 409,
-      detail: 'A program is running - stop it before unloading',
-    });
-    // Nothing happened to the run.
-    const sse = await openSSE(server.port);
-    await flushIO();
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate')[0].programState?.running).toBe(true);
-    sse.close();
-
-    await api('/programs/stop', { method: 'POST' });
-    expect((await api('/programs/unload', { method: 'POST' })).status).toBe(200);
-  });
-
-  it('is gated on the control lock token like every other mutation', async () => {
-    const { token } = await (
-      await api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'range-2026' }) })
-    ).json();
-
-    expect((await api('/programs/unload', { method: 'POST' })).status).toBe(401);
-    expect(
-      (await api('/programs/unload', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status,
-    ).toBe(200);
+    try {
+      await requestWindow();
+      await requestWindow();
+      server.pressBoot();
+      await flushIO();
+      expect(sse.payloads('configWindow')).toEqual([{ open: false, remainingSeconds: 0 }]);
+    } finally {
+      sse.close();
+    }
   });
 });
 
@@ -602,12 +221,6 @@ describe('libraryChanged (D-24)', () => {
     { id: 3, title: 'Eld upphör', filename: '/embedded/audio/3.wav', readonly: true },
     { id: 1000, title: 'Klubbmästerskap', filename: '/userdata/audio/1000.wav', readonly: false },
   ];
-
-  const document = {
-    title: 'Klubbserie',
-    description: 'Uploaded from a file',
-    series: [{ name: 'Serie 1', optional: false, events: [{ duration: 1000, command: 'show' }] }],
-  };
 
   let audioServer: MockServer;
   let audioBase: string;
@@ -648,20 +261,6 @@ describe('libraryChanged (D-24)', () => {
     return { body, headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` } };
   }
 
-  it('names the program library on create, replace and delete', async () => {
-    const { id } = await (await call('/programs', { method: 'POST', body: JSON.stringify(document) })).json();
-    await flushIO();
-    expect(kinds()).toEqual(['program']);
-
-    await call(`/programs/${id}`, { method: 'PUT', body: JSON.stringify(document) });
-    await flushIO();
-    expect(kinds()).toEqual(['program', 'program']);
-
-    await call(`/programs/${id}/delete`, { method: 'DELETE' });
-    await flushIO();
-    expect(kinds()).toEqual(['program', 'program', 'program']);
-  });
-
   it('names the audio library on upload and delete', async () => {
     const { body, headers } = wavUpload('Nytt klipp');
     const created = await call('/audios', { method: 'POST', body, headers });
@@ -673,81 +272,9 @@ describe('libraryChanged (D-24)', () => {
     await flushIO();
     expect(kinds()).toEqual(['audio', 'audio']);
   });
-
-  it('says nothing about the library when the device only changes what it is doing', async () => {
-    await call('/programs/40/load', { method: 'POST' });
-    await call('/programs/start', { method: 'POST', body: JSON.stringify({ id: 40 }) });
-    await call('/programs/stop', { method: 'POST' });
-    await call('/programs/reset', { method: 'POST' });
-    await call('/programs/series/1/skip_to', { method: 'POST', body: JSON.stringify({ id: 40 }) });
-    await call('/programs/unload', { method: 'POST' });
-    await call('/targets/toggle', { method: 'POST' });
-    await flushIO();
-
-    expect(kinds()).toEqual([]);
-    // ...and every one of those did publish run state, so the stream is alive.
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate').length).toBeGreaterThan(1);
-  });
-
-  it('emits both events when the loaded program is deleted, for its two reasons', async () => {
-    const { id } = await (await call('/programs', { method: 'POST', body: JSON.stringify(document) })).json();
-    await call(`/programs/${id}/load`, { method: 'POST' });
-    await flushIO();
-    const stateFrames = sse.payloads<StateUpdatePayload>('stateUpdate').length;
-
-    await call(`/programs/${id}/delete`, { method: 'DELETE' });
-    await flushIO();
-
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate').length).toBe(stateFrames + 1);
-    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).loadedProgramId).toBeNull();
-    // The create emitted one too, so the delete is the second.
-    expect(kinds()).toEqual(['program', 'program']);
-  });
-
-  it('stays silent on a refused write - a 409 changed nothing', async () => {
-    expect((await call('/programs/40/delete', { method: 'DELETE' })).status).toBe(409);
-    expect((await call('/audios/3/delete', { method: 'DELETE' })).status).toBe(409);
-    await flushIO();
-    expect(kinds()).toEqual([]);
-  });
-
-  it('refuses a shipped clip with 409, ahead of every other reason (D-23)', async () => {
-    const refused = await call('/audios/3/delete', { method: 'DELETE' });
-    await expectProblem(refused, {
-      type: '/problems/audio_readonly',
-      title: 'Audio is read-only',
-      status: 409,
-      detail: 'Audio is read-only and cannot be deleted',
-    });
-    // Still there, and still listed - it was refused, not hidden.
-    const { audios } = (await (await call('/audios')).json()) as { audios: AudioFile[] };
-    expect(audios.map((clip) => clip.id)).toContain(3);
-
-    // 404 is left meaning exactly one thing.
-    expect((await call('/audios/999/delete', { method: 'DELETE' })).status).toBe(404);
-  });
 });
 
 describe('diagnostics (D-25)', () => {
-  it('serves no startup issues for a clean boot', async () => {
-    const info = (await (await api('/diagnostics/info')).json()) as DiagnosticsInfo;
-    expect(info.startupIssues).toEqual([]);
-    expect(info.programCount).toBe(1);
-  });
-
-  it('counts the open event streams', async () => {
-    const sseClients = async (): Promise<number | undefined> =>
-      ((await (await api('/diagnostics/info')).json()) as DiagnosticsInfo).sseClients;
-    expect(await sseClients()).toBe(0);
-
-    const sse = await openSSE(server.port);
-    expect(await sseClients()).toBe(1);
-
-    sse.close();
-    await flushIO();
-    expect(await sseClients()).toBe(0);
-  });
-
   it('serves what the boot scan could not read, bounded and oldest-dropped', async () => {
     const issues = Array.from({ length: 10 }, (_, index) => ({
       code: 'program_invalid',
@@ -766,13 +293,6 @@ describe('diagnostics (D-25)', () => {
 
     await bounded.close();
   });
-
-  it('is public - no token needed once the control lock is on', async () => {
-    await api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'range-2026' }) });
-    const res = await api('/diagnostics/info');
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as DiagnosticsInfo).controlLockEnabled).toBe(true);
-  });
 });
 
 describe('simulation on a fake clock', () => {
@@ -784,16 +304,6 @@ describe('simulation on a fake clock', () => {
   });
 
   afterEach(() => sse.close());
-
-  it('sends the full state on connect', async () => {
-    expect(sse.payloads<StateUpdatePayload>('stateUpdate')[0]).toEqual({
-      loadedProgramId: null,
-      programState: null,
-      // The targets rest where the boot latched them - `targetsShownAtBoot` is
-      // true on a stock device (D-31), not "hidden".
-      targetBanks: { A: 'shown' },
-    });
-  });
 
   it('walks the whole 28 s series, event by event, in no real time', async () => {
     await api('/programs/40/load', { method: 'POST' });
@@ -834,6 +344,45 @@ describe('simulation on a fake clock', () => {
     expect(completed.targetBanks).toEqual({ A: 'hidden' });
   });
 
+  it('enters an event a late tick stepped over, as rt::Executor::tick does', async () => {
+    // A 1 ms event closes the series: the tick that finds the series over has
+    // crossed it, and its "hide" is the state the program declares.
+    const program = {
+      id: 41,
+      title: 'Short tail',
+      description: '',
+      readonly: false,
+      series: [
+        {
+          name: 'S',
+          optional: false,
+          events: [
+            { duration: 1050, command: 'show' as const },
+            { duration: 1, command: 'hide' as const },
+          ],
+        },
+      ],
+    };
+    const short = createMockServer({ clock, seed: { programs: { 41: program }, audios: [] } });
+    const shortBase = `http://127.0.0.1:${await short.listen()}/api/v2`;
+    const shortSse = await openSSE(short.port);
+    try {
+      await fetch(`${shortBase}/programs/41/load`, { method: 'POST' });
+      await fetch(`${shortBase}/programs/start`, { method: 'POST', body: JSON.stringify({ id: 41 }) });
+      await flushIO();
+
+      clock.advance(2000);
+      await flushIO();
+
+      const completed = last(shortSse.payloads<StateUpdatePayload>('stateUpdate'));
+      expect(completed.programState?.running).toBe(false);
+      expect(completed.targetBanks).toEqual({ A: 'hidden' });
+    } finally {
+      shortSse.close();
+      await short.close();
+    }
+  });
+
   it('stop pauses and start resumes from the same millisecond', async () => {
     await api('/programs/40/load', { method: 'POST' });
     await start(40);
@@ -854,6 +403,21 @@ describe('simulation on a fake clock', () => {
     expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState).toMatchObject({
       running: true,
       tickerMs: 12_000,
+      currentEventIndex: 1,
+    });
+  });
+
+  it('stop captures the run mid-second, not the last published frame', async () => {
+    // Mirrors Executor::stop. The last frame went out at 12 000 ms.
+    await api('/programs/40/load', { method: 'POST' });
+    await start(40);
+    clock.advance(12_500);
+    await api('/programs/stop', { method: 'POST' });
+    await flushIO();
+
+    expect(last(sse.payloads<StateUpdatePayload>('stateUpdate')).programState).toMatchObject({
+      running: false,
+      tickerMs: 12_500,
       currentEventIndex: 1,
     });
   });
@@ -916,17 +480,6 @@ describe('hardware configuration', () => {
     return (await (await api('/config/hardware')).json()) as Record<string, never>;
   }
 
-  it('starts on the compiled defaults, with nothing overridden', async () => {
-    const state = await read();
-    expect(state).toMatchObject({
-      active: HARDWARE_DEFAULTS,
-      saved: HARDWARE_DEFAULTS,
-      defaults: HARDWARE_DEFAULTS,
-      overridden: false,
-      restartRequired: false,
-    });
-  });
-
   // The gap between a save and the reboot that adopts it is the one thing a
   // client must not hide: a pin change that appears to have done nothing is
   // how somebody ends up reflashing a working device.
@@ -958,19 +511,19 @@ describe('hardware configuration', () => {
     expect(state).toMatchObject({ saved: { banks: [{ gpio: 9 }], displayName: 'Bana 1' } });
   });
 
-  // 26-32 are the module's own flash and PSRAM, 35-37 the octal PSRAM's extra
+  // 26-32 are the module's own flash and PSRAM, 33-37 the octal PSRAM's extra
   // data lines on this board, 43/44 the serial console. Driving one does not
   // fail to move a target, it stops the device booting or takes away the way
   // back in (D-41).
   it('refuses a GPIO that would stop the device booting, without storing anything', async () => {
-    for (const gpio of [26, 30, 32, 22, 25, 35, 36, 37, 43, 44]) {
+    for (const gpio of [26, 30, 32, 22, 25, 33, 34, 35, 36, 37, 43, 44]) {
       const refused = await putBankA(gpio);
       await expectProblem(refused, {
         type: '/problems/hardware_config_invalid',
         title: 'Invalid hardware configuration',
         status: 400,
         detail:
-          "That GPIO is wired to the module's flash or PSRAM (26-32, and 35-37 for this board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not exist on this chip (22-25). Driving it stops the device booting or takes away the way back in.",
+          "That GPIO is wired to the module's flash or PSRAM (26-32, and 33-37 for this board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not exist on this chip (22-25). Driving it stops the device booting or takes away the way back in.",
       });
     }
     expect(await read()).toMatchObject({ saved: HARDWARE_DEFAULTS, overridden: false });
@@ -1006,16 +559,6 @@ describe('hardware configuration', () => {
       overridden: false,
       restartRequired: true,
     });
-  });
-
-  it('gates writes on the control lock token, but not the read', async () => {
-    expect(
-      (await api('/control-lock/enable', { method: 'POST', body: JSON.stringify({ password: 'pw' }) })).status,
-    ).toBe(200);
-
-    expect((await api('/config/hardware')).status).toBe(200);
-    expect((await putBankA(7)).status).toBe(401);
-    expect((await api('/config/hardware/reset', { method: 'POST' })).status).toBe(401);
   });
 });
 
@@ -1123,7 +666,7 @@ describe('restarting the device', () => {
 
   // Deliberately not behind the configuration window (D-42).
   it('works while the configuration window is shut', async () => {
-    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], configWindowOpen: false } });
+    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], button: true } });
     const shutBase = `http://127.0.0.1:${await shut.listen()}/api/v2`;
     try {
       expect((await fetch(`${shutBase}/config/hardware`, { method: 'PUT', body: '{}' })).status).toBe(403);
@@ -1217,24 +760,6 @@ describe('firmware upload', () => {
     expect((await upload(fakeFirmwareImage('rotation_target_backend'))).status).toBe(400);
   });
 
-  it('refuses something that is not an image at all on its first byte', async () => {
-    await expectProblem(await upload(Buffer.from('not firmware')), {
-      type: '/problems/ota_image_refused',
-      title: 'Firmware image refused',
-      status: 400,
-      detail: 'That file is not a firmware image, or it is incomplete - upload refused',
-    });
-  });
-
-  it('refuses an image with no app description as a foreign one, whatever its size', async () => {
-    const image = Buffer.alloc(16);
-    image[0] = 0xe9;
-    const res = await upload(image);
-    expect(((await res.json()) as { detail: string }).detail).toBe(
-      'That firmware is for a different device - upload refused',
-    );
-  });
-
   it('refuses a readable header with nothing behind it as too small', async () => {
     await expectProblem(await upload(fakeFirmwareImage(undefined, 256)), emptyImage);
   });
@@ -1294,52 +819,6 @@ describe('firmware upload', () => {
   });
 });
 
-/**
- * Where the targets rest at boot changes only from the serial console (D-31,
- * #144). Pinned in the mock because the webapp will grow a form for the rest of
- * this configuration, and the one field that form must not offer is this one.
- */
-describe('the boot target state is serial-only', () => {
-  it('is reported, so a client can show it', async () => {
-    const state = (await (await api('/config/hardware')).json()) as { active: { targetsShownAtBoot: boolean } };
-    expect(state.active.targetsShownAtBoot).toBe(true);
-  });
-
-  // Refused rather than ignored: a change an operator believes they made is
-  // worse than one they were told they could not.
-  it('is refused by PUT, whatever its value, and changes nothing', async () => {
-    for (const targetsShownAtBoot of [true, false]) {
-      const refused = await api('/config/hardware', {
-        method: 'PUT',
-        body: JSON.stringify({ targetsShownAtBoot }),
-      });
-      await expectProblem(refused, {
-        type: '/problems/hardware_config_serial_only',
-        title: 'That setting changes only from the serial console',
-        status: 400,
-        detail:
-          "targetsShownAtBoot changes only from the serial console: 'boot-targets shown' or 'boot-targets hidden'",
-      });
-    }
-
-    const state = (await (await api('/config/hardware')).json()) as { overridden: boolean };
-    expect(state.overridden).toBe(false);
-  });
-
-  // Even alongside fields that would otherwise be accepted: the whole request
-  // is refused, so nothing is half-applied.
-  it('takes the rest of the request down with it', async () => {
-    const refused = await api('/config/hardware', {
-      method: 'PUT',
-      body: JSON.stringify({ banks: [{ gpio: 7, activeLow: true, name: '' }], targetsShownAtBoot: false }),
-    });
-    expect(refused.status).toBe(400);
-
-    const state = (await (await api('/config/hardware')).json()) as { saved: { banks: { gpio: number }[] } };
-    expect(state.saved.banks).toEqual(HARDWARE_DEFAULTS.banks);
-  });
-});
-
 describe('WiFi (#263)', () => {
   // Public, like every other GET. The device's own network placement is not a
   // secret from anyone who can already see the device.
@@ -1353,7 +832,7 @@ describe('WiFi (#263)', () => {
   // the radio off its channel, so it is a read that costs the network it is
   // served over.
   it('refuses a scan while the configuration window is shut', async () => {
-    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], configWindowOpen: false } });
+    const shut = createMockServer({ clock, seed: { programs: {}, audios: [], button: true } });
     const shutBase = `http://127.0.0.1:${await shut.listen()}/api/v2`;
     try {
       await expectProblem(await fetch(`${shutBase}/wifi/networks`), {
@@ -1361,7 +840,7 @@ describe('WiFi (#263)', () => {
         title: 'The configuration window is closed',
         status: 403,
         detail:
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
+          'Ask for the configuration window first (Expert mode, in the web app), then press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds, and try again.',
       });
     } finally {
       await shut.close();
@@ -1432,40 +911,6 @@ describe('WiFi (#263)', () => {
       },
     );
   });
-
-  // The Ethernet build (CONFIG_RT_NET_OPENETH, QEMU) has no radio. The GET
-  // still answers - so a client can tell "no radio" from "firmware older than
-  // this endpoint", which an absent route cannot say - and the other two
-  // refuse rather than pretending.
-  it('answers the read and refuses the rest on a build with no radio', async () => {
-    const wired = createMockServer({
-      clock,
-      seed: {
-        programs: {},
-        audios: [],
-        wifi: { radioPresent: false, connected: false, ssid: '', rssi: 0, bars: 0, macAddress: '' },
-      },
-    });
-    const wiredBase = `http://127.0.0.1:${await wired.listen()}/api/v2`;
-    try {
-      const status = (await (await fetch(`${wiredBase}/wifi`)).json()) as { radioPresent: boolean };
-      expect(status.radioPresent).toBe(false);
-
-      for (const request of [
-        fetch(`${wiredBase}/wifi/networks`),
-        fetch(`${wiredBase}/wifi`, { method: 'PUT', body: JSON.stringify({ ssid: 'Anything' }) }),
-      ]) {
-        await expectProblem(await request, {
-          type: '/problems/wifi_unavailable',
-          title: 'This device has no WiFi radio',
-          status: 409,
-          detail: 'This firmware is built for wired Ethernet and has no WiFi radio',
-        });
-      }
-    } finally {
-      await wired.close();
-    }
-  });
 });
 
 /** A device with `count` banks, each on its own pin, already booted on them. */
@@ -1493,18 +938,17 @@ async function withBanks(count: number): Promise<{ server: MockServer; base: str
  * the firmware actually applies.
  */
 describe('target banks', () => {
-  // A one-bank device sends `targetBanks` too, with the single key `A` (D-41),
-  // so a client reads the bank count off the key count.
-  it('publishes a single letter on a one-bank device', async () => {
-    const sse = await openSSE(server.port);
-    try {
-      await api('/targets/show', { method: 'POST' });
-      await flushIO();
-      const update = last(sse.payloads<StateUpdatePayload>('stateUpdate'));
-      expect(update.targetBanks).toEqual({ A: 'shown' });
-    } finally {
-      sse.close();
-    }
+  // Mock-only because the emulator discards GPIO writes and reads every pad
+  // back as 0 (firmware/docs/QEMU.md).
+  it('hide actually hides', async () => {
+    await api('/targets/show', { method: 'POST' });
+    const res = await api('/targets/hide', { method: 'POST' });
+
+    expect(await res.json()).toEqual({ message: 'Targets hidden' });
+    // `activeLow` is true here, so hidden is the *high* pad level: the field is
+    // the raw read-back, not what it means.
+    const info = (await (await api('/diagnostics/info')).json()) as DiagnosticsInfo;
+    expect(info.banks[0].padLevel).toBe(1);
   });
 
   it('publishes one key per bank on a device with several', async () => {
@@ -1520,18 +964,6 @@ describe('target banks', () => {
       sse.close();
       await four.server.close();
     }
-  });
-
-  // The pre-existing bug this PR fixes: hide broadcast without moving anything.
-  it('hide actually hides', async () => {
-    await api('/targets/show', { method: 'POST' });
-    const res = await api('/targets/hide', { method: 'POST' });
-
-    expect(await res.json()).toEqual({ message: 'Targets hidden' });
-    // `activeLow` is true here, so hidden is the *high* pad level: the field is
-    // the raw read-back, not what it means.
-    const info = (await (await api('/diagnostics/info')).json()) as DiagnosticsInfo;
-    expect(info.banks[0].padLevel).toBe(1);
   });
 
   it('a bodyless call moves every bank', async () => {
@@ -1629,29 +1061,6 @@ describe('target banks', () => {
     }
   });
 
-  it('refuses a banks that is not an array of letters', async () => {
-    for (const body of [{ banks: 'B' }, { banks: 3 }, { banks: { B: true } }]) {
-      await expectProblem(await api('/targets/show', { method: 'POST', body: JSON.stringify(body) }), {
-        type: '/problems/bank_unavailable',
-        title: 'No such target bank',
-        status: 400,
-        detail: '\'banks\' must be an array of bank letters, like ["A", "B"].',
-      });
-    }
-  });
-
-  // One spelling per bank, and one letter per entry: the device never has to
-  // decide whether "a" and "A" are the same request.
-  it('refuses lower case and multi-character entries', async () => {
-    for (const letter of ['a', 'AA', '']) {
-      const res = await api('/targets/show', { method: 'POST', body: JSON.stringify({ banks: [letter] }) });
-      expect(res.status).toBe(400);
-      expect(((await res.json()) as { detail: string }).detail).toBe(
-        `'${letter}' is not a bank on this device, which has only bank A.`,
-      );
-    }
-  });
-
   it('accepts a repeated letter, because it asks for nothing extra', async () => {
     const four = await withBanks(4);
     try {
@@ -1665,15 +1074,6 @@ describe('target banks', () => {
     } finally {
       await four.server.close();
     }
-  });
-
-  it('refuses an empty list rather than widening it to every bank', async () => {
-    await expectProblem(await api('/targets/show', { method: 'POST', body: JSON.stringify({ banks: [] }) }), {
-      type: '/problems/bank_unavailable',
-      title: 'No such target bank',
-      status: 400,
-      detail: "'banks' named no bank. Omit the body to move every bank.",
-    });
   });
 
   // A program's `command` means every bank, which is what it has always meant
@@ -1729,13 +1129,15 @@ describe('target banks', () => {
       active: { banks: unknown[] };
       restartRequired: boolean;
     };
-    expect(saved.saved.banks).toEqual(banks);
+    // A bank sent without the latching fields (#636) comes back with their defaults.
+    const stored = banks.map((bank) => ({ ...bank, drive: 'level', hideGpio: -1, pulseMs: 100 }));
+    expect(saved.saved.banks).toEqual(stored);
     expect(saved.active.banks).toHaveLength(1);
     expect(saved.restartRequired).toBe(true);
 
     server.restart();
     const afterRestart = (await (await api('/config/hardware')).json()) as { active: { banks: unknown[] } };
-    expect(afterRestart.active.banks).toEqual(banks);
+    expect(afterRestart.active.banks).toEqual(stored);
   });
 
   // The array replaces what is stored rather than merging into it: a body
@@ -1840,7 +1242,7 @@ describe('target banks', () => {
       title: 'Invalid hardware configuration',
       status: 400,
       detail:
-        'GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.',
+        'GPIO 0 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.',
     });
   });
 
@@ -1895,102 +1297,11 @@ describe('target banks, program side', () => {
     ],
   };
 
-  async function upload(document: unknown): Promise<Response> {
-    return api('/programs', { method: 'POST', body: JSON.stringify(document) });
-  }
-
   /** A second device, because the bank count is fixed at boot. Stage 2's helper, reused. */
   async function deviceWithBanks(count: number): Promise<{ close: () => Promise<void>; base: string }> {
     const { server: banked, base: bankedBase } = await withBanks(count);
     return { close: () => banked.close(), base: bankedBase };
   }
-
-  it('stores and returns the overrides an upload carries', async () => {
-    const { id } = (await (await upload(BANKED)).json()) as { id: number };
-    const stored = (await (await api(`/programs/${String(id)}`)).json()) as {
-      series: { events: Record<string, unknown>[] }[];
-    };
-
-    expect(stored.series[0].events[0].banks).toEqual({ B: 'show' });
-  });
-
-  it.each([
-    ['a letter no device can have', { I: 'show' }],
-    ['a lower-case letter', { b: 'show' }],
-    ['a command typo', { B: 'shwo' }],
-    ['a list instead of an object', ['B']],
-  ])('refuses %s the way a command typo is refused', async (_name, banks) => {
-    const res = await upload({
-      ...BANKED,
-      series: [{ name: 'S', optional: false, events: [{ duration: 1000, banks }] }],
-    });
-    await expectProblem(res, {
-      type: '/problems/program_invalid',
-      title: 'Invalid program',
-      status: 400,
-      detail: 'Invalid program',
-    });
-  });
-
-  it('treats null and an empty object as no overrides at all', async () => {
-    const { id } = (await (
-      await upload({
-        ...BANKED,
-        series: [
-          {
-            name: 'S',
-            optional: false,
-            events: [
-              { duration: 1000, banks: null },
-              { duration: 1000, banks: {} },
-            ],
-          },
-        ],
-      })
-    ).json()) as { id: number };
-
-    const stored = (await (await api(`/programs/${String(id)}`)).json()) as {
-      series: { events: Record<string, unknown>[] }[];
-    };
-    expect(stored.series[0].events[0]).not.toHaveProperty('banks');
-    expect(stored.series[0].events[1]).not.toHaveProperty('banks');
-  });
-
-  it('reports banksRequired in the summaries, derived rather than declared', async () => {
-    await upload(BANKED);
-    const list = (await (await api('/programs')).json()) as { id: number; banksRequired: number }[];
-
-    expect(list.find((program) => program.id === 40)?.banksRequired).toBe(1);
-    expect(list.find((program) => program.id === 1000)?.banksRequired).toBe(4);
-  });
-
-  it('replaces the overrides on a PUT', async () => {
-    const { id } = (await (await upload(BANKED)).json()) as { id: number };
-    await api(`/programs/${String(id)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...BANKED, series: [{ name: 'S', optional: false, events: [{ duration: 1000 }] }] }),
-    });
-
-    const list = (await (await api('/programs')).json()) as { id: number; banksRequired: number }[];
-    expect(list.find((program) => program.id === id)?.banksRequired).toBe(1);
-  });
-
-  it('refuses to start a program that needs banks this device does not have', async () => {
-    const { id } = (await (await upload(BANKED)).json()) as { id: number };
-    await api(`/programs/${String(id)}/load`, { method: 'POST' });
-
-    await expectProblem(await start(id), {
-      type: '/problems/program_banks_unavailable',
-      title: 'The program needs banks this device does not have',
-      status: 409,
-      detail: 'Program needs banks A-D; this device has one bank (A)',
-    });
-  });
-
-  it('uploads and loads that same program without complaint', async () => {
-    const { id } = (await (await upload(BANKED)).json()) as { id: number };
-    expect((await api(`/programs/${String(id)}/load`, { method: 'POST' })).status).toBe(200);
-  });
 
   // The mirror seam: this is `rt::Executor::enter_event`, and a webapp test
   // that drives a four-bank device is only worth anything if it matches.
@@ -2054,5 +1365,157 @@ describe('target banks, program side', () => {
     } finally {
       await device.close();
     }
+  });
+});
+
+/**
+ * The restore's hardware rules and broken archives (#520) - the cases that
+ * change the configuration or need a damaged file, which the contract suite
+ * does not do to a real device. `firmware/host_test/test_backup` holds the
+ * firmware to the same rules.
+ */
+describe('restoring a backup', () => {
+  const json = (name: string, value: unknown): ZipEntry => ({ name, data: Buffer.from(JSON.stringify(value)) });
+  /** backup.json, with `hardware` when given. */
+  const backupJson = (hardware?: Record<string, unknown>): ZipEntry =>
+    json('backup.json', {
+      format: 'revolve-now-backup',
+      formatVersion: 1,
+      firmwareVersion: '0.1.0',
+      hostname: 'range-a',
+      displayName: '',
+      includesWifiCredentials: false,
+      ...(hardware ? { hardware } : {}),
+      audios: [],
+    });
+  const BACKUP_JSON = backupJson();
+
+  const restore = async (entries: ZipEntry[] | Buffer, query = ''): Promise<RestoreReport> => {
+    const zip = Buffer.isBuffer(entries) ? entries : writeStoredZip(entries);
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array(zip)]), 'backup.zip');
+    const res = await api(`/restore${query}`, { method: 'POST', body });
+    expect(res.status).toBe(200);
+    return (await res.json()) as RestoreReport;
+  };
+
+  const saved = async (): Promise<HardwareConfigState['saved']> =>
+    ((await (await api('/config/hardware')).json()) as HardwareConfigState).saved;
+
+  it('renumbers clips under the programs that play them, and skips them the second time', async () => {
+    const clipBody = new FormData();
+    clipBody.append('file', new Blob([new Uint8Array(Buffer.from('RIFF clip'))]), 'clip.wav');
+    clipBody.append('title', 'Round trip');
+    const clip = ((await (await api('/audios', { method: 'POST', body: clipBody })).json()) as { id: number }).id;
+    const program = (
+      (await (
+        await api('/programs', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: 'Round trip',
+            series: [{ name: 'S', events: [{ duration: 1, audio_ids: [3, clip] }] }],
+          }),
+        })
+      ).json()) as { id: number }
+    ).id;
+    const zip = Buffer.from(await (await api('/backup')).arrayBuffer());
+
+    await api(`/programs/${String(program)}/delete`, { method: 'DELETE' });
+    await api(`/audios/${String(clip)}/delete`, { method: 'DELETE' });
+    // Taken by something else, so the restored clip cannot keep its old id.
+    const squatter = new FormData();
+    squatter.append('file', new Blob([new Uint8Array(Buffer.from('RIFF other'))]), 'other.wav');
+    squatter.append('title', 'Other');
+    await api('/audios', { method: 'POST', body: squatter });
+
+    const report = await restore(zip, '?hardware=false');
+    const restoredClip = report.audios.find((item) => item.sourceId === clip);
+    expect(restoredClip).toMatchObject({ result: 'added', title: 'Round trip' });
+    expect(restoredClip?.id).not.toBe(clip);
+    const restoredProgram = report.programs.find((item) => item.sourceId === program);
+    const stored = (await (await api(`/programs/${String(restoredProgram?.id)}`)).json()) as {
+      series: { events: { audio_ids: number[] }[] }[];
+    };
+    expect(stored.series[0].events[0].audio_ids).toEqual([3, restoredClip?.id]);
+
+    const again = await restore(zip, '?hardware=false');
+    expect([...again.audios, ...again.programs].every((item) => item.result === 'skipped')).toBe(true);
+  });
+
+  it('saves the hardware onto the defaults and keeps this board’s name unless asked', async () => {
+    const entries = [backupJson({ hostname: 'range-a', i2sMclkGpio: 3 })];
+
+    expect((await restore(entries)).hardware.result).toBe('saved');
+    expect(await saved()).toMatchObject({ hostname: HARDWARE_DEFAULTS.hostname, i2sMclkGpio: 3 });
+
+    expect((await restore(entries, '?name=true')).hardware.result).toBe('saved');
+    expect((await saved()).hostname).toBe('range-a');
+
+    expect((await restore(entries, '?name=true')).hardware.result).toBe('unchanged');
+  });
+
+  it('skips the hardware with the window shut, and restores the rest', async () => {
+    await withButton();
+    const report = await restore([
+      backupJson({ i2sMclkGpio: 3 }),
+      json('programs/1000.json', { title: 'Still restored', series: [] }),
+    ]);
+    expect(report.hardware).toMatchObject({
+      result: 'skipped',
+      problem: { type: '/problems/hardware_config_window_closed' },
+    });
+    expect(report.programs[0].result).toBe('added');
+    expect((await saved()).i2sMclkGpio).toBe(HARDWARE_DEFAULTS.i2sMclkGpio);
+  });
+
+  it('calls hardware already in place unchanged, even with the window shut', async () => {
+    await withButton();
+    const report = await restore([backupJson({})]);
+    expect(report.hardware).toEqual({ result: 'unchanged' });
+  });
+
+  it('refuses a backup from before backup.json with a sentence that says so', async () => {
+    const zip = writeStoredZip([json('manifest.json', { format: 'revolve-now-backup', formatVersion: 1 })]);
+    const body = new FormData();
+    body.append('file', new Blob([new Uint8Array(zip)]), 'backup.zip');
+    const res = await api('/restore', { method: 'POST', body });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { detail: string }).detail).toContain('development build');
+  });
+
+  it('reports a value the device refuses, with its reason', async () => {
+    const report = await restore([backupJson({ ledGpio: 27 })]);
+    expect(report.hardware).toMatchObject({
+      result: 'refused',
+      problem: { type: '/problems/hardware_config_invalid' },
+    });
+  });
+
+  it('drops references to a clip it could not restore', async () => {
+    const report = await restore([
+      BACKUP_JSON,
+      { name: 'audio/1000.wav', data: Buffer.from('not a wav') },
+      json('programs/1000.json', { title: 'P', series: [{ name: 'S', events: [{ duration: 1, audio_ids: [1000] }] }] }),
+    ]);
+    expect(report.audios[0]).toMatchObject({ result: 'refused', title: 'Restored clip 1000' });
+    expect(report.programs[0]).toMatchObject({ result: 'added', droppedAudioIds: [1000] });
+  });
+
+  it('stops where a truncated archive ends, keeping what came before', async () => {
+    const whole = writeStoredZip([
+      BACKUP_JSON,
+      json('programs/1000.json', { title: 'Before the cut', series: [] }),
+      json('programs/1001.json', { title: 'After the cut', series: [] }),
+    ]);
+    const report = await restore(whole.subarray(0, whole.indexOf('After the cut')));
+    expect(report.programs.map((item) => item.title)).toEqual(['Before the cut']);
+    expect(report.stoppedEarly?.type).toBe('/problems/backup_invalid');
+  });
+
+  it('refuses a damaged entry on its own', async () => {
+    const zip = writeStoredZip([BACKUP_JSON, json('programs/1000.json', { title: 'Damaged', series: [] })]);
+    zip[zip.indexOf('Damaged')] ^= 0x01;
+    const report = await restore(zip);
+    expect(report.programs[0]).toMatchObject({ result: 'refused', problem: { type: '/problems/backup_invalid' } });
   });
 });

@@ -1,6 +1,6 @@
 // ============================================================================
 //  rt_logic/control_lock.h
-//  The in-memory control lock - host-testable.
+//  The control lock - host-testable.
 //  Ported from src/backend/repositories/admin_mode.py.
 // ============================================================================
 #pragma once
@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <deque>
 #include <string>
+#include <string_view>
 
 namespace rt {
 
@@ -22,6 +23,18 @@ using RandomBytesFn = void (*)(uint8_t *out, size_t len);
 // Monotonic milliseconds, for token expiry. Injected for the same reason the
 // executor's clock is: so the host tests can age a token out without sleeping.
 using NowMsFn = int64_t (*)();
+
+// Stretches a password with a salt into `out_len` bytes. The firmware backs
+// this with PBKDF2-HMAC-SHA256; host tests substitute something cheap, since
+// what they assert is that the right password matches and a wrong one does
+// not, not the strength of the hash.
+using DeriveKeyFn = void (*)(const std::string &password, const uint8_t *salt, size_t salt_len,
+                             uint8_t *out, size_t out_len);
+
+constexpr size_t kSaltBytes = 16;
+constexpr size_t kKeyBytes = 32;
+// What persists: salt then derived key, never the password.
+constexpr size_t kVerifierBytes = kSaltBytes + kKeyBytes;
 
 // A session lasts a shooting session, not a boot. Without this a token
 // captured from the non-HttpOnly cookie stayed valid for the device's entire
@@ -48,11 +61,29 @@ inline bool constant_time_equals(const std::string &a, const std::string &b) {
   return diff == 0;
 }
 
+// `kTokenBytes` random bytes, hex-encoded: the control lock's session tokens
+// and the configuration window's (rt::ConfigWindow) alike.
+inline std::string random_token(RandomBytesFn random_bytes) {
+  uint8_t raw[kTokenBytes];
+  random_bytes(raw, sizeof(raw));
+
+  static const char *kHex = "0123456789abcdef";
+  std::string token;
+  token.reserve(kTokenBytes * 2);
+  for (uint8_t b : raw) {
+    token += kHex[b >> 4];
+    token += kHex[b & 0x0f];
+  }
+  return token;
+}
+
 // The control lock is off until a client turns it on with a password of its
 // own choosing; while it is on, mutating endpoints require a session token.
-// Nothing is persisted, so a reboot returns the device to the unprotected
-// state - deliberate parity with the frontend mock contract, documented in
-// docs/api-v2.md.
+//
+// The password survives a reboot as a verifier (D-51): a salted, stretched
+// hash the caller persists and restore()s at boot. Sessions do not - after a
+// restart the lock is still on and everyone logs in again. Before D-51 nothing
+// persisted, so any crash returned the device to the unprotected state.
 //
 // It gates *changing* the device, never *looking at* it. That sentence is the
 // whole reason this is no longer called "admin mode": the old name read as a
@@ -60,30 +91,46 @@ inline bool constant_time_equals(const std::string &a, const std::string &b) {
 // (#256, #257, D-39).
 class ControlLock {
  public:
-  ControlLock(RandomBytesFn random_bytes, NowMsFn now_ms)
-      : random_bytes_(random_bytes), now_ms_(now_ms) {}
+  ControlLock(RandomBytesFn random_bytes, NowMsFn now_ms, DeriveKeyFn derive_key)
+      : random_bytes_(random_bytes), now_ms_(now_ms), derive_key_(derive_key) {}
 
-  bool enabled() const { return has_password_; }
+  // enable() refuses an empty password, so a verifier is what "on" means.
+  bool enabled() const { return !verifier_.empty(); }
 
   // Turn the lock on and return a session token, or empty if refused
   // (already on, or an empty password).
   std::string enable(const std::string &password) {
     if (enabled() || password.empty()) return {};
-    password_ = password;
-    has_password_ = true;
+    uint8_t salt[kSaltBytes];
+    random_bytes_(salt, sizeof(salt));
+    verifier_.assign(reinterpret_cast<const char *>(salt), sizeof(salt));
+    verifier_ += derive(password, salt);
     return issue_token();
   }
 
   // Return a session token for the active password, or empty if refused.
   std::string login(const std::string &password) {
-    if (!enabled() || !constant_time_equals(password, password_)) return {};
+    if (!enabled()) return {};
+    const auto *salt = reinterpret_cast<const uint8_t *>(verifier_.data());
+    if (!constant_time_equals(derive(password, salt), verifier_.substr(kSaltBytes))) return {};
     return issue_token();
   }
 
   void disable() {
-    password_.clear();
-    has_password_ = false;
+    verifier_.clear();
     tokens_.clear();
+  }
+
+  // What to persist while the lock is on; empty while it is off.
+  const std::string &verifier() const { return verifier_; }
+
+  // Turns the lock back on from a persisted verifier, with no sessions. False,
+  // leaving the lock as it was, for anything that is not one.
+  bool restore(const std::string &verifier) {
+    if (verifier.size() != kVerifierBytes) return false;
+    verifier_ = verifier;
+    tokens_.clear();
+    return true;
   }
 
   // Invalidates one token without turning the lock off - the safe half of
@@ -111,11 +158,10 @@ class ControlLock {
 
   // The bearer token from an `Authorization` header, or empty.
   static std::string bearer_token(const std::string &header) {
-    constexpr const char *kBearer = "Bearer ";
-    constexpr size_t kBearerLen = 7;
-    if (header.size() <= kBearerLen) return {};
-    if (header.compare(0, kBearerLen, kBearer) != 0) return {};
-    return header.substr(kBearerLen);
+    constexpr std::string_view kBearer = "Bearer ";
+    if (header.size() <= kBearer.size()) return {};
+    if (header.compare(0, kBearer.size(), kBearer) != 0) return {};
+    return header.substr(kBearer.size());
   }
 
  private:
@@ -139,17 +185,14 @@ class ControlLock {
     return found;
   }
 
-  std::string issue_token() {
-    uint8_t raw[kTokenBytes];
-    random_bytes_(raw, sizeof(raw));
+  std::string derive(const std::string &password, const uint8_t *salt) const {
+    uint8_t key[kKeyBytes];
+    derive_key_(password, salt, kSaltBytes, key, sizeof(key));
+    return std::string(reinterpret_cast<const char *>(key), sizeof(key));
+  }
 
-    static const char *kHex = "0123456789abcdef";
-    std::string token;
-    token.reserve(kTokenBytes * 2);
-    for (uint8_t b : raw) {
-      token += kHex[b >> 4];
-      token += kHex[b & 0x0f];
-    }
+  std::string issue_token() {
+    std::string token = random_token(random_bytes_);
     if (tokens_.size() >= kMaxTokens) tokens_.pop_front();
     tokens_.push_back(Token{token, now_ms_()});
     return token;
@@ -157,8 +200,8 @@ class ControlLock {
 
   RandomBytesFn random_bytes_;
   NowMsFn now_ms_;
-  std::string password_;
-  bool has_password_ = false;
+  DeriveKeyFn derive_key_;
+  std::string verifier_;
   std::deque<Token> tokens_;
 };
 

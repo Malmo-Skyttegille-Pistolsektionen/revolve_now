@@ -38,6 +38,11 @@ HardwareConfig good() {
   config.i2s_dout_gpio = 11;
   config.http_port = 80;
   config.wifi_max_retries = 10;
+  config.eth_sclk_gpio = 41;
+  config.eth_mosi_gpio = 39;
+  config.eth_miso_gpio = 40;
+  config.eth_cs_gpio = 42;
+  config.eth_int_gpio = 38;
   return config;
 }
 
@@ -78,12 +83,12 @@ void test_the_flash_and_psram_pins_are_refused() {
   }
 }
 
-// 35..37 are the octal PSRAM's extra data lines on the N16R8. They read as
+// 33..37 are the octal PSRAM's extra data lines on the N16R8. They read as
 // ordinary pins in the datasheet, which is why they were missed - and driving
 // one crashes the device the moment PSRAM is touched, not at configuration
 // time. Eight banks means eight chances to type one (#207).
 void test_the_octal_psram_pins_are_refused() {
-  for (int32_t gpio = 35; gpio <= 37; gpio++) {
+  for (int32_t gpio = 33; gpio <= 37; gpio++) {
     HardwareConfig config = good();
     config.banks[0].gpio = gpio;
     TEST_ASSERT_EQUAL(ConfigRefusal::kGpioReserved, rt::validate(config));
@@ -121,8 +126,12 @@ void test_the_edges_of_the_usable_range_are_accepted() {
   config.banks[0].gpio = 21;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 
-  config.banks[0].gpio = 33;
+  // 38 is the first pin past the octal PSRAM's; the fixture's Ethernet INT
+  // moves off it for this one check.
+  config.eth_int_gpio = 14;
+  config.banks[0].gpio = 38;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.eth_int_gpio = 38;
 
   config.banks[0].gpio = 1;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
@@ -141,11 +150,19 @@ void test_the_usb_serial_pins_are_refused() {
 // Latched at reset: the symptom is a board that is simply dead afterwards,
 // with nothing pointing at the configuration change that caused it.
 void test_the_strapping_pins_are_refused() {
-  for (const int32_t gpio : {0, 3, 45}) {
+  for (const int32_t gpio : {0, 45}) {
     HardwareConfig config = good();
     config.banks[0].gpio = gpio;
     TEST_ASSERT_EQUAL(ConfigRefusal::kGpioStrapping, rt::validate(config));
   }
+}
+
+// GPIO3 only selects the JTAG source, so it cannot stop a boot - and it is
+// Turn0 on the PCB rev 1 (#505).
+void test_gpio3_is_a_usable_bank_pin() {
+  HardwareConfig config = good();
+  config.banks[0].gpio = 3;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 }
 
 // Passes every per-pin check and still does not work: whichever peripheral is
@@ -175,6 +192,84 @@ void test_pins_of_absent_peripherals_are_ignored() {
   none.audio = false;
   none.led = false;
   TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, none));
+}
+
+// MCLK is optional (#506): unused is not a pin, so it is neither checked nor
+// counted, and a pin given for it is held to every rule the other three are.
+void test_the_i2s_master_clock_is_optional() {
+  HardwareConfig config = good();
+  TEST_ASSERT_EQUAL_INT32(rt::kI2sPinUnused, config.i2s_mclk_gpio);
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.i2s_mclk_gpio = 47;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.i2s_mclk_gpio = config.i2s_bck_gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(config));
+
+  config.i2s_mclk_gpio = 19;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioUsbSerial, rt::validate(config));
+
+  config.i2s_mclk_gpio = -2;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(config));
+
+  rt::Peripherals no_audio;
+  no_audio.audio = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, no_audio));
+}
+
+// The W5500's pins (#262) are pins like any other while Ethernet is on, with
+// INT and RST optional on top of the four bus lines. Off, they are carried but
+// not checked.
+void test_the_ethernet_pins_are_checked_only_while_ethernet_is_on() {
+  HardwareConfig config = good();
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_int_gpio = config.i2s_bck_gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(config));
+  config.eth_int_gpio = rt::kPinUnused;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_rst_gpio = 45;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioStrapping, rt::validate(config));
+  config.eth_rst_gpio = rt::kPinUnused;
+
+  config.eth_cs_gpio = rt::kPinUnused;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(config));
+  config.eth_cs_gpio = 42;
+
+  config.eth_mosi_gpio = 19;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioUsbSerial, rt::validate(config));
+  config.eth_mosi_gpio = config.banks[0].gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(config));
+
+  config.eth_enabled = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_enabled = true;
+  rt::Peripherals no_ethernet;
+  no_ethernet.ethernet = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config, no_ethernet));
+}
+
+// Either interface may be switched off, never both: the device would have no
+// network to be reached on. A build without Ethernet counts as Ethernet off.
+void test_wifi_and_ethernet_cannot_both_be_off() {
+  HardwareConfig config = good();
+  config.wifi_enabled = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+
+  config.eth_enabled = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNoNetwork, rt::validate(config));
+
+  config.eth_enabled = true;
+  rt::Peripherals no_ethernet;
+  no_ethernet.ethernet = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNoNetwork, rt::validate(config, no_ethernet));
+
+  config.wifi_enabled = true;
+  config.eth_enabled = false;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
 }
 
 void test_the_i2s_port_and_the_numeric_settings_are_bounded() {
@@ -336,6 +431,69 @@ void test_bank_letters_run_a_to_h() {
   TEST_ASSERT_EQUAL('?', rt::bank_letter(rt::kMaxTargetBanks));
 }
 
+// --- latching banks (#636) -------------------------------------------------
+
+HardwareConfig latching(int32_t hide_gpio) {
+  HardwareConfig config = banks(2);
+  config.banks[1].drive = rt::BankDrive::kLatching;
+  config.banks[1].hide_gpio = hide_gpio;
+  return config;
+}
+
+void test_a_latching_bank_with_its_own_hide_pin_is_accepted() {
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(latching(13)));
+}
+
+// The hide pin can stop a boot as surely as the show pin can.
+void test_a_latching_bank_hide_pin_is_checked_like_any_other() {
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioReserved, rt::validate(latching(43)));
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioStrapping, rt::validate(latching(0)));
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(latching(rt::kPinUnused)));
+}
+
+// A level bank never drives its hide pin, so a stale value there is neither a
+// refusal nor a collision - but it is range-checked, so GET can report it.
+void test_a_level_bank_hide_pin_is_only_range_checked() {
+  HardwareConfig config = latching(43);
+  config.banks[1].drive = rt::BankDrive::kLevel;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].hide_gpio = config.banks[0].gpio;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].hide_gpio = rt::kMaxGpio + 1;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kGpioOutOfRange, rt::validate(config));
+  config.banks[1].hide_gpio = rt::kPinUnused;
+  config.banks[1].pulse_ms = 0;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPulseOutOfRange, rt::validate(config));
+}
+
+void test_a_hide_pin_on_another_bank_is_named_by_letter() {
+  rt::ValidationDetail detail;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(latching(5), {}, &detail));
+  TEST_ASSERT_EQUAL_STRING(
+      "Bank A and bank B are both on GPIO 5. Each bank needs a pin of its own.",
+      rt::refusal_message(ConfigRefusal::kPinCollision, detail).c_str());
+}
+
+void test_show_and_hide_on_one_pin_say_so() {
+  rt::ValidationDetail detail;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPinCollision, rt::validate(latching(6), {}, &detail));
+  TEST_ASSERT_EQUAL_STRING(
+      "Bank B's show and hide pins are both GPIO 6. A latching bank needs two different pins.",
+      rt::refusal_message(ConfigRefusal::kPinCollision, detail).c_str());
+}
+
+void test_a_pulse_outside_its_range_is_refused() {
+  HardwareConfig config = latching(13);
+  config.banks[1].pulse_ms = rt::kMinPulseMs;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].pulse_ms = rt::kMaxPulseMs;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kNone, rt::validate(config));
+  config.banks[1].pulse_ms = rt::kMinPulseMs - 1;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPulseOutOfRange, rt::validate(config));
+  config.banks[1].pulse_ms = rt::kMaxPulseMs + 1;
+  TEST_ASSERT_EQUAL(ConfigRefusal::kPulseOutOfRange, rt::validate(config));
+}
+
 // --- messages --------------------------------------------------------------
 
 void test_every_refusal_has_something_to_say() {
@@ -348,6 +506,7 @@ void test_every_refusal_has_something_to_say() {
       ConfigRefusal::kGpioUsbSerial,       ConfigRefusal::kGpioStrapping,
       ConfigRefusal::kHttpPortOutOfRange,  ConfigRefusal::kWifiRetriesOutOfRange,
       ConfigRefusal::kBankCountOutOfRange, ConfigRefusal::kBankNameTooLong,
+      ConfigRefusal::kNoNetwork,           ConfigRefusal::kPulseOutOfRange,
   };
   for (const ConfigRefusal refusal : all) {
     TEST_ASSERT_NOT_EQUAL(0, rt::refusal_message(refusal)[0]);
@@ -367,8 +526,12 @@ int main() {
   RUN_TEST(test_the_edges_of_the_usable_range_are_accepted);
   RUN_TEST(test_the_usb_serial_pins_are_refused);
   RUN_TEST(test_the_strapping_pins_are_refused);
+  RUN_TEST(test_gpio3_is_a_usable_bank_pin);
   RUN_TEST(test_two_peripherals_on_one_pin_are_refused);
   RUN_TEST(test_pins_of_absent_peripherals_are_ignored);
+  RUN_TEST(test_the_i2s_master_clock_is_optional);
+  RUN_TEST(test_the_ethernet_pins_are_checked_only_while_ethernet_is_on);
+  RUN_TEST(test_wifi_and_ethernet_cannot_both_be_off);
   RUN_TEST(test_the_i2s_port_and_the_numeric_settings_are_bounded);
   RUN_TEST(test_an_empty_hostname_is_refused);
   RUN_TEST(test_a_hostname_longer_than_the_ssid_suffix_allows_is_refused);
@@ -384,6 +547,12 @@ int main() {
   RUN_TEST(test_a_collision_between_banks_names_them_by_letter);
   RUN_TEST(test_a_collision_with_the_led_is_not_named_by_letter);
   RUN_TEST(test_bank_letters_run_a_to_h);
+  RUN_TEST(test_a_latching_bank_with_its_own_hide_pin_is_accepted);
+  RUN_TEST(test_a_latching_bank_hide_pin_is_checked_like_any_other);
+  RUN_TEST(test_a_level_bank_hide_pin_is_only_range_checked);
+  RUN_TEST(test_a_hide_pin_on_another_bank_is_named_by_letter);
+  RUN_TEST(test_show_and_hide_on_one_pin_say_so);
+  RUN_TEST(test_a_pulse_outside_its_range_is_refused);
   RUN_TEST(test_every_refusal_has_something_to_say);
   return UNITY_END();
 }

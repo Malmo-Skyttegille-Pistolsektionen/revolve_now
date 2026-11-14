@@ -14,10 +14,7 @@ import { createMockServer, type MockServer } from './mock-server/server';
 import { requestElsewhere } from './other-client';
 
 // Distinct per suite - vitest runs files in parallel, so a shared port is an
-// EADDRINUSE flake (18080 useControlLockStatus, 18081 audios, 18082 programs, 18083
-// program-editor, 18084 run, 18085 startup-issues, 18086 about-section /
-// start-delay, 18087 storage-section, 18088 network-section, 18089 here).
-// Pick the next free number for a new suite.
+// EADDRINUSE flake. Pick the next free number for a new suite.
 const PORT = 18089;
 
 const AudiosView = Route.options.component!;

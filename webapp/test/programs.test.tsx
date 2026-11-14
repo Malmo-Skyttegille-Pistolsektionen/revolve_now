@@ -13,6 +13,7 @@ import { PROGRAM_FALT_TRANING } from './fixtures';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
 import { enableControlLockElsewhere, requestElsewhere } from './other-client';
+import { stateAtom } from '../src/lib/sse-store';
 
 // Distinct per suite: vitest runs files in parallel, so a shared port is an
 // EADDRINUSE flake (18080 useControlLockStatus, 18081 audios, 18082 here).
@@ -197,7 +198,7 @@ describe('unloading (D-22)', () => {
   async function loadedOnDevice(id: number): Promise<void> {
     await requestElsewhere(PORT, 'POST', `/api/v2/programs/${id}/load`);
     await act(async () => {
-      queryClient.setQueryData(['state'], {
+      stateAtom.set({
         loadedProgramId: id,
         programState: null,
         targetBanks: { A: 'hidden' },
@@ -380,7 +381,7 @@ describe('replacing a program', () => {
     // As the device would report it over SSE once the program is loaded.
     await requestElsewhere(PORT, 'POST', `/api/v2/programs/${UPLOADED.id}/load`);
     act(() => {
-      queryClient.setQueryData(['state'], {
+      stateAtom.set({
         loadedProgramId: UPLOADED.id,
         programState: null,
         targetBanks: { A: 'hidden' },
@@ -436,7 +437,7 @@ describe('a program that needs banks', () => {
     await requestElsewhere(PORT, 'POST', '/api/v2/programs', FOUR_BANK);
     // What the run page's first SSE frame would have put here.
     if (banks)
-      queryClient.setQueryData(['state'], {
+      stateAtom.set({
         loadedProgramId: null,
         programState: null,
         targetBanks: banks,

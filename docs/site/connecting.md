@@ -20,6 +20,18 @@ A device that has never been configured, or that has been moved to a site whose
 WiFi it does not know, comes up **blue**. There is no address to find yet — the
 network it should join does not exist from its point of view.
 
+## A network cable instead { #a-network-cable }
+
+A board with an [Ethernet module](hardware.md#ethernet) fitted needs no setup
+at all on a wired network. Plug a cable from it into the router or a switch,
+power it up, and it takes an address from the router by itself — there is
+nothing to type in, so there is no setup portal. Go straight to
+[Finding the device](#finding-the-device).
+
+It still joins WiFi if it knows a network, and then it answers on both. It only
+comes up **blue** if neither works: no WiFi it can join, and no address over
+the cable either.
+
 ## The setup portal
 
 A **blue** LED means the device is running a small access point of its own. Its
@@ -35,24 +47,28 @@ captive-portal page should open by itself; if it does not, browse to
 
 Enter the network name and password the device should use.
 
-!!! important "Press the button on the device before saving"
+!!! important "Save first, then press the button on the device"
 
-    The device will not accept network details until somebody presses its
-    **BOOT** button — the small button next to the USB sockets, marked `BOOT` or
-    `FLASH` on some boards. Press it, then press **Save and restart**.
+    The device stores nothing until somebody presses its **BOOT** button — the
+    small button next to the USB sockets, marked `BOOT` or `FLASH` on some
+    boards. Press **Save**, then press the button within a minute. The page
+    waits for the press and says what happened.
 
-    If you save without pressing it first, the page says so and nothing is
-    stored; press the button and save again.
+    A press made before saving does nothing; save, then press the button again.
 
     **Why:** the setup network's password is the same on every device and this
     project's source is public, so being *on* that network does not prove much.
-    Pressing the button proves somebody is standing at the device — which is
-    exactly what cannot be done from a car park. Without it, anyone in radio
-    range of a device that has lost its network could point it at a network of
-    their choosing.
+    Pressing the button proves somebody is standing at the device. If two
+    different networks are submitted before the press — somebody else on the
+    setup network trying their own — nothing is saved and the page says so.
+    Save again and press again.
 
-    The press is good for about a minute, so there is no rush, and a press
-    nobody remembers making cannot authorise anything later.
+!!! warning "The setup network is not private"
+
+    Its password is public, so anyone in radio range can join it, and someone
+    who recorded you joining could read the WiFi password you type into the
+    page. Set the device up where nobody you do not know is in range. If that
+    was not possible, consider changing the club network's password afterwards.
 
 Once saved, the device restarts and joins that network the normal way — the LED
 goes blinking red, then green.
@@ -70,9 +86,9 @@ The other case is: **the network it knows still exists, and you want it on a
 different one anyway.** The device joins ours quite happily and never offers
 the portal, so there is nothing to configure it through.
 
-For that, use [Expert mode](expert-mode.md#wifi) — press the device's BOOT
-button three times within ten seconds, and the web app offers the same form the
-setup portal does. Saving stores the network; the device moves onto it when you
+For that, use [Expert mode](expert-mode.md#wifi) — ask for it on Settings,
+press the device's BOOT button three times within ten seconds, and the web app
+offers the same form the setup portal does. Saving stores the network; the device moves onto it when you
 press [**Restart to apply**](expert-mode.md#restart-to-apply), and keeps
 everything else: its programs, its clips, and its hardware settings.
 

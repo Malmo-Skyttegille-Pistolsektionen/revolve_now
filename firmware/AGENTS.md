@@ -10,9 +10,8 @@ Eigenbrod TP2 rotation target system. It runs shooting programs — turning the
 targets over a GPIO and playing spoken commands over I2S — and serves the React
 webapp over REST (`/api/v2`) and SSE (`/sse/v2`).
 
-It is a port of `rotation_target_backend_esp32_micropython` at its API v2
-revision. Both backends serve the same contract and are meant to stay
-interchangeable from the webapp's point of view.
+It began as a port of the now-retired `rotation_target_backend_esp32_micropython`
+at its API v2 revision; the contract it serves is [`../contracts/`](../contracts/README.md).
 
 > ⚠️ **This firmware controls targets on a live shooting range.** The target
 > position and the audio commands are what tell shooters when to fire and when
@@ -37,8 +36,10 @@ datasheet: **ESP32-S3 (QFN56) rev v0.2, 16 MB quad flash @ 3.3 V, embedded
 "flash type: quad" reading refers to the flash only, and selecting the wrong
 PSRAM mode leaves it undetected at boot rather than failing loudly.
 
-Pins live in `main/config.h`, ported from the MicroPython `config.py`: target
-GPIO5, I2S BCK 10 / DIN 11 / LCK 12, WS2812 on 48. The two "ESP32-C6" comments
+Pin defaults live in `main/Kconfig.projbuild` (table in
+[`docs/HARDWARE.md`](docs/HARDWARE.md#configuration)), ported from the
+MicroPython `config.py`. At runtime they come from `hardware_store` (NVS),
+which those defaults only seed. The two "ESP32-C6" comments
 in that MicroPython file are wrong; `RGG_LED_PIN = 48` is the clue that fits.
 
 ## Build, flash, test
@@ -63,15 +64,18 @@ idf.py build
   directory**, found via the `RT_RESOURCES_DIR` cache variable (default
   `../resources`); `CMakeLists.txt` fails the build with an explicit message if
   that path holds no `audios/audios.json`.
-- **Toolchain:** ESP-IDF **>= 6.0** (`main/idf_component.yml`); CI pins v6.0.2.
-  5.x does not build: 6.0 removed `i2s_port_t`, so `i2s_chan_config_t::id` is a
-  plain `int` — see `kI2sPort` in `main/config.h`.
+- **Toolchain:** the exact ESP-IDF `idf:` pins in `main/idf_component.yml`;
+  CI builds with the same. 5.x does not build: 6.0 removed `i2s_port_t`, so
+  `i2s_chan_config_t::id` is a plain `int` — see `i2s_port` in
+  `lib/rt_logic/hardware_config.h`.
 - **Editing `sdkconfig.defaults` does nothing on its own.** ESP-IDF seeds
   `sdkconfig` from it only when `sdkconfig` does not exist, and `sdkconfig` is
   gitignored — so in a clone that has already been built, a changed default is
-  silently ignored. Delete `sdkconfig` (or `idf.py fullclean`) and rebuild, then
-  grep the generated `sdkconfig` to confirm the value landed. This fails quietly
-  and looks exactly like the change not working.
+  silently ignored. Set the value in the existing `sdkconfig` (`idf.py
+  menuconfig`, or edit it and `idf.py reconfigure`), then grep it to confirm the
+  value landed. Deleting `sdkconfig` also works but **destroys the WiFi
+  credentials** — the warning above applies. This fails quietly and looks
+  exactly like the change not working.
 
 ### Flashing, and when `--no-stub` is needed
 
@@ -249,8 +253,9 @@ Load-bearing invariants:
   the document.** An uploader must not be able to claim its program is shipped.
 - **One task owns GPIO0** (`io/boot_button.cpp`), because two pollers would
   each swallow the transitions the other waited for. It classifies via
-  `rt::ButtonGesture`: one press authorises the setup portal (#208), three
-  within ten seconds open the configuration window (#144), and a ten-second
+  `rt::ButtonGesture`: one press commits a setup-portal submission (#208), three
+  within ten seconds open the configuration window for the one client that
+  asked for it (#144, `rt::ConfigWindow`, D-52), and a ten-second
   hold is a factory reset (#222, D-33). There is no power-on gesture and there
   cannot be — GPIO0 is strapping, so a board held low at reset enters ROM
   download mode and this firmware never runs.
@@ -307,9 +312,10 @@ Load-bearing invariants:
 - **Vendored code is never reformatted.** `lib/psychic_http/`,
   `lib/arduinojson/`, `lib/dns_server/` and the repository's `resources/` tree
   are excluded in the root `.pre-commit-config.yaml` (paths there are
-  repo-root-relative) and must stay byte-identical to upstream. Where they
-  need a fix (an include order, a `-Wmissing-field-initializers` pragma), it goes
-  on our side of the boundary.
+  repo-root-relative). Where they need a fix (an include order, a
+  `-Wmissing-field-initializers` pragma), it goes on our side of the boundary.
+  **`lib/dns_server/` is a patched fork** and `lib/psychic_http/` carries one
+  local patch; each `CMakeLists.txt` lists what differs from upstream.
 - `main/` builds with `-Wall -Wextra` and `host_test/` with `-Werror`. Keep both.
 - **`../contracts/` is the canonical API contract** — `openapi.yaml`,
   `asyncapi.yaml`, `program.schema.json`. A route, payload or status code that

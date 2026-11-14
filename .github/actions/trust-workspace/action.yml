@@ -1,0 +1,13 @@
+name: Trust the workspace
+description: >-
+  Mark the checkout as a safe git directory. A job in the espressif/idf
+  container runs as root over a workspace git considers foreign, so without
+  this `git describe` fails and CMake bakes "unknown" (or 0.0.0) into the image
+  instead of a version. Silent until something reads the version back, which is
+  what the release workflow and the E2E suite do. Run after checkout.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"

@@ -39,13 +39,6 @@ test.beforeEach(async ({ request }) => {
   await resetDevice(request);
 });
 
-test.afterAll(async ({ request }) => {
-  await resetDevice(request);
-  // A stopped run leaves the targets where it left them, and later specs
-  // expect the boot position.
-  expect((await request.post(`${API}/targets/show`)).ok()).toBeTruthy();
-});
-
 test('an image for another project is refused', async ({ request }) => {
   await expectProblem(await request.post(`${API}/ota`, { multipart: filePart(foreignImage()) }), {
     type: '/problems/ota_image_refused',

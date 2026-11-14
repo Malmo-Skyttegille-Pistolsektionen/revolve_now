@@ -14,7 +14,7 @@ of ESP-IDF and hardware, and is covered by the Unity suites in `host_test/`.
 | `main/repositories/` | `programs`, `audios` — what is on the filesystem |
 | `main/executor/` | The run-loop task and the real clock/effects behind `rt::Executor` |
 | `main/net/` | `wifi_mgr`, `wifi_store` (NVS credentials), `setup_portal` (SoftAP fallback), `web_server` (REST), `sse_hub` (SSE: state, heartbeat, issues) |
-| `lib/psychic_http/`, `lib/arduinojson/`, `lib/dns_server/` | Vendored third-party, never reformatted |
+| `lib/psychic_http/`, `lib/arduinojson/`, `lib/dns_server/` | Vendored third-party, never reformatted; `dns_server` is a patched fork (see its `CMakeLists.txt`) |
 
 `rt::Executor` takes a `rt::Clock` and a `rt::Effects` by reference. The
 firmware supplies `esp_timer_get_time()` and the real target/audio/SSE
@@ -52,7 +52,11 @@ Three tasks touch run state:
 - **`httpd`** — REST handlers, calling the same `executor::` functions.
 - **`audio`** (priority 5) — plays queued clips. Above the run loop
   deliberately: an underrun is audible on the range, a few ms of added REST
-  latency is not.
+  latency is not. Level with `httpd`, which runs at ESP-IDF's default 5.
+
+The task watchdog watches the idle tasks only - nothing calls
+`esp_task_wdt_add()` - so it catches a CPU starved by a spinning task, not a
+run loop or httpd task that is blocked.
 
 A single recursive mutex guards `rt::ProgramState` and the executor. It is
 recursive because `set_targets()` is reached both directly (the `/targets/*`
@@ -153,5 +157,5 @@ receives without an edge in between (D-31, #145).
 This is a port of `rotation_target_backend_esp32_micropython` at its
 "SSE-first API v2" revision, route for route and semantic for semantic. Where
 behaviour is subtle, the host tests name the MicroPython test they came from.
-Both backends are meant to be interchangeable from the webapp's point of view;
-`docs/api-v2.md` is the contract that has to stay true of both.
+The MicroPython backend is retired; the contract is `contracts/`, and
+`docs/api-v2.md` is the prose behind it.

@@ -1,5 +1,3 @@
-import { useSettings } from '../context/SettingsContext';
-
 import { DEFAULT_BASE_URL, normalizeBaseUrl } from './base-url';
 import type { Problem, ProblemType } from './types';
 
@@ -14,10 +12,6 @@ export function getSseBaseUrl(): string {
 }
 
 export function updateBaseUrl(url: string): void {
-  dynamicBaseUrl = normalizeBaseUrl(url);
-}
-
-export function initializeBaseUrl(url: string): void {
   dynamicBaseUrl = normalizeBaseUrl(url);
 }
 
@@ -124,8 +118,8 @@ async function getResponseError(response: Response): Promise<{ message: string; 
 }
 
 /**
- * A response with a file in it: the troubleshooting bundle (#201) is the only
- * one, and it is bytes rather than JSON.
+ * A response with a file in it - the troubleshooting bundle (#201) and the
+ * backup (#520) - bytes rather than JSON.
  *
  * `filename` is what the device asked for in `Content-Disposition`. Null when
  * the header is absent or unparseable, which is a caller's cue to name the
@@ -148,16 +142,25 @@ function filenameFrom(disposition: string | null): string | null {
   return match ? match[1] : null;
 }
 
+/** The header the configuration window token travels in (D-52). */
+export const CONFIG_WINDOW_HEADER = 'X-Config-Window';
+
 async function send(
   endpoint: string,
   options?: RequestInit,
   controlLockToken?: string | null,
   onAuthError?: () => void,
+  configWindowToken?: string | null,
 ): Promise<Response> {
   const headers: Record<string, string> = {};
 
   if (controlLockToken) {
     headers['Authorization'] = `Bearer ${controlLockToken}`;
+  }
+
+  // Its own header, never the lock's: the two are different credentials.
+  if (configWindowToken) {
+    headers[CONFIG_WINDOW_HEADER] = configWindowToken;
   }
 
   if (options?.body && typeof options.body === 'string') {
@@ -191,8 +194,9 @@ async function request<T>(
   options?: RequestInit,
   controlLockToken?: string | null,
   onAuthError?: () => void,
+  configWindowToken?: string | null,
 ): Promise<T> {
-  const response = await send(endpoint, options, controlLockToken, onAuthError);
+  const response = await send(endpoint, options, controlLockToken, onAuthError, configWindowToken);
   const text = await response.text();
   return text ? JSON.parse(text) : ({} as T);
 }
@@ -202,37 +206,28 @@ async function requestFile(
   options?: RequestInit,
   controlLockToken?: string | null,
   onAuthError?: () => void,
+  configWindowToken?: string | null,
 ): Promise<DownloadedFile> {
-  const response = await send(endpoint, options, controlLockToken, onAuthError);
+  const response = await send(endpoint, options, controlLockToken, onAuthError, configWindowToken);
   return {
     blob: await response.blob(),
     filename: filenameFrom(response.headers.get('Content-Disposition')),
   };
 }
 
-// For use outside of React components (no auth error handling)
-export async function client<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  return request<T>(endpoint, options, undefined, undefined);
-}
-
-// For use inside React components with proper auth error handling
-export function createAuthenticatedClient(controlLockToken: string | null, onAuthError: () => void) {
+// For use inside React components with proper auth error handling.
+// `configWindowToken` is passed only by the APIs whose routes the window guards.
+export function createAuthenticatedClient(
+  controlLockToken: string | null,
+  onAuthError: () => void,
+  configWindowToken: string | null = null,
+) {
   return {
     request: async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
-      return request<T>(endpoint, options, controlLockToken, onAuthError);
+      return request<T>(endpoint, options, controlLockToken, onAuthError, configWindowToken);
     },
     requestFile: async (endpoint: string, options?: RequestInit): Promise<DownloadedFile> => {
-      return requestFile(endpoint, options, controlLockToken, onAuthError);
-    },
-  };
-}
-
-export function useClient() {
-  const { controlLockToken, logoutControlLock } = useSettings();
-
-  return {
-    request: async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
-      return request<T>(endpoint, options, controlLockToken, logoutControlLock);
+      return requestFile(endpoint, options, controlLockToken, onAuthError, configWindowToken);
     },
   };
 }

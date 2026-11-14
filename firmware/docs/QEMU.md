@@ -1,7 +1,7 @@
 # Running the firmware in QEMU
 
 The firmware boots unmodified in Espressif's QEMU fork, serves the real REST
-API, the real SSE stream and the real webapp out of the real LittleFS image,
+API, the real SSE stream and the real webapp out of the real application image,
 and answers on `http://localhost:8080`. That makes a browser session or an E2E
 suite possible without a board on the desk, against the same code that ships —
 not a mock.
@@ -25,7 +25,9 @@ Boot to serving takes about two seconds of guest time.
 QEMU emulates no WiFi radio, so the network comes up over the OpenCores
 Ethernet MAC the emulator maps onto the EMAC register window. That is the whole
 of `CONFIG_RT_NET_OPENETH`: `main/net/eth_mgr.cpp` is compiled instead of
-`main/net/wifi_mgr.cpp`, both implementing `main/net/net_mgr.h`. With the WiFi
+`main/net/wifi_mgr.cpp`, both implementing `main/net/net_mgr.h`. The wired
+side goes through `main/net/ethernet.cpp`, the same code a W5500 uses on the
+board, so `GET /api/v2/ethernet` reports the emulated link. With the WiFi
 translation unit out of the build, the setup portal and the NVS credential
 store are not linked in at all — there is nothing to provision, because SLIRP
 hands the guest 10.0.2.15 over DHCP.
@@ -41,8 +43,9 @@ budget — exactly as the board has it.
 |---|---|
 | REST `/api/v2/*` | All of it, including the control lock and `diagnostics/info` |
 | SSE `/sse/v2` | `stateUpdate` and `heartbeat`, real timing |
-| The webapp | Served from LittleFS at `http://localhost:8080` when `webapp/dist` exists at build time, `.gz` assets included |
-| LittleFS | Mounts the flashed image: 7 shipped programs, 77 audio entries, uploads |
+| The webapp | Served from the app image at `http://localhost:8080` when `webapp/dist` exists at build time, `.gz` assets included |
+| Shipped content | The shipped programs and audio, read from the app image as on a board |
+| LittleFS | Mounts `userdata` for uploads |
 | Executor timing | Tracks host wall-clock — `tickerMs` advances once a second and series boundaries land where the program says |
 | Watchdogs | Disabled by the runner (`wdt_disable`); nothing feeds them under emulation |
 
@@ -69,6 +72,13 @@ budget — exactly as the board has it.
   `git describe`, which that endpoint's strict parse rejects. Not a QEMU
   artefact — the board does the same until versioning lands.
   `diagnostics/info` reports the describe string verbatim.
+- **The control lock turns on without the BOOT button.** GPIO0 reads pressed
+  from boot, so the configuration window never opens, and on the board
+  turning the lock on needs it (D-51). The profile sets
+  `CONFIG_RT_CONTROL_LOCK_NEEDS_WINDOW=n` so the E2E suite can still turn it
+  on. Turning it off without a session needs the window everywhere, so that
+  path cannot be exercised here. For the same reason a
+  `POST /config-window/request` waits there and is never granted (D-52).
 
 Noise that is expected on every boot and safe to ignore:
 
@@ -134,8 +144,8 @@ firmware/scripts/run-qemu.sh --no-build --headless > qemu.log 2>&1 &
 
 `--no-build` is what keeps the boot half honest: without it the backgrounded
 run re-runs a no-op `idf.py build` first, and a boot timeout would be timing
-the build. No `idf_tools.py install qemu-xtensa` either - `espressif/idf:v6.0.2`
-already ships qemu-xtensa 9.2.2 on `PATH`, so there is nothing to cache; the
+the build. No `idf_tools.py install qemu-xtensa` either - the `espressif/idf`
+container CI uses already ships qemu-xtensa on `PATH`, so there is nothing to cache; the
 runner's install-on-first-use branch is for a bare IDF checkout.
 
 The flag matters: interactive runs get `-serial mon:stdio`, and QEMU quits the

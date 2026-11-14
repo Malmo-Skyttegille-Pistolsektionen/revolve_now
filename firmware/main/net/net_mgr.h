@@ -5,11 +5,12 @@
 // The network the HTTP server is served over. Two implementations, chosen at
 // build time by CONFIG_RT_NET_OPENETH and selected in main/CMakeLists.txt:
 //
-//   wifi_mgr.cpp  esp_wifi station + the setup portal fallback (the board)
+//   wifi_mgr.cpp  esp_wifi station, a W5500 if one is wired, and the setup
+//                 portal fallback (the board)
 //   eth_mgr.cpp   OpenCores Ethernet + DHCP           (CONFIG_RT_NET_OPENETH)
 //
 // The OpenCores MAC exists only in QEMU, which does not emulate WiFi - see
-// docs/QEMU.md.
+// docs/QEMU.md. Both drive the wired side through net/ethernet.h.
 namespace net_mgr {
 
 enum class Result {
@@ -17,16 +18,18 @@ enum class Result {
   kSetupPortal,  // no usable network; run_setup_portal() is the next step
 };
 
-// Brings the interface up and blocks until it has an address, or until the
-// implementation gives up.
+// Brings the interfaces up and blocks until one of them has an address, or
+// until the implementation gives up.
 //
-// On WiFi: joins the provisioned network (NVS, falling back to the Kconfig
-// defaults). If the initial join fails, returns kSetupPortal - the caller must
-// not start the normal server in that case; the device is waiting to be told
-// which network to join. Once joined, reconnection is unbounded: the retry
-// budget bounds the *initial* association only. A device that gave up
-// mid-session would sit powered on and unreachable, which on a range is the
-// worst of both outcomes.
+// On the board: starts Ethernet if a W5500 answers, and joins the provisioned
+// WiFi network (NVS, falling back to the Kconfig defaults). Whichever gets an
+// address first returns kConnected; the other carries on in the background,
+// and the server answers on both. Only when neither can - the WiFi join failed
+// or has nothing to join, and Ethernet has no lease either - does it return
+// kSetupPortal; the caller must not start the normal server in that case.
+// Once joined, WiFi reconnection is unbounded: the retry budget bounds the
+// *initial* association only. A device that gave up mid-session would sit
+// powered on and unreachable, which on a range is the worst of both outcomes.
 Result connect();
 
 // The out-of-box / lost-network path, valid only after connect() returned
@@ -34,9 +37,15 @@ Result connect();
 // until credentials are saved and then reboots.
 [[noreturn]] void run_setup_portal();
 
-// Dotted-quad address once connected, empty before that. Feeds the CORS
-// allowlist and GET /api/v2/diagnostics/info, and is read from the httpd task.
+// Dotted-quad address once connected, empty before that: the Ethernet one when
+// that interface can serve, otherwise the station's. Feeds GET
+// /api/v2/diagnostics/info, and is read from the httpd task.
 std::string ip_address();
+
+// The station's own address, empty without one and always on the Ethernet
+// build. GET /api/v2/wifi reports it; the CORS allowlist takes it beside the
+// Ethernet one.
+std::string wifi_ip_address();
 
 // The SSID currently associated, and its signal strength in dBm. Empty and 0
 // when not associated, and always so on the Ethernet build - QEMU emulates no

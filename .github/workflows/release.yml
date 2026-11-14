@@ -235,7 +235,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: git-cliff --config .github/cliff.toml --latest --unreleased --strip all --output NOTES.md
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-notes
           path: NOTES.md
@@ -365,7 +365,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     # Node inside the IDF container rather than two jobs handing a `dist` over:
-    # espressif/idf:v6.0.2 is Ubuntu 24.04 and setup-node installs into it
+    # The espressif/idf image is Ubuntu 24.04 and setup-node installs into it
     # happily, which is exactly what webapp-e2e.yml already does.
     container: espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c
     # Inside a container a step's default shell is `sh`, which rejects `pipefail`.
@@ -381,11 +381,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      # PROJECT_VER is read from git by CMake, not by IDF's own helper, so a
-      # workspace git refuses to describe is the difference between a correct
-      # image and one that reports 0.0.0.
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: ./.github/actions/trust-workspace
 
       # Created here, pushed later. The version is baked in from `git describe`
       # at CMake-configure time, so the tag has to exist before the build - but
@@ -403,9 +399,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a -m "$VERSION" "$VERSION"
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 24.21.0
+          node-version-file: webapp/package.json
           cache: npm
           cache-dependency-path: webapp/package-lock.json
 
@@ -455,6 +451,8 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
+          # Each step is a fresh shell; esptool lives in the IDF Python env.
+          . "$IDF_PATH/export.sh"
           mkdir -p release
 
           # Two images are what somebody actually needs, and they answer
@@ -486,6 +484,8 @@ jobs:
             0x1d000 build/ota_data_initial.bin \
             0x20000 build/revolve_now.bin
 
+          # Settings → Update finds this name in the release (D-47): renaming
+          # it takes releases out of the in-app update list.
           cp build/revolve_now.bin \
              "release/revolve_now-${VERSION}-ota.bin"
 
@@ -509,7 +509,7 @@ jobs:
           cat SHA256SUMS.txt
           echo "sha256=$(sha256sum revolve_now.bin | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-assets
           path: firmware/release
@@ -531,11 +531,11 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: release-notes
 
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: release-assets
           path: release

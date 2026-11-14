@@ -1,4 +1,4 @@
-# Revolve Now
+# ![Revolve Now](img/revolve-now-logo-light.svg#only-light){ width="320" } ![Revolve Now](img/revolve-now-logo-dark.svg#only-dark){ width="320" }
 
 Software for running timed shooting programs on a rotating target system, built
 by and for Malmö Skyttegille Pistolsektionen.

@@ -56,7 +56,7 @@ the same way should work.
 | Requirement | Why |
 |---|---|
 | Be actuated by a **contact closure** — two terminals shorted together | That is the entire interface. A system expecting a serial protocol, a proprietary bus or a mains signal needs hardware in between |
-| Be **level-driven**, not pulse-driven | The firmware holds the line in one state for the length of an event. A system that toggles on each pulse would move on both edges |
+| Be **level-driven**, or a **latching relay** with separate show and hide inputs — not a toggle | A level bank holds its line in one state for the length of an event; a latching bank pulses one line to show and another to hide (see [Latching relays](#latching-relays)). A system that toggles on each pulse would drift out of step the first time a pulse is missed |
 | Have **two positions** — face-on and edge-on | The program vocabulary is show and hide. There is no intermediate angle to command |
 | Take **one control line per group of targets you want to move together** | Each line is a *bank*. A bank is one contact closure and moves as one; a device drives up to eight |
 | Be safe sitting **face-on** with no power | The targets rest face-on and stay there at boot, deliberately: somebody may be downrange when a board is powered, and a target that turns on its own can injure them |
@@ -86,6 +86,19 @@ Where the targets rest at boot is **one setting for every bank**, changed on
 the serial console only: it protects somebody standing downrange, and that is
 not a per-bank question.
 
+### Latching relays { #latching-relays }
+
+A bank can instead drive a **latching relay**, which holds its position with no
+power and moves on a short pulse. Such a bank takes **two GPIOs**: a pulse on
+the first shows it, a pulse on the second hides it, and both rest released
+in between. Set it in [Expert mode](expert-mode.md#hardware) with the drive set
+to pulse, both pins, and the pulse length — 100 ms unless the relay asks for
+something else. "Active low" then says whether the pulse is a low one.
+
+A latching relay cannot be read back, so the device sends the pulse for the
+boot state every time it starts, and the hardware page shows what it last sent
+rather than a pin level. Banks on one device can mix the two kinds.
+
 Which level shows the targets, and the rest of the pin assignment, is a
 configuration setting rather than a build setting now — but it is still decided
 when a device is set up, not per range day. Full wiring detail, including the
@@ -96,5 +109,34 @@ in the repository.
 **Optional peripherals**, each independently switchable off at build time: the
 audio DAC that plays the range commands, and the [status LED](status-led.md).
 A target that only turns, with no audio, is a supported configuration.
+
+## Ethernet (optional) { #ethernet }
+
+A board can take a **W5500 Ethernet module** — a small, inexpensive board with
+a network socket — and then connect to the range's router or switch with a
+cable as well as, or instead of, WiFi. Where the WiFi is unreliable, that is
+the dependable way in.
+
+The device looks for the module every time it starts. If it finds one, it
+takes an address from the router over the cable and answers there, beside
+WiFi; if it does not, it carries on over WiFi as before. Nothing needs to be
+switched on, and [connecting](connecting.md#a-network-cable) needs no setup.
+
+Wire it to these pins — the same on the ESP32-S3-DevKitC-1 and on the club's
+own Revolve Now board, whose unfitted W5500 uses them:
+
+| Module pin | GPIO |
+|---|---|
+| SCLK | 41 |
+| MOSI (sometimes MI) | 39 |
+| MISO (sometimes MO) | 40 |
+| SCS / CS | 42 |
+| INT | 38 |
+| RST | not needed |
+| 3.3V (or 5V, if the module has a regulator) | 3.3V (or 5V) |
+| GND | GND |
+
+Read the pin names off the module itself — the order differs between makers.
+Other pins can be set in [Expert mode](expert-mode.md#hardware).
 
 <!-- TODO: a photograph of the DB9 connector and the transistor as actually wired -->

@@ -23,4 +23,13 @@
 
 ## Contract
 
-- [ ] No API payload change, or [`docs/api-v2.md`](../firmware/docs/api-v2.md) updated and any divergence from the MicroPython backend recorded in its "Deviations" section
+- [ ] No API change, or [`contracts/`](../contracts/README.md) updated in this PR (and `npm run generate:api` re-run in `webapp/`)
+- [ ] Run behaviour unchanged, or the mock server (`webapp/test/mock-server/server.ts`) changed with it
+- [ ] [`docs/api-v2.md`](../firmware/docs/api-v2.md) still true of the change
+
+## Web app
+
+<!-- Delete this section if the change does not touch webapp/. -->
+
+- [ ] `npm run test` and `npm run lint` pass in `webapp/`
+- [ ] `npm run build` run before any firmware build that is meant to carry this change

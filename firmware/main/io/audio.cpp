@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <functional>
 
 #include "config.h"
 #include "esp_log.h"
@@ -28,8 +29,9 @@ bool init() {
   return true;
 }
 void play(const std::vector<std::string> &) {}
-bool is_playing(const std::string &) {
-  return false;
+bool run_unless_playing(const std::string &, const std::function<void()> &fn) {
+  fn();
+  return true;
 }
 bool probe_wav(const char *, rt::WavInfo &) {
   return false;
@@ -44,10 +46,31 @@ const char *TAG = "audio";
 i2s_chan_handle_t s_tx = nullptr;
 QueueHandle_t s_queue = nullptr;
 // Guards s_tx across the reconfigure/enable/disable a clip does, so a queued
-// clip cannot start while the previous one is tearing down.
+// clip cannot start while the previous one is tearing down. Held for the whole
+// clip, so nothing outside the playback task may wait on it.
 SemaphoreHandle_t s_i2s_lock = nullptr;
-// The clip the audio task has open right now, or empty. Guarded by s_i2s_lock.
+// The clip the audio task has open right now, or empty. Has its own lock,
+// held only for a compare or an assignment - or run_unless_playing()'s
+// callback - and never across playback.
+SemaphoreHandle_t s_playing_lock = nullptr;
 std::string s_playing;
+
+// Marks `path` as the open clip for its lifetime. Taken before fopen(), so
+// run_unless_playing() cannot unlink the file between the open and the claim.
+class PlayingClaim {
+ public:
+  explicit PlayingClaim(const std::string &path) { set(path); }
+  ~PlayingClaim() { set(std::string()); }
+  PlayingClaim(const PlayingClaim &) = delete;
+  PlayingClaim &operator=(const PlayingClaim &) = delete;
+
+ private:
+  static void set(const std::string &path) {
+    xSemaphoreTake(s_playing_lock, portMAX_DELAY);
+    s_playing = path;
+    xSemaphoreGive(s_playing_lock);
+  }
+};
 
 // One queued playlist. Sent by pointer through the queue and deleted by the
 // playback task.
@@ -156,6 +179,7 @@ void play_adpcm(FILE *f, const rt::WavInfo &info) {
 }
 
 void play_one(const std::string &path) {
+  const PlayingClaim claim(path);
   rt::WavInfo info;
   FILE *f = fopen(path.c_str(), "rb");
   if (f == nullptr) {
@@ -178,7 +202,6 @@ void play_one(const std::string &path) {
   }
 
   xSemaphoreTake(s_i2s_lock, portMAX_DELAY);
-  s_playing = path;
 
   // Clips are generated at a range of sample rates, so the clock is set per
   // clip rather than once at init.
@@ -188,7 +211,6 @@ void play_one(const std::string &path) {
     sse_hub::broadcast_issue(rt::issue_code::kAudioPlaybackFailed,
                              "Audio output could not be configured for this clip",
                              {{"clip", path}});
-    s_playing.clear();
     xSemaphoreGive(s_i2s_lock);
     fclose(f);
     return;
@@ -201,7 +223,6 @@ void play_one(const std::string &path) {
   }
 
   i2s_channel_disable(s_tx);
-  s_playing.clear();
   xSemaphoreGive(s_i2s_lock);
   fclose(f);
   ESP_LOGD(TAG, "Played %s", path.c_str());
@@ -220,12 +241,16 @@ void playback_task(void *) {
 
 }  // namespace
 
-bool is_playing(const std::string &path) {
-  if (s_i2s_lock == nullptr) return false;
-  xSemaphoreTake(s_i2s_lock, portMAX_DELAY);
+bool run_unless_playing(const std::string &path, const std::function<void()> &fn) {
+  if (s_playing_lock == nullptr) {
+    fn();
+    return true;
+  }
+  xSemaphoreTake(s_playing_lock, portMAX_DELAY);
   const bool playing = !s_playing.empty() && s_playing == path;
-  xSemaphoreGive(s_i2s_lock);
-  return playing;
+  if (!playing) fn();
+  xSemaphoreGive(s_playing_lock);
+  return !playing;
 }
 
 bool probe_wav(const char *path, rt::WavInfo &out) {
@@ -239,10 +264,11 @@ bool probe_wav(const char *path, rt::WavInfo &out) {
 
 bool init() {
   s_i2s_lock = xSemaphoreCreateMutex();
+  s_playing_lock = xSemaphoreCreateMutex();
   // Depth 1: a playlist waiting to start is always superseded by a newer one
   // (see play()), so there is never a reason to hold more than one.
   s_queue = xQueueCreate(1, sizeof(Playlist *));
-  if (s_i2s_lock == nullptr || s_queue == nullptr) return false;
+  if (s_i2s_lock == nullptr || s_playing_lock == nullptr || s_queue == nullptr) return false;
 
   // The port and the three pins come from the store (#144); a club whose board
   // wires the DAC differently says so rather than rebuilding.
@@ -260,7 +286,9 @@ bool init() {
           I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
       .gpio_cfg =
           {
-              .mclk = I2S_GPIO_UNUSED,
+              .mclk = hw.i2s_mclk_gpio == rt::kI2sPinUnused
+                          ? I2S_GPIO_UNUSED
+                          : static_cast<gpio_num_t>(hw.i2s_mclk_gpio),
               .bclk = static_cast<gpio_num_t>(hw.i2s_bck_gpio),
               .ws = static_cast<gpio_num_t>(hw.i2s_ws_gpio),
               .dout = static_cast<gpio_num_t>(hw.i2s_dout_gpio),
@@ -273,16 +301,17 @@ bool init() {
     return false;
   }
 
-  // Priority 5 keeps it above the httpd and run-loop tasks: an underrun is
-  // audible on the range, a few ms of added REST latency is not.
+  // Priority 5: above the run loop (4), level with httpd (HTTPD_DEFAULT_CONFIG,
+  // not overridden), so REST time-slices with playback rather than pre-empting
+  // it. An underrun is audible on the range; a few ms of REST latency is not.
   if (xTaskCreate(playback_task, "audio", 4096, nullptr, 5, nullptr) != pdPASS) {
     ESP_LOGE(TAG, "Failed to start playback task");
     return false;
   }
 
-  ESP_LOGI(TAG, "I2S ready (port=%d BCK=%d WS=%d DIN=%d)", static_cast<int>(hw.i2s_port),
+  ESP_LOGI(TAG, "I2S ready (port=%d BCK=%d WS=%d DIN=%d MCLK=%d)", static_cast<int>(hw.i2s_port),
            static_cast<int>(hw.i2s_bck_gpio), static_cast<int>(hw.i2s_ws_gpio),
-           static_cast<int>(hw.i2s_dout_gpio));
+           static_cast<int>(hw.i2s_dout_gpio), static_cast<int>(hw.i2s_mclk_gpio));
   return true;
 }
 

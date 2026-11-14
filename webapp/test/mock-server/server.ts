@@ -20,6 +20,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type {
+  ConfigWindowStatus,
   HardwareConfig,
   HardwareConfigState,
   Program,
@@ -32,14 +33,19 @@ import type {
   Series,
   StartupIssue,
   Event,
+  RestoreItem,
+  RestoreReport,
   ProblemType,
   WifiStatus,
+  EthernetStatus,
   WifiNetwork,
 } from '../../src/api/types';
 import type { EventLocation } from '../../src/lib/run-position';
 import { locateEvent, seriesTotalMs } from '../../src/lib/run-position';
 import type { Clock } from './clock';
+import { ConfigWindowModel, type Press } from './config-window';
 import { realClock } from './clock';
+import { readStoredZip, writeStoredZip, type ZipEntry } from './zip';
 
 /**
  * Every RFC 9457 problem type, with the title and status the firmware answers
@@ -55,6 +61,8 @@ const PROBLEMS = {
   // auth
   '/problems/control_lock_credentials_required': { title: 'Control lock credentials required', status: 401 },
   '/problems/invalid_password': { title: 'Invalid password', status: 401 },
+  '/problems/origin_not_allowed': { title: 'Origin not allowed', status: 403 },
+  '/problems/host_not_allowed': { title: 'Host not allowed', status: 421 },
   // not found
   '/problems/route_not_found': { title: 'Route not found', status: 404 },
   '/problems/program_not_found': { title: 'Program not found', status: 404 },
@@ -88,12 +96,17 @@ const PROBLEMS = {
     title: 'The configuration window is closed',
     status: 403,
   },
+  '/problems/config_window_busy': {
+    title: 'Too many requests for the configuration window',
+    status: 409,
+  },
   '/problems/hardware_config_serial_only': {
     title: 'That setting changes only from the serial console',
     status: 400,
   },
   '/problems/wifi_credentials_invalid': { title: 'Invalid WiFi credentials', status: 400 },
   '/problems/bank_unavailable': { title: 'No such target bank', status: 400 },
+  '/problems/backup_invalid': { title: 'Not a usable backup', status: 400 },
   '/problems/wifi_unavailable': { title: 'This device has no WiFi radio', status: 409 },
   // firmware update
   '/problems/ota_image_refused': { title: 'Firmware image refused', status: 400 },
@@ -106,6 +119,7 @@ const PROBLEMS = {
   '/problems/restart_failed': { title: 'Could not start the restart', status: 500 },
   // A flash write failing on the device; the mock never writes flash.
   '/problems/ota_write_failed': { title: 'Could not write the firmware', status: 500 },
+  '/problems/control_lock_store_failed': { title: 'Could not store the control lock', status: 500 },
 } satisfies Record<ProblemType, { title: string; status: number }>;
 
 /**
@@ -123,17 +137,17 @@ function pinRefusal(gpio: number): string | null {
   if (
     (gpio >= 22 && gpio <= 25) ||
     (gpio >= 26 && gpio <= 32) ||
-    (gpio >= 35 && gpio <= 37) ||
+    (gpio >= 33 && gpio <= 37) ||
     gpio === 43 ||
     gpio === 44
   ) {
-    return "That GPIO is wired to the module's flash or PSRAM (26-32, and 35-37 for this board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not exist on this chip (22-25). Driving it stops the device booting or takes away the way back in.";
+    return "That GPIO is wired to the module's flash or PSRAM (26-32, and 33-37 for this board's octal PSRAM), carries the serial console on UART0 (43, 44), or does not exist on this chip (22-25). Driving it stops the device booting or takes away the way back in.";
   }
   if (gpio === 19 || gpio === 20) {
     return 'GPIO 19 and 20 are the USB serial connection. Using one would remove the serial console, which is how this setting is put back if it turns out to be wrong.';
   }
-  if (gpio === 0 || gpio === 3 || gpio === 45) {
-    return 'GPIO 0, 3 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.';
+  if (gpio === 0 || gpio === 45) {
+    return 'GPIO 0 and 45 are read at reset to decide how the chip boots. Driving one can stop the device starting at all.';
   }
   if (gpio === 46) return 'That GPIO cannot drive an output on this chip.';
   return null;
@@ -142,20 +156,38 @@ function pinRefusal(gpio: number): string | null {
 /** `rt::kMaxTargetBanks` and `rt::kMaxBankNameLength` in target_bank.h. */
 const MAX_TARGET_BANKS = 8;
 const MAX_BANK_NAME_LENGTH = 16;
+/** `rt::kDefaultPulseMs`, `kMinPulseMs` and `kMaxPulseMs` in target_bank.h (#636). */
+const DEFAULT_PULSE_MS = 100;
+const MIN_PULSE_MS = 10;
+const MAX_PULSE_MS = 1000;
 /** The letter a bank's position gives it, `rt::bank_letter`. */
 const BANK_LETTERS = 'ABCDEFGH';
 
 const PIN_COLLISION =
-  'Two of these are on the same GPIO. The target banks, the status LED and the three audio pins each need one of their own, or whichever is set up last takes the pad and the other silently stops working.';
+  'Two of these are on the same GPIO. The target banks, the status LED, the audio pins and the Ethernet pins each need one of their own, or whichever is set up last takes the pad and the other silently stops working.';
 
 function hardwareConfigRefusal(config: HardwareConfig): string | null {
   const banks = config.banks;
   if (banks.length < 1 || banks.length > MAX_TARGET_BANKS) {
     return `A device drives between one and ${MAX_TARGET_BANKS} target banks.`;
   }
+  const hidePins: number[] = [];
   for (const bank of banks) {
     const refusal = pinRefusal(bank.gpio);
     if (refusal !== null) return refusal;
+    // Range-checked on every bank; only a latching bank drives its hide pin.
+    const pulseMs = bank.pulseMs ?? DEFAULT_PULSE_MS;
+    if (!Number.isInteger(pulseMs) || pulseMs < MIN_PULSE_MS || pulseMs > MAX_PULSE_MS) {
+      return `A latching bank's pulse must last between ${MIN_PULSE_MS} and ${MAX_PULSE_MS} ms.`;
+    }
+    const hideGpio = bank.hideGpio ?? -1;
+    if (bank.drive === 'latching') {
+      const hide = pinRefusal(hideGpio);
+      if (hide !== null) return hide;
+      hidePins.push(hideGpio);
+    } else if (!Number.isInteger(hideGpio) || hideGpio < -1 || hideGpio > 48) {
+      return 'A target GPIO must be between 0 and 48.';
+    }
     if (bank.name.length > MAX_BANK_NAME_LENGTH) {
       return `A bank name is at most ${MAX_BANK_NAME_LENGTH} characters.`;
     }
@@ -167,14 +199,31 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
   if (!Number.isInteger(config.i2sPort) || config.i2sPort < 0 || config.i2sPort > 1) {
     return 'The I2S port must be 0 or 1 - this chip has two.';
   }
+  // MCLK is optional (#506): -1 is not a pin, so it is neither checked nor counted.
   const i2s = [config.i2sBckGpio, config.i2sWsGpio, config.i2sDoutGpio];
+  if (config.i2sMclkGpio !== -1) i2s.push(config.i2sMclkGpio);
   for (const gpio of i2s) {
     const refusal = pinRefusal(gpio);
     if (refusal !== null) return refusal;
   }
 
-  const inUse = [...banks.map((bank) => bank.gpio), config.ledGpio, ...i2s];
+  // The W5500's pins (#262) are checked only while Ethernet is switched on.
+  const eth: number[] = [];
+  if (config.ethEnabled) {
+    eth.push(config.ethSclkGpio, config.ethMosiGpio, config.ethMisoGpio, config.ethCsGpio);
+    for (const gpio of [config.ethIntGpio, config.ethRstGpio]) if (gpio !== -1) eth.push(gpio);
+    for (const gpio of eth) {
+      const refusal = pinRefusal(gpio);
+      if (refusal !== null) return refusal;
+    }
+  }
+
+  const inUse = [...banks.map((bank) => bank.gpio), ...hidePins, config.ledGpio, ...i2s, ...eth];
   if (new Set(inUse).size !== inUse.length) return PIN_COLLISION;
+
+  if (!config.wifiEnabled && !config.ethEnabled) {
+    return 'WiFi and Ethernet cannot both be off - the device would have no network to be reached on.';
+  }
 
   if (config.hostname.length === 0) return 'The hostname cannot be empty - it is how the device is reached.';
   if (config.hostname.length > 20) return 'The hostname is too long; 20 characters at most.';
@@ -202,7 +251,7 @@ function hardwareConfigRefusal(config: HardwareConfig): string | null {
  */
 export const HARDWARE_DEFAULTS: HardwareConfig = {
   // One bank, which is every device shipped so far (#207, D-41).
-  banks: [{ gpio: 5, activeLow: true, name: '' }],
+  banks: [{ gpio: 5, activeLow: true, name: '', drive: 'level', hideGpio: -1, pulseMs: DEFAULT_PULSE_MS }],
   hostname: 'revolve-now',
   displayName: '',
   targetsShownAtBoot: true,
@@ -211,8 +260,17 @@ export const HARDWARE_DEFAULTS: HardwareConfig = {
   i2sBckGpio: 10,
   i2sWsGpio: 12,
   i2sDoutGpio: 11,
+  i2sMclkGpio: -1,
   httpPort: 80,
   wifiMaxRetries: 10,
+  wifiEnabled: true,
+  ethEnabled: true,
+  ethSclkGpio: 41,
+  ethMosiGpio: 39,
+  ethMisoGpio: 40,
+  ethCsGpio: 42,
+  ethIntGpio: 38,
+  ethRstGpio: -1,
 };
 // --- Constants ---
 const API_PREFIX = '/api/v2';
@@ -252,6 +310,11 @@ const MAX_STARTUP_ISSUES = 8;
 const MIN_DURATION_MS = 1;
 const MAX_DURATION_MS = 3600000;
 
+/** `kMaxProgramSeries`, `kMaxSeriesEvents`, `kMaxEventAudioIds` in rt_logic/program.h. */
+const MAX_PROGRAM_SERIES = 64;
+const MAX_SERIES_EVENTS = 128;
+const MAX_EVENT_AUDIO_IDS = 8;
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(here, '../data');
 
@@ -278,6 +341,7 @@ const DEFAULT_PARTITIONS: DiagnosticsInfo['partitions'] = [
 // boundary falls.
 const DEFAULT_WIFI: WifiStatus = {
   radioPresent: true,
+  enabled: true,
   connected: true,
   ssid: 'Range',
   rssi: -52,
@@ -286,6 +350,19 @@ const DEFAULT_WIFI: WifiStatus = {
   macAddress: '30:ed:a0:a8:ab:78',
   provisioned: true,
   restartRequired: false,
+};
+
+// A build that can have Ethernet, on a board with no W5500 fitted - which is
+// every board shipped so far (#262).
+const DEFAULT_ETHERNET: EthernetStatus = {
+  supported: true,
+  enabled: true,
+  present: false,
+  linkUp: false,
+  speedMbps: 0,
+  fullDuplex: false,
+  ipAddress: '',
+  macAddress: '',
 };
 
 // A small, plausible site: two networks a club might see, one of them the one
@@ -309,8 +386,13 @@ export interface MockSeed {
    * array when it names that.
    */
   hardware?: Partial<HardwareConfig>;
-  /** Whether the button-opened configuration window is open (#144). */
-  configWindowOpen?: boolean;
+  /**
+   * Whether the device has a BOOT button (#144, D-52). With one, the
+   * configuration window opens only for the client that asked, once a test
+   * calls `pressBoot()`. Without - the default, and what the dev server wants -
+   * every client may configure, as on a firmware built without the button.
+   */
+  button?: boolean;
   /**
    * What the boot scan complained about, served by `GET /diagnostics/info`
    * (D-25). Defaults to none, which is what a clean boot reports.
@@ -349,6 +431,8 @@ export interface MockSeed {
    * render it as such rather than as a failure.
    */
   wifiNetworks?: WifiNetwork[];
+  /** What `GET /ethernet` reports (#262). Defaults to a board with no W5500 fitted. */
+  ethernet?: Partial<EthernetStatus>;
   /**
    * The `build` block `GET /diagnostics/info` reports (#228). Defaults to a
    * plausible clean build. Set it to `null` for a device on firmware from
@@ -502,13 +586,34 @@ function banksRequiredOf(program: Program): number {
 function normalizeProgram(raw: Record<string, unknown>, id: number): Program | null {
   let refused = false;
 
-  const rawSeries = Array.isArray(raw.series) ? (raw.series as unknown[]) : [];
+  // `is_array_or_absent` and the per-entry checks in `rt::parse_program`:
+  // absent and `null` are an empty list, any other non-array refuses the
+  // program, and so does an entry of the wrong type.
+  const listOf = (value: unknown): unknown[] => {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) {
+      refused = true;
+      return [];
+    }
+    return value as unknown[];
+  };
+  const recordsOf = (value: unknown): Record<string, unknown>[] => {
+    const list = listOf(value);
+    if (!list.every(isRecord)) refused = true;
+    return list.filter(isRecord);
+  };
 
-  const series: Series[] = rawSeries.filter(isRecord).map((entry) => {
-    const rawEvents = Array.isArray(entry.events) ? (entry.events as unknown[]) : [];
+  // The shape ceilings in `rt_logic/program.h`, refused like the rest.
+  const atMost = <T>(list: T[], max: number): T[] => {
+    if (list.length > max) refused = true;
+    return list;
+  };
 
-    const events: Event[] = rawEvents.filter(isRecord).map((rawEvent) => {
-      const duration = typeof rawEvent.duration === 'number' ? Math.trunc(rawEvent.duration) : MIN_DURATION_MS;
+  const series: Series[] = atMost(recordsOf(raw.series), MAX_PROGRAM_SERIES).map((entry) => {
+    const events: Event[] = atMost(recordsOf(entry.events), MAX_SERIES_EVENTS).map((rawEvent) => {
+      // Required and an integer, as parse_event has it.
+      if (!Number.isInteger(rawEvent.duration)) refused = true;
+      const duration = Number.isInteger(rawEvent.duration) ? (rawEvent.duration as number) : 0;
       const event: Event = { duration: Math.min(Math.max(duration, MIN_DURATION_MS), MAX_DURATION_MS) };
 
       const command = parseCommand(rawEvent.command);
@@ -518,8 +623,13 @@ function normalizeProgram(raw: Record<string, unknown>, id: number): Program | n
       const banks = parseBanks(rawEvent.banks);
       if (!banks.ok) refused = true;
       else if (banks.banks !== undefined) event.banks = banks.banks;
-      if (Array.isArray(rawEvent.audio_ids)) {
-        event.audio_ids = (rawEvent.audio_ids as unknown[]).filter((v): v is number => typeof v === 'number');
+      if (rawEvent.audio_ids !== undefined && rawEvent.audio_ids !== null) {
+        const ids = atMost(listOf(rawEvent.audio_ids), MAX_EVENT_AUDIO_IDS);
+        if (!ids.every((v) => Number.isInteger(v))) refused = true;
+        // An integer outside int32 is dropped, as `is<int32_t>()` drops it.
+        event.audio_ids = ids.filter(
+          (v): v is number => Number.isInteger(v) && (v as number) >= -2147483648 && (v as number) <= 2147483647,
+        );
       }
       return event;
     });
@@ -608,11 +718,15 @@ export interface MockServer {
    */
   restart(): void;
   /**
-   * Open or shut the button window without a button. The firmware's lapses
-   * after five minutes, which is a thing a page has to survive - so a test
-   * needs to be able to shut one that was open (#341).
+   * Three presses of BOOT: opens the window for the one client waiting, or for
+   * nobody when several are (D-52). Only on a device seeded with `button`.
    */
-  setConfigWindow(open: boolean): void;
+  pressBoot(): Press;
+  /**
+   * Shut the window and forget every request. The firmware's lapses after
+   * five minutes, which a page has to survive (#341).
+   */
+  closeConfigWindow(): void;
   /** Bind a real socket (for tests that want to speak HTTP). Resolves to the bound port. */
   listen(): Promise<number>;
   /** Stop timers, drop SSE clients, close the socket if one was opened. */
@@ -642,6 +756,101 @@ interface SSEClient {
   cancelHeartbeat: () => void;
 }
 
+/** `rt::kOpenWindowHint` in firmware/lib/rt_logic/problem.h. */
+const OPEN_WINDOW_HINT =
+  'Ask for the configuration window first (Expert mode, in the web app), then press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds, and try again.';
+
+/**
+ * `rt::apply_hardware_patch`'s shape checks: the refusals the firmware answers
+ * before it reads a value. A patch it accepts comes back with every bank
+ * filled in the way ArduinoJson's `entry["gpio"] | 0` does, so a half-written
+ * entry reaches validation as GPIO 0 and is refused there. The latching fields
+ * (#636) fall back to the bank at the same index in `current` instead.
+ */
+function parseHardwarePatch(
+  parsed: Record<string, unknown> | null,
+  current: HardwareConfig['banks'],
+):
+  | { patch: Partial<HardwareConfig> }
+  | {
+      type: '/problems/hardware_config_invalid' | '/problems/hardware_config_serial_only';
+      detail: string;
+      /** The firmware's PUT answers a bad bank only after the run and window guards. */
+      ofBanks: boolean;
+    } {
+  if (parsed === null) {
+    return {
+      type: '/problems/hardware_config_invalid',
+      detail: 'Expected a JSON object of hardware configuration fields',
+      ofBanks: false,
+    };
+  }
+  // Refused, not ignored (D-31): where the targets rest at boot changes only
+  // from the serial console.
+  if (parsed.targetsShownAtBoot !== undefined && parsed.targetsShownAtBoot !== null) {
+    return {
+      type: '/problems/hardware_config_serial_only',
+      detail: "targetsShownAtBoot changes only from the serial console: 'boot-targets shown' or 'boot-targets hidden'",
+      ofBanks: false,
+    };
+  }
+  // `null` is absent, as `doc[...].isNull()` makes it on the device.
+  const patch = Object.fromEntries(
+    Object.entries(parsed).filter(([key, value]) => value !== null && key !== 'targetsShownAtBoot'),
+  ) as Partial<HardwareConfig>;
+  if (patch.banks !== undefined) {
+    if (!Array.isArray(patch.banks)) {
+      return {
+        type: '/problems/hardware_config_invalid',
+        detail: "'banks' must be an array of target banks",
+        ofBanks: true,
+      };
+    }
+    if (patch.banks.some((bank) => bank === null || typeof bank !== 'object' || Array.isArray(bank))) {
+      return {
+        type: '/problems/hardware_config_invalid',
+        detail: "Each entry in 'banks' must be an object with gpio, activeLow and name",
+        ofBanks: true,
+      };
+    }
+    const drives: unknown[] = patch.banks.map((bank: Record<string, unknown>) => bank.drive);
+    if (drives.some((drive) => drive !== undefined && drive !== null && drive !== 'level' && drive !== 'latching')) {
+      return {
+        type: '/problems/hardware_config_invalid',
+        detail: "A bank's 'drive' must be 'level' or 'latching'",
+        ofBanks: true,
+      };
+    }
+    patch.banks = patch.banks.map((bank: Partial<HardwareConfig['banks'][number]>, index) => {
+      const was = current[index];
+      return {
+        gpio: typeof bank.gpio === 'number' ? bank.gpio : 0,
+        activeLow: typeof bank.activeLow === 'boolean' ? bank.activeLow : true,
+        name: typeof bank.name === 'string' ? bank.name : '',
+        drive: bank.drive ?? was?.drive ?? 'level',
+        hideGpio: typeof bank.hideGpio === 'number' ? bank.hideGpio : (was?.hideGpio ?? -1),
+        pulseMs: typeof bank.pulseMs === 'number' ? bank.pulseMs : (was?.pulseMs ?? DEFAULT_PULSE_MS),
+      };
+    });
+  }
+  return { patch };
+}
+
+/** `rt::hardware_overrides_json`: what differs from the defaults, never `targetsShownAtBoot`. */
+function hardwareOverrides(saved: HardwareConfig, defaults: HardwareConfig): Partial<HardwareConfig> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(saved) as (keyof HardwareConfig)[]) {
+    if (key === 'targetsShownAtBoot') continue;
+    if (JSON.stringify(saved[key]) !== JSON.stringify(defaults[key])) out[key] = saved[key];
+  }
+  return out as Partial<HardwareConfig>;
+}
+
+/** `rt::backup::same_program_content`: the same program, whatever the ids. */
+function sameProgramContent(a: Program, b: Program): boolean {
+  return JSON.stringify({ ...a, id: 0, readonly: false }) === JSON.stringify({ ...b, id: 0, readonly: false });
+}
+
 export function createMockServer(options: MockServerOptions = {}): MockServer {
   const clock = options.clock ?? realClock;
   const requestedPort = options.port ?? 0;
@@ -649,6 +858,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   // Uploads, edits and deletes mutate both, so each is a copy of the seed and
   // `reset()` puts it back rather than leaking one test's writes into the next.
   const audios: AudioFile[] = [...seed.audios];
+  // The bytes of uploaded clips, which the backup carries. A seeded upload has
+  // none of its own, so it holds a header-only WAV.
+  const audioBytes = new Map<number, Buffer>();
+  function seedAudioBytes(): void {
+    audioBytes.clear();
+    for (const audio of seed.audios) {
+      if (!audio.readonly) audioBytes.set(audio.id, Buffer.from('RIFF\u0000\u0000\u0000\u0000WAVE', 'latin1'));
+    }
+  }
+  seedAudioBytes();
   const programs: Record<number, Program> = {};
   function restorePrograms(): void {
     for (const key of Object.keys(programs)) delete programs[Number(key)];
@@ -664,15 +883,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   const bootConfig = (): HardwareConfig => ({ ...HARDWARE_DEFAULTS, ...(seed.hardware ?? {}) });
   let activeHardware: HardwareConfig = bootConfig();
   let savedHardware: HardwareConfig = { ...activeHardware };
-  // The firmware opens this with a button press and reports it so the app can
-  // decide whether to offer the settings at all. There is no button here, so a
-  // test drives it directly; open by default, matching a build with no button.
-  let configWindowOpen = seed.configWindowOpen ?? true;
+  // boot_button's window (D-52): bound to the client that asked, on a device
+  // with a button. Without one every client may configure.
+  const hasButton = seed.button ?? false;
+  const configWindow = new ConfigWindowModel();
 
   // The same two copies as the hardware configuration, for the same reason: a
   // save stores, and the station keeps the association it booted with until
   // restart() adopts what was stored (#341).
   let wifi: WifiStatus = { ...DEFAULT_WIFI, ...(seed.wifi ?? {}) };
+  const ethernet: EthernetStatus = { ...DEFAULT_ETHERNET, ...(seed.ethernet ?? {}) };
   let savedWifiSsid: string | null = null;
   /** Mirrors `wifi_store::saved_since_boot()`; why a flag is D-42. */
   let wifiSavedSinceBoot = false;
@@ -696,12 +916,35 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   /** Mirrors `executor::is_running()` on the device. */
   const isRunning = (): boolean => state.programState?.running === true;
 
+  /** The `X-Config-Window` token a request carries, or ''. */
+  const windowToken = (req: IncomingMessage): string => {
+    const value = req.headers['x-config-window'];
+    return typeof value === 'string' ? value : '';
+  };
+
   /**
-   * Mirrors what the firmware reports as `writeWindow.open`: the button window
-   * AND no run in progress, so the two cannot disagree about whether a save
-   * would be accepted.
+   * `boot_button::config_window_open(token)`: this client holds the window and
+   * no run holds it shut. What `writeWindow.open` reports and every hardware,
+   * WiFi and bundle route checks, so the two cannot disagree.
    */
-  const hardwareWritable = (): boolean => configWindowOpen && !isRunning();
+  const hardwareWritable = (req: IncomingMessage): boolean =>
+    !isRunning() && (!hasButton || configWindow.holds(windowToken(req), clock.now()));
+
+  /** `boot_button::presence_window_open(token)`: not held shut by a run. */
+  const presenceWindowOpen = (req: IncomingMessage): boolean =>
+    hasButton && configWindow.holds(windowToken(req), clock.now());
+
+  /** `boot_button::window_status(token)`. */
+  function windowStatus(token: string): ConfigWindowStatus {
+    if (!hasButton) {
+      return isRunning() ? { state: 'closed', remainingSeconds: 0 } : { state: 'open', remainingSeconds: 300 };
+    }
+    const { state: windowState, remainingMs } = configWindow.state(token, clock.now());
+    if (isRunning() && (windowState === 'open' || windowState === 'elsewhere')) {
+      return { state: 'closed', remainingSeconds: 0 };
+    }
+    return { state: windowState, remainingSeconds: Math.floor(remainingMs / 1000) };
+  }
 
   /**
    * What a reboot does: adopt everything that was saved. One function, called
@@ -855,6 +1098,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       // Applied whole: a typo in the second entry must not leave the first
       // already driven.
       if (index < 0 || index >= state.bankShown.length) {
+        // `bank_refusal_message` tells "named nothing" from "named a bad
+        // letter" by an empty offender, so `[""]` gets the former.
+        if (letter === '') {
+          problemResponse(
+            res,
+            '/problems/bank_unavailable',
+            "'banks' named no bank. Omit the body to move every bank.",
+          );
+          return null;
+        }
         const range =
           state.bankShown.length <= 1 ? 'only bank A' : `banks A-${BANK_LETTERS[state.bankShown.length - 1]}`;
         problemResponse(
@@ -902,8 +1155,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
    */
   function padLevel(index: number): number {
     const bank = activeHardware.banks[index];
+    const activeLow = bank?.activeLow ?? true;
+    // A latching bank's show pin rests released between pulses (#636).
+    if (bank?.drive === 'latching') return activeLow ? 1 : 0;
     const shown = state.bankShown[index] ?? false;
-    return shown === (bank?.activeLow ?? true) ? 0 : 1;
+    return shown === activeLow ? 0 : 1;
   }
 
   /** Mirrors `rt::Executor::set_targets`: only the named banks move. */
@@ -940,16 +1196,20 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   }
 
   /**
-   * `sse_hub::broadcast_config_window` (#144). The firmware sends this on the
-   * transition only, so the mock does too - and the transition includes a run
-   * starting or stopping, because the run is part of the answer.
+   * `sse_hub::broadcast_config_window` (#144), from boot_button's task: on a
+   * change to whether a window is open for anybody, to its deadline, or on a
+   * press outcome (D-52). Only a device with a button has that task.
    */
-  let lastPublishedWindowOpen: boolean | null = null;
+  let lastPublished = { open: false, until: 0, outcomes: 0 };
+  let pressOutcomes = 0;
   function broadcastConfigWindowIfChanged(): void {
-    const open = hardwareWritable();
-    if (open === lastPublishedWindowOpen) return;
-    lastPublishedWindowOpen = open;
-    const payload = { open, remainingSeconds: open ? 300 : 0 };
+    if (!hasButton) return;
+    const now = clock.now();
+    const open = !isRunning() && configWindow.open(now);
+    const next = { open, until: configWindow.until(), outcomes: pressOutcomes };
+    if (JSON.stringify(next) === JSON.stringify(lastPublished)) return;
+    lastPublished = next;
+    const payload = { open, remainingSeconds: open ? Math.floor((configWindow.until() - now) / 1000) : 0 };
     const message = `event: configWindow\ndata: ${JSON.stringify(payload)}\n\n`;
     clients.forEach(({ res }) => res.write(message));
   }
@@ -1093,6 +1353,282 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     return id;
   }
 
+  function addAudio(title: string, content: Buffer): number {
+    const id = nextUploadedId();
+    audios.push({ id, title, filename: `/userdata/audio/${id}.wav`, readonly: false });
+    audioBytes.set(id, Buffer.from(content));
+    return id;
+  }
+
+  /** `programs::add`: the next free id, stored as uploaded. */
+  function addProgram(program: Program): number {
+    let id = FIRST_UPLOAD_ID;
+    while (programs[id] !== undefined) id++;
+    programs[id] = { ...program, id, readonly: false };
+    return id;
+  }
+
+  function problemBody(type: ProblemType, detail: string) {
+    const { title, status } = PROBLEMS[type];
+    return { type, title, status, detail };
+  }
+
+  /** `GET /backup`, as `device_backup.cpp` writes it. */
+  function backupArchive(): Buffer {
+    const uploadedAudio = audios.filter((audio) => !audio.readonly);
+    const entries: ZipEntry[] = [
+      {
+        name: 'backup.json',
+        data: Buffer.from(
+          JSON.stringify({
+            format: 'revolve-now-backup',
+            formatVersion: 1,
+            firmwareVersion: seed.firmwareVersion ?? '2.0.0-mock',
+            hostname: activeHardware.hostname,
+            displayName: activeHardware.displayName,
+            includesWifiCredentials: false,
+            hardware: hardwareOverrides(savedHardware, HARDWARE_DEFAULTS),
+            audios: uploadedAudio.map((audio) => ({ id: audio.id, title: audio.title })).sort((a, b) => a.id - b.id),
+          }),
+        ),
+      },
+      ...uploadedAudio.map((audio) => ({
+        name: `audio/${audio.id}.wav`,
+        data: audioBytes.get(audio.id) ?? Buffer.alloc(0),
+      })),
+      ...Object.values(programs)
+        .filter((program) => !program.readonly)
+        .map((program) => ({ name: `programs/${program.id}.json`, data: Buffer.from(JSON.stringify(program)) })),
+    ];
+    return writeStoredZip(entries);
+  }
+
+  /**
+   * `POST /restore`: `rt::backup::RestoreSession` over this mock's state.
+   * Either the 400 that refuses the file whole, or the report.
+   */
+  function restoreArchive(
+    zip: Buffer,
+    options: { hardware: boolean; name: boolean; windowOpen: boolean },
+  ): { problem: { type: ProblemType; detail: string } } | { report: RestoreReport } {
+    const { entries, error } = readStoredZip(zip);
+    const DAMAGED = 'The entry does not match its checksum - the file is damaged. Download a new backup.';
+    const readerProblem = (): string | null => {
+      switch (error) {
+        case 'notZip':
+          return 'Not a backup: the file is not a ZIP archive.';
+        case 'unsupported':
+          return 'The archive is compressed, encrypted or otherwise not as the device wrote it. Restore the file exactly as it was downloaded, not a copy that was unpacked and zipped again.';
+        case 'corrupt':
+          return 'The archive is damaged. Download a new backup.';
+        case 'truncated':
+          return 'The file ended before the backup did - it was cut short. What is listed was restored.';
+        default:
+          return null;
+      }
+    };
+
+    const first = entries[0];
+    if (first === undefined) {
+      const detail =
+        error === 'notZip' || error === 'unsupported' || error === 'corrupt'
+          ? (readerProblem() as string)
+          : 'Not a backup: the file is empty or not a ZIP archive.';
+      return { problem: { type: '/problems/backup_invalid', detail } };
+    }
+    if (first.name === 'manifest.json') {
+      return {
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: 'This backup was taken by a development build in a format no release reads. Take a new backup.',
+        },
+      };
+    }
+    if (first.name !== 'backup.json') {
+      return {
+        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: it does not start with backup.json.' },
+      };
+    }
+    if (!first.crcOk) return { problem: { type: '/problems/backup_invalid', detail: DAMAGED } };
+    const manifest = parseJsonObject(first.data.toString('utf8'));
+    if (manifest === null || manifest.format !== 'revolve-now-backup') {
+      return {
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: 'Not a backup: backup.json does not describe a Revolve Now backup.',
+        },
+      };
+    }
+    if (typeof manifest.formatVersion !== 'number' || !Number.isInteger(manifest.formatVersion)) {
+      return {
+        problem: { type: '/problems/backup_invalid', detail: 'Not a backup: backup.json has no format version.' },
+      };
+    }
+    if (manifest.formatVersion < 1 || manifest.formatVersion > 1) {
+      return {
+        problem: {
+          type: '/problems/backup_invalid',
+          detail: `This backup is in format ${manifest.formatVersion}, which this firmware cannot read. Update the firmware and try again.`,
+        },
+      };
+    }
+
+    const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+    const report: RestoreReport = {
+      source: {
+        formatVersion: manifest.formatVersion,
+        firmwareVersion: text(manifest.firmwareVersion),
+        hostname: text(manifest.hostname),
+        displayName: text(manifest.displayName),
+      },
+      hardware: { result: 'notIncluded' },
+      audios: [],
+      programs: [],
+    };
+    // A clip it does not name still restores, under a placeholder.
+    const titles = new Map<number, string>();
+    for (const clip of Array.isArray(manifest.audios) ? (manifest.audios as unknown[]) : []) {
+      if (isRecord(clip) && Number.isInteger(clip.id) && typeof clip.title === 'string' && clip.title !== '') {
+        titles.set(clip.id as number, clip.title);
+      }
+    }
+    const audioIds = new Map<number, number>();
+    let audiosChanged = false;
+    let programsChanged = false;
+
+    // Applied as backup.json ends, before any clip, as on the device.
+    if (manifest.hardware !== undefined && manifest.hardware !== null) {
+      if (!options.hardware) {
+        report.hardware = { result: 'notRequested' };
+      } else {
+        const shape = parseHardwarePatch(
+          isRecord(manifest.hardware) ? manifest.hardware : null,
+          HARDWARE_DEFAULTS.banks,
+        );
+        if ('type' in shape) {
+          report.hardware = { result: 'refused', problem: problemBody(shape.type, shape.detail) };
+        } else {
+          const candidate: HardwareConfig = {
+            ...HARDWARE_DEFAULTS,
+            ...shape.patch,
+            targetsShownAtBoot: savedHardware.targetsShownAtBoot,
+            ...(options.name ? {} : { hostname: savedHardware.hostname, displayName: savedHardware.displayName }),
+          };
+          const refusal = hardwareConfigRefusal(candidate);
+          // Compared before the window, so a board already set up that way needs no press.
+          if (JSON.stringify(candidate) === JSON.stringify(savedHardware)) {
+            report.hardware = { result: 'unchanged' };
+          } else if (!options.windowOpen) {
+            report.hardware = {
+              result: 'skipped',
+              problem: problemBody('/problems/hardware_config_window_closed', OPEN_WINDOW_HINT),
+            };
+          } else if (refusal !== null) {
+            report.hardware = {
+              result: 'refused',
+              problem: problemBody('/problems/hardware_config_invalid', refusal),
+            };
+          } else {
+            savedHardware = candidate;
+            report.hardware = { result: 'saved' };
+          }
+        }
+      }
+    }
+
+    for (const entry of entries.slice(1)) {
+      const audioMatch = /^audio\/(\d+)\.wav$/.exec(entry.name);
+      const programMatch = /^programs\/(\d+)\.json$/.exec(entry.name);
+
+      if (audioMatch) {
+        const sourceId = Number(audioMatch[1]);
+        const title = titles.get(sourceId) ?? `Restored clip ${sourceId}`;
+        let item: RestoreItem;
+        if (entry.data.length > MAX_UPLOAD_BYTES) {
+          item = {
+            sourceId,
+            title,
+            result: 'refused',
+            problem: problemBody(
+              '/problems/audio_format_unsupported',
+              'The clip is larger than the 1 MiB upload limit.',
+            ),
+          };
+        } else if (!entry.crcOk) {
+          item = { sourceId, title, result: 'refused', problem: problemBody('/problems/backup_invalid', DAMAGED) };
+        } else if (!entry.data.subarray(0, 4).equals(Buffer.from('RIFF'))) {
+          item = {
+            sourceId,
+            title,
+            result: 'refused',
+            problem: problemBody('/problems/audio_format_unsupported', 'Not a WAV this firmware can play.'),
+          };
+        } else {
+          const same = audios.find(
+            (audio) =>
+              !audio.readonly && audio.title === title && audioBytes.get(audio.id)?.equals(entry.data) === true,
+          );
+          if (same) {
+            item = { sourceId, title, result: 'skipped', id: same.id };
+          } else {
+            item = { sourceId, title, result: 'added', id: addAudio(title, entry.data) };
+            audiosChanged = true;
+          }
+        }
+        if (item.id !== undefined) audioIds.set(sourceId, item.id);
+        report.audios.push(item);
+      } else if (programMatch) {
+        const sourceId = Number(programMatch[1]);
+        const raw = entry.crcOk ? parseJsonObject(entry.data.toString('utf8')) : null;
+        const parsed = raw === null ? null : normalizeProgram(raw, 0);
+        if (!entry.crcOk) {
+          report.programs.push({
+            sourceId,
+            title: '',
+            result: 'refused',
+            problem: problemBody('/problems/backup_invalid', DAMAGED),
+          });
+        } else if (parsed === null) {
+          report.programs.push({
+            sourceId,
+            title: '',
+            result: 'refused',
+            problem: problemBody('/problems/program_invalid', 'This firmware cannot read the program.'),
+          });
+        } else {
+          // `rt::backup::remap_audio_ids`.
+          const dropped: number[] = [];
+          for (const series of parsed.series) {
+            for (const event of series.events) {
+              event.audio_ids = (event.audio_ids ?? []).flatMap((id) => {
+                if (id < FIRST_UPLOAD_ID) return [id];
+                const mapped = audioIds.get(id);
+                if (mapped !== undefined) return [mapped];
+                if (!dropped.includes(id)) dropped.push(id);
+                return [];
+              });
+            }
+          }
+          const same = Object.values(programs).find(
+            (program) => !program.readonly && sameProgramContent(program, parsed),
+          );
+          const item: RestoreItem = same
+            ? { sourceId, title: parsed.title, result: 'skipped', id: same.id }
+            : { sourceId, title: parsed.title, result: 'added', id: addProgram(parsed) };
+          if (!same) programsChanged = true;
+          if (dropped.length > 0) item.droppedAudioIds = dropped;
+          report.programs.push(item);
+        }
+      }
+    }
+
+    const stopped = readerProblem();
+    if (stopped !== null) report.stoppedEarly = problemBody('/problems/backup_invalid', stopped);
+    if (programsChanged) broadcastLibraryChanged('program');
+    if (audiosChanged) broadcastLibraryChanged('audio');
+    return { report };
+  }
+
   function isPlaying(id: number): boolean {
     return state.playingAudioId === id && state.playingUntil !== null && clock.now() < state.playingUntil;
   }
@@ -1149,6 +1685,23 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
   }
 
   /**
+   * `rt::Executor::enter_through`: enter every event after the current one up
+   * to and including `index`, in order, so a late tick cannot step over one.
+   */
+  function enterThrough(series: Series, index: number): void {
+    if (!state.programState) return;
+
+    const current = state.programState.currentEventIndex;
+    let next = current === null ? index : current + 1;
+    if (index < next - 1) next = index;
+
+    for (; next <= index; next++) {
+      state.programState.currentEventIndex = next;
+      enterEvent(series.events[next]);
+    }
+  }
+
+  /**
    * `rt::Executor::enter_event`. The resolution rule is stated once, on
    * `banks` in `contracts/program.schema.json`.
    */
@@ -1173,6 +1726,9 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     const elapsedMs = clock.now() - state.seriesStartTime;
 
     if (elapsedMs >= seriesTotalMs(series)) {
+      // A tick past the end still owes the events it crossed.
+      enterThrough(series, series.events.length - 1);
+
       const nextSeriesIndex = currentSeriesIndex + 1;
 
       if (state.loadedProgram && nextSeriesIndex < state.loadedProgram.series.length) {
@@ -1199,11 +1755,12 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
     const publishedSeconds =
       state.programState.tickerMs === null ? null : Math.floor(state.programState.tickerMs / 1000);
-    const changed = state.programState.currentEventIndex !== location.index || publishedSeconds !== elapsedSeconds;
+    const crossed = state.programState.currentEventIndex !== location.index;
+    const changed = crossed || publishedSeconds !== elapsedSeconds;
 
     if (changed) {
       state.programState.tickerMs = elapsedMs;
-      applyLocation(series, location);
+      if (crossed) enterThrough(series, location.index);
       broadcastState();
     }
   }
@@ -1221,6 +1778,27 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       return;
     }
 
+    // --- The configuration window (D-52) ---
+
+    if (endpoint === '/config-window' && req.method === 'GET') {
+      jsonResponse(res, 200, windowStatus(windowToken(req)));
+      return;
+    }
+
+    if (endpoint === '/config-window/request' && req.method === 'POST') {
+      const token = configWindow.request(windowToken(req), clock.now());
+      if (token === null) {
+        problemResponse(
+          res,
+          '/problems/config_window_busy',
+          'Too many devices are already asking for the configuration window. Wait two minutes and ask again.',
+        );
+        return;
+      }
+      jsonResponse(res, 200, { ...windowStatus(token), token });
+      return;
+    }
+
     // POST /control-lock/enable
     if (endpoint === '/control-lock/enable' && req.method === 'POST') {
       const body = await parseBody(req);
@@ -1231,6 +1809,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           '/problems/control_lock_already_enabled',
           'The control lock is already on. Log in, or turn it off before turning it on again.',
         );
+        return;
+      }
+
+      // D-51: the lock outlives a restart, so setting it needs somebody at the
+      // board - this client's window (D-52). Not held shut by a run, as
+      // boot_button::presence_window_open() is not. No button, no check.
+      if (hasButton && !presenceWindowOpen(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
@@ -1274,9 +1860,21 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       return;
     }
 
+    // POST /control-lock/logout - not itself protected, always 200, as the
+    // firmware has it: the bearer token first, then the cookie.
+    if (endpoint === '/control-lock/logout' && req.method === 'POST') {
+      const auth = req.headers['authorization'];
+      const token = auth?.startsWith('Bearer ') ? auth.slice(7) : parseCookies(req)['control_lock'];
+      if (token) state.controlLockTokens.delete(token);
+      res.setHeader('Set-Cookie', 'control_lock=; Path=/; SameSite=Lax; Max-Age=0');
+      jsonResponse(res, 200, { message: 'Logged out' });
+      return;
+    }
+
     // POST /control-lock/disable
     if (endpoint === '/control-lock/disable' && req.method === 'POST') {
-      if (!checkControlLockAuth(req, res)) return;
+      // A session, or somebody at the board (D-51).
+      if (!presenceWindowOpen(req) && !checkControlLockAuth(req, res)) return;
       state.controlLockPassword = null;
       state.controlLockTokens.clear();
       jsonResponse(res, 200, { message: 'Control lock off - anyone on the network can operate the device again' });
@@ -1312,6 +1910,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
           id: BANK_LETTERS[index],
           gpio: bank.gpio,
           padLevel: padLevel(index),
+          drive: bank.drive ?? 'level',
+          shown: state.bankShown[index] ?? false,
           name: bank.name,
         })),
         controlLockEnabled: isControlLockOn(),
@@ -1333,10 +1933,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     //
     // The configuration window and nothing else - notably NOT the control
     // lock, which is write protection and irrelevant to a read.
-    // `hardwareWritable` rather
-    // than `configWindowOpen` because the firmware's `config_window_open()` is
-    // held shut by a run, and the two must agree about a device that would
-    // refuse.
+    // `hardwareWritable`, as the firmware's `config_window_open(token)`: held
+    // shut by a run, and open only for the client the presses chose (D-52).
     //
     // The body is an *empty* archive - the 22-byte end-of-central-directory
     // record and nothing else, which is a real zip every reader accepts.
@@ -1344,12 +1942,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     // Reimplementing the entry layout here would be a second copy of a format
     // whose real test is firmware/host_test/test_zip_writer.
     if (endpoint === '/diagnostics/bundle' && req.method === 'GET') {
-      if (!hardwareWritable()) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
@@ -1361,6 +1955,65 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         'Content-Disposition': `attachment; filename="${filename}"`,
       });
       res.end(Buffer.from('PK\u0005\u0006' + '\u0000'.repeat(18), 'latin1'));
+      return;
+    }
+
+    // --- Backup (#520) ---
+
+    // Public like every other GET; refused during a run because the device's
+    // single server task would hold the stop button behind it.
+    if (endpoint === '/backup' && req.method === 'GET') {
+      if (isRunning()) {
+        problemResponse(res, '/problems/program_running', 'A program is running - stop it before taking a backup');
+        return;
+      }
+      // rt::backup::download_name.
+      const host = activeHardware.hostname === HARDWARE_DEFAULTS.hostname ? '' : `${activeHardware.hostname}-`;
+      const filename = `revolve-now-backup-${host}${seed.firmwareVersion ?? '2.0.0-mock'}.zip`;
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      });
+      res.end(backupArchive());
+      return;
+    }
+
+    if (endpoint === '/restore' && req.method === 'POST') {
+      if (!checkControlLockAuth(req, res)) return;
+      if (isRunning()) {
+        problemResponse(res, '/problems/program_running', 'A program is running - stop it before restoring a backup');
+        return;
+      }
+      if (!(req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
+        problemResponse(
+          res,
+          '/problems/upload_missing_file',
+          'Expected a multipart/form-data body with the backup in a file part',
+        );
+        return;
+      }
+      const upload = parseMultipart(req, await parseBodyBuffer(req));
+      if (!upload || upload.content.length === 0) {
+        problemResponse(res, '/problems/upload_missing_file', 'No file uploaded');
+        return;
+      }
+      const query = new URL(req.url ?? '/', 'http://mock').searchParams;
+      const flag = (name: string, fallback: boolean): boolean => {
+        const value = query.get(name);
+        if (value === 'true' || value === '1') return true;
+        if (value === 'false' || value === '0') return false;
+        return fallback;
+      };
+      const outcome = restoreArchive(upload.content, {
+        hardware: flag('hardware', true),
+        name: flag('name', false),
+        windowOpen: hardwareWritable(req),
+      });
+      if ('problem' in outcome) {
+        problemResponse(res, outcome.problem.type, outcome.problem.detail);
+        return;
+      }
+      jsonResponse(res, 200, outcome.report);
       return;
     }
 
@@ -1377,11 +2030,11 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         // "differs from the defaults", not "a key was written" - saving a
         // value equal to its default leaves nothing for a reset to undo.
         overridden: JSON.stringify(savedHardware) !== JSON.stringify(HARDWARE_DEFAULTS),
-        // Mirrors the firmware: one meaning, "would a PUT be accepted now", so
-        // a run closes the window and the app hides Expert mode.
+        // Mirrors the firmware: one meaning, "would a PUT from this client be
+        // accepted now", so a run closes the window and the app hides Expert mode.
         writeWindow: {
-          open: hardwareWritable(),
-          remainingSeconds: hardwareWritable() ? 300 : 0,
+          open: hardwareWritable(req),
+          remainingSeconds: hardwareWritable(req) ? windowStatus(windowToken(req)).remainingSeconds : 0,
         },
         restartRequired: JSON.stringify(activeHardware) !== JSON.stringify(savedHardware),
       };
@@ -1391,31 +2044,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
     if (endpoint === '/config/hardware' && req.method === 'PUT') {
       if (!checkControlLockAuth(req, res)) return;
-      const parsed = parseJsonObject(await parseBody(req));
-      if (parsed === null) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_invalid',
-          'Expected a JSON object of hardware configuration fields',
-        );
+      // Absent fields keep what is stored. A body that is not an object, or
+      // that names `targetsShownAtBoot`, is refused ahead of the guards; a bad
+      // bank after them, in the firmware's order.
+      const shape = parseHardwarePatch(parseJsonObject(await parseBody(req)), savedHardware.banks);
+      if ('type' in shape && !shape.ofBanks) {
+        problemResponse(res, shape.type, shape.detail);
         return;
       }
-      // Absent fields keep what is stored: a client that knows about fewer
-      // fields than this firmware must not silently undo the rest.
-      // Refused, not ignored (D-31): where the targets rest at boot changes
-      // only from the serial console, and an operator who believes they
-      // changed it is worse off than one who was told they could not.
-      if (parsed.targetsShownAtBoot !== undefined) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_serial_only',
-          "targetsShownAtBoot changes only from the serial console: 'boot-targets shown' or 'boot-targets hidden'",
-        );
-        return;
-      }
-      // Spread rather than a field-by-field copy on purpose: the explicit form
-      // silently drops any field added to the contract later, which is exactly
-      // how `timer_start_index` went missing here once already.
       // Checked before the window: "stop the run" is the more useful of the
       // two instructions.
       if (isRunning()) {
@@ -1429,45 +2065,16 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
 
       // Expert mode is a place, not a per-field rule: the whole endpoint is
       // behind the window, hostname included.
-      if (!configWindowOpen) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
-      const patch = parsed as Partial<HardwareConfig>;
-      // `null` is absent, as `doc["banks"].isNull()` makes it on the device -
-      // so a client clearing a field it does not understand keeps the stored
-      // array rather than being refused.
-      if (patch.banks === null) delete patch.banks;
-      // The two shape refusals the firmware answers before it can read a bank
-      // at all (`web_server.cpp`). Without them a malformed body threw here,
-      // which is a 500 the device never sends.
-      if (patch.banks !== undefined) {
-        if (!Array.isArray(patch.banks)) {
-          problemResponse(res, '/problems/hardware_config_invalid', "'banks' must be an array of target banks");
-          return;
-        }
-        if (patch.banks.some((bank) => bank === null || typeof bank !== 'object' || Array.isArray(bank))) {
-          problemResponse(
-            res,
-            '/problems/hardware_config_invalid',
-            "Each entry in 'banks' must be an object with gpio, activeLow and name",
-          );
-          return;
-        }
-        // Each field falls back the way ArduinoJson's `entry["gpio"] | 0` does,
-        // so a half-written entry reaches validation as GPIO 0 and is refused
-        // there - one refusal, from the same place every other bad pin gets it.
-        patch.banks = patch.banks.map((bank: Partial<HardwareConfig['banks'][number]>) => ({
-          gpio: typeof bank.gpio === 'number' ? bank.gpio : 0,
-          activeLow: typeof bank.activeLow === 'boolean' ? bank.activeLow : true,
-          name: typeof bank.name === 'string' ? bank.name : '',
-        }));
+      if ('type' in shape) {
+        problemResponse(res, shape.type, shape.detail);
+        return;
       }
+      const { patch } = shape;
 
       const candidate: HardwareConfig = {
         ...savedHardware,
@@ -1498,16 +2105,19 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         );
         return;
       }
-      if (!configWindowOpen) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
       savedHardware = { ...HARDWARE_DEFAULTS };
       jsonResponse(res, 200, { message: 'Hardware configuration reset - restart the device to apply it' });
+      return;
+    }
+
+    // --- Ethernet (#262) ---
+
+    if (endpoint === '/ethernet' && req.method === 'GET') {
+      jsonResponse(res, 200, ethernet);
       return;
     }
 
@@ -1531,12 +2141,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         );
         return;
       }
-      if (!hardwareWritable()) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
       jsonResponse(res, 200, { networks: wifiNetworks });
@@ -1579,12 +2185,8 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         );
         return;
       }
-      if (!configWindowOpen) {
-        problemResponse(
-          res,
-          '/problems/hardware_config_window_closed',
-          'Press the BOOT button on the device (marked BOOT or FLASH) three times within ten seconds to open a five-minute configuration window, then try again.',
-        );
+      if (!hardwareWritable(req)) {
+        problemResponse(res, '/problems/hardware_config_window_closed', OPEN_WINDOW_HINT);
         return;
       }
 
@@ -1738,7 +2340,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
     }
 
     // POST /programs - Requires auth. The document's id is ignored: the device
-    // assigns the next free one from 100 up and stores what it parsed.
+    // assigns the next free one from 1000 up and stores what it parsed.
     if (endpoint === '/programs' && req.method === 'POST') {
       if (!checkControlLockAuth(req, res)) return;
       const raw = parseJsonObject(await parseBody(req));
@@ -1999,7 +2601,14 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         return;
       }
 
-      // Pause: keep current position and tickerMs
+      // Pause where the run actually is, capped at the end of the entered event.
+      // Mirrors Executor::stop - see the comment there.
+      const series = currentSeries(state.programState.currentSeriesIndex ?? 0);
+      if (series && state.seriesStartTime !== null) {
+        const entered = state.programState.currentEventIndex ?? 0;
+        const enteredEnd = series.events.slice(0, entered + 1).reduce((sum, event) => sum + event.duration, 0);
+        state.programState.tickerMs = Math.max(0, Math.min(clock.now() - state.seriesStartTime, enteredEnd));
+      }
       state.programState.running = false;
       state.seriesStartTime = null;
 
@@ -2181,13 +2790,7 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
         return;
       }
 
-      const id = nextUploadedId();
-      audios.push({
-        id,
-        title: upload.title,
-        filename: `/userdata/audio/${id}.wav`,
-        readonly: false,
-      });
+      const id = addAudio(upload.title, upload.content);
       broadcastLibraryChanged('audio');
       jsonResponse(res, 201, { id });
       return;
@@ -2321,14 +2924,24 @@ export function createMockServer(options: MockServerOptions = {}): MockServer {
       state.playingAudioId = null;
       state.playingUntil = null;
       audios.splice(0, audios.length, ...seed.audios);
+      seedAudioBytes();
     },
 
     restart(): void {
       boot();
     },
 
-    setConfigWindow(open: boolean): void {
-      configWindowOpen = open;
+    pressBoot(): Press {
+      if (!hasButton) throw new Error('pressBoot() needs a mock seeded with `button: true`');
+      const outcome = configWindow.press(clock.now());
+      pressOutcomes++;
+      broadcastConfigWindowIfChanged();
+      return outcome;
+    },
+
+    closeConfigWindow(): void {
+      configWindow.reset();
+      broadcastConfigWindowIfChanged();
     },
 
     listen(): Promise<number> {

@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { useT } from '../i18n';
 import type { Notice } from '../lib/program-notices';
 import styles from './NoticeBanner.module.css';
 
@@ -12,6 +13,7 @@ interface NoticeBannerProps {
 
 /** The one-line result of the last write, with the detail lines under it. */
 export function NoticeBanner({ notice, testId, onDismiss }: NoticeBannerProps): React.ReactNode {
+  const t = useT();
   return (
     // A failed write is announced at once; a success or a warning waits for a
     // pause in what the screen reader is already saying.
@@ -45,7 +47,7 @@ export function NoticeBanner({ notice, testId, onDismiss }: NoticeBannerProps): 
           )}
           {onDismiss && (
             <button className={styles.button} onClick={onDismiss}>
-              Dismiss
+              {t.common.dismiss}
             </button>
           )}
         </div>

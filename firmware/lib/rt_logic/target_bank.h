@@ -12,28 +12,52 @@
 
 namespace rt {
 
-// One independently driven target group: one pin, one polarity, one name.
+// An optional pin that is not driven at all.
+constexpr int32_t kPinUnused = -1;
+
+// How a bank's pins move its targets (#636).
+enum class BankDrive : uint8_t {
+  // One pin, held at the shown or hidden level for as long as the state lasts.
+  kLevel,
+  // Two pins, each pulsed: `gpio` sets a latching relay to shown, `hide_gpio`
+  // resets it to hidden. Between pulses both rest at the inactive level.
+  kLatching,
+};
+
+constexpr int32_t kDefaultPulseMs = 100;
+constexpr int32_t kMinPulseMs = 10;
+constexpr int32_t kMaxPulseMs = 1000;
+
+// One independently driven target group: its pins, one polarity, one name.
 struct TargetBank {
+  // The level-driven pin, or a latching bank's show pin.
   int32_t gpio = 0;
-  // Whether a low level shows this bank. Per bank rather than per device
-  // because the de-energised state of each bank's wiring is what has to be its
-  // resting state (D-31, D-41).
+  // Which level is active: for a level bank, the one that shows it; for a
+  // latching bank, the pulse level. Per bank rather than per device because the
+  // de-energised state of each bank's wiring is what has to be its resting
+  // state (D-31, D-41).
   bool active_low = true;
   // Display only. It lives in the hardware configuration and never in a
   // program, so renaming a bank cannot re-aim one.
   std::string name;
+  BankDrive drive = BankDrive::kLevel;
+  // Latching only. A level bank carries both but only range-checks them, like
+  // a pin of a peripheral the build does not have.
+  int32_t hide_gpio = kPinUnused;
+  int32_t pulse_ms = kDefaultPulseMs;
 };
 
 inline bool operator==(const TargetBank &a, const TargetBank &b) {
-  return a.gpio == b.gpio && a.active_low == b.active_low && a.name == b.name;
+  return a.gpio == b.gpio && a.active_low == b.active_low && a.name == b.name &&
+         a.drive == b.drive && a.hide_gpio == b.hide_gpio && a.pulse_ms == b.pulse_ms;
 }
 inline bool operator!=(const TargetBank &a, const TargetBank &b) {
   return !(a == b);
 }
 
-// Whether two bank lists differ in a way a restart would change - the pin and
-// the polarity, which `targets::init()` latches. `name` is display only and
-// nothing latches it, so renaming a bank must not report `restartRequired`.
+// Whether two bank lists differ in a way a restart would change - the pins, the
+// polarity, the drive and the pulse length, which `targets::init()` latches. `name` is display only
+// and nothing latches it, so renaming a bank must not report `restartRequired`.
 bool same_wiring(const std::vector<TargetBank> &a, const std::vector<TargetBank> &b);
 
 // A..H. A firmware constant rather than a contract limit; raising it later is

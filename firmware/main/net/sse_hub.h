@@ -57,12 +57,11 @@ const std::vector<std::string> &startup_issues();
 // stored documents untouched and are already published as `stateUpdate`.
 void broadcast_library_changed(const char *kind);
 
-// Whether the device is accepting hardware configuration changed (#144).
-//
-// Sent on the transition only, and the transition includes one nothing else in
-// the system would notice: the five-minute window simply lapsing. Without this
-// every open browser would keep showing an Expert mode tab that no longer does
-// anything, or miss one that has just appeared.
+// The configuration window changed (#144): it opened, lapsed, was held shut by
+// a run, or three presses ended in a conflict. `open` says a window is open for
+// whichever client holds it (D-52); each client asks GET /config-window with
+// its own token whether that is them. The lapse is a transition nothing else
+// in the system would notice.
 //
 // Advisory, like `libraryChanged`: a client that ignores it shows a stale tab,
 // and the write it would allow is refused by the device anyway.

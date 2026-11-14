@@ -20,7 +20,8 @@ import { RestartPendingNotice } from '../src/components/RestartPendingNotice';
 import { HardwarePage } from '../src/routes/hardware';
 import { createFakeClock } from './mock-server/clock';
 import { createMockServer, type MockServer } from './mock-server/server';
-import { enableControlLockElsewhere, requestElsewhere } from './other-client';
+import { enableControlLockElsewhere, openWindowElsewhere, requestElsewhere } from './other-client';
+import { sseStatusAtom, stateAtom } from '../src/lib/sse-store';
 
 // Distinct per suite - vitest runs files in parallel, so a shared port is an
 // EADDRINUSE flake. Pick the next free number for a new suite.
@@ -29,11 +30,11 @@ const PORT = 18100;
 let server: MockServer;
 let queryClient: QueryClient;
 
-async function device(options: { restartFails?: boolean } = {}): Promise<void> {
+async function device(options: { restartFails?: boolean; button?: boolean } = {}): Promise<void> {
   server = createMockServer({
     clock: createFakeClock(),
     port: PORT,
-    seed: { programs: {}, audios: [], restartFails: options.restartFails },
+    seed: { programs: {}, audios: [], restartFails: options.restartFails, button: options.button },
   });
   await server.listen();
 }
@@ -76,16 +77,20 @@ function renderApp(at: '/hardware' | '/settings'): void {
 }
 
 /** Save something the device will not be running until it restarts. */
-async function saveHardware(gpio = 7): Promise<void> {
-  const { status } = await requestElsewhere(PORT, 'PUT', '/api/v2/config/hardware', {
-    banks: [{ gpio, activeLow: true, name: '' }],
-  });
+async function saveHardware(gpio = 7, windowToken = ''): Promise<void> {
+  const { status } = await requestElsewhere(
+    PORT,
+    'PUT',
+    '/api/v2/config/hardware',
+    { banks: [{ gpio, activeLow: true, name: '' }] },
+    windowToken === '' ? {} : { 'X-Config-Window': windowToken },
+  );
   expect(status).toBe(200);
 }
 
 /** What `useSSE` would have written after a start. */
 function pretendRunning(): void {
-  queryClient.setQueryData(['state'], {
+  stateAtom.set({
     loadedProgramId: 40,
     programState: { running: true, currentSeriesIndex: 0, currentEventIndex: 0, tickerMs: 0 },
     targetBanks: { A: 'shown' },
@@ -137,13 +142,13 @@ describe('restart to apply (#341)', () => {
 
   // A pending restart is a fact about the device, not about the window (D-42).
   it('survives the configuration window lapsing, unlike the sections', async () => {
-    await device();
-    await saveHardware();
-    server.setConfigWindow(false);
+    await device({ button: true });
+    await saveHardware(7, await openWindowElsewhere(PORT, () => server.pressBoot()));
+    server.closeConfigWindow();
     renderApp('/hardware');
 
     expect(await screen.findByTestId('restart-to-apply')).toBeTruthy();
-    await screen.findByTestId('config-window-shut');
+    await screen.findByTestId('config-window-closed');
     // The forms are gone - there is nothing the device would accept from them.
     expect(screen.queryByTestId('wifi-config-section')).toBeNull();
     expect(screen.queryByTestId('hardware-section')).toBeNull();
@@ -184,7 +189,7 @@ describe('restart to apply (#341)', () => {
     // which is what `useSSE` does on reconnect.
     server.restart();
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
       await queryClient.invalidateQueries({ queryKey: ['hardware-config'] });
     });
 
@@ -211,7 +216,7 @@ describe('restart to apply (#341)', () => {
     await saveHardware();
     renderApp('/hardware');
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
     });
 
     fireEvent.click(await screen.findByTestId('restart-to-apply'));
@@ -225,7 +230,7 @@ describe('restart to apply (#341)', () => {
 
     // The stream has not moved, and there is still something pending.
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
     });
     expect((screen.getByTestId('restart-to-apply') as HTMLButtonElement).disabled).toBe(true);
 
@@ -236,13 +241,13 @@ describe('restart to apply (#341)', () => {
     // the next write can land before this one has reached the component - which
     // never then renders with 'error', and the test fails a few runs in ten.
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'error');
+      sseStatusAtom.set('error');
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect((screen.getByTestId('restart-to-apply') as HTMLButtonElement).disabled).toBe(true);
 
     await act(async () => {
-      queryClient.setQueryData(['sse-status'], 'connected');
+      sseStatusAtom.set('connected');
     });
 
     await waitFor(() => {
