@@ -63,11 +63,7 @@ JACK = {"usbc": dict(w=9.0, h=3.3, depth=9.0, cut_w=13.0, cut_h=7.0, plug_w=12.3
 # `overhang` is each jack's courtyard past the board edge; the right wall sits on the farthest
 # one, so the jack faces end just behind it.
 VARIANTS = {
-    # hardware/controller/revolvenow_controller.kicad_pcb, rev 1a (#603): 60 × 50, USB-Cs on the front edge.
-    "rev1a": dict(relay="elegoo", pcb_y=0.9, pcb_d=60.0, overhang=dict(usbc=0.65, rj45=1.25), jacks=[
-        ("J8", "usbc", "front", 18.02, True), ("J7", "usbc", "front", 32.31, False),
-        ("J3", "rj45", "right", 20.0, False), ("J5", "rj45", "right", 40.0, False)]),
-    # The same file at rev 2: 95 × 50, all five jacks on the RJ45 edge and further out over it.
+    # hardware/controller/revolvenow_controller.kicad_pcb, rev 2: 95 × 50, all five jacks on the RJ45 edge.
     # pcb_y None: centred.
     "rev2": dict(relay="elegoo", pcb_y=None, pcb_d=95.0, overhang=dict(usbc=2.0, rj45=4.0), jacks=[
         ("J7", "usbc", "right", 15.0, False), ("J3", "rj45", "right", 29.25, False),
@@ -132,7 +128,6 @@ def layout(v):
     CORNERS = [(1.5, 1.5), (IX - 1.5, 1.5), (1.5, IY - 1.5), (IX - 1.5, IY - 1.5)]
     # Each wall as (outer point, along, up, outward normal), so text reads correctly from outside.
     WALLS = {"left": (V(-WALL, 0, 0), V(0, -1, 0), V(0, 0, 1), V(-1, 0, 0)),
-             "front": (V(0, -WALL, 0), V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)),
              "right": (V(IX + WALL, 0, 0), V(0, 1, 0), V(0, 0, 1), V(1, 0, 0))}
 
 
@@ -140,7 +135,7 @@ def on_wall(shape, wall, s, z):
     """`shape` drawn in a local frame (x along the wall, y up, z outward from the outer face),
     placed with its origin at box coordinate `s` along `wall`, height `z`, on the outer face."""
     o, u, v, n = WALLS[wall]
-    base = o + (V(s, 0, 0) if wall == "front" else V(0, s, 0)) + V(0, 0, z)
+    base = o + V(0, s, z)
     m = App.Matrix(u.x, v.x, n.x, base.x, u.y, v.y, n.y, base.y, u.z, v.z, n.z, base.z, 0, 0, 0, 1)
     return shape.transformGeometry(m)
 
@@ -171,9 +166,9 @@ def standoffs(x, y, w, d, inset):
     return s
 
 
-def jack_frame(v, wall, at):
-    """Box coordinate of a jack's centre along its wall."""
-    return (PCB["x"] if wall == "front" else v["pcb_y"]) + at
+def jack_frame(v, at):
+    """Box coordinate of a jack's centre along the right wall."""
+    return v["pcb_y"] + at
 
 
 def jack_cuts(v):
@@ -181,7 +176,7 @@ def jack_cuts(v):
     cuts = []
     for ref, kind, wall, at, knockout in v["jacks"]:
         j = JACK[kind]
-        s = jack_frame(v, wall, at)
+        s = jack_frame(v, at)
         # RJ45: from just below the board top; USB-C: centred on the receptacle, for the plug overmold
         z0 = PCB_TOP - 0.5 if kind == "rj45" else PCB_TOP + j["h"] / 2 - j["cut_h"] / 2
         cuts.append(dict(ref=ref, kind=kind, wall=wall, s=s, z0=z0, h=j["cut_h"], knockout=knockout,
@@ -237,7 +232,7 @@ def build_box(v):
         label_z[c["wall"]] = max(label_z.get(c["wall"], 0.0), z0 + h + 2.0)
     # Each reference under its jack; the type above, shared by neighbours of one kind too close for two.
     for wall in label_z:
-        row = sorted((jack_frame(v, w, at), kind, ref) for ref, kind, w, at, _ in v["jacks"] if w == wall)
+        row = sorted((jack_frame(v, at), kind, ref) for ref, kind, w, at, _ in v["jacks"] if w == wall)
         groups = []
         for js, kind, ref in row:
             if groups and groups[-1][0] == kind and js - groups[-1][1][-1] < LABEL_PITCH:
@@ -302,12 +297,9 @@ def stand_ins(v):
     }
     for ref, kind, wall, at, _ in v["jacks"]:
         j = JACK[kind]
-        s = jack_frame(v, wall, at)
-        if wall == "front":
-            parts[f"{ref}_{kind}"] = box(j["w"], j["depth"], j["h"], (s - j["w"] / 2, pcb_y - v["overhang"][kind], PCB_TOP))
-        else:
-            edge = PCB["x"] + PCB["w"] + v["overhang"][kind]
-            parts[f"{ref}_{kind}"] = box(j["depth"], j["w"], j["h"], (edge - j["depth"], s - j["w"] / 2, PCB_TOP))
+        s = jack_frame(v, at)
+        edge = PCB["x"] + PCB["w"] + v["overhang"][kind]
+        parts[f"{ref}_{kind}"] = box(j["depth"], j["w"], j["h"], (edge - j["depth"], s - j["w"] / 2, PCB_TOP))
     for i, cy in enumerate(CONN_Y, 1):
         x_flange = -WALL - FLANGE_T
         flange = cyl(14.5, FLANGE_T, (x_flange, cy, CONN_Z), (1, 0, 0))

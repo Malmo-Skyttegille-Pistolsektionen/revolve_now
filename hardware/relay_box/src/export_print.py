@@ -135,5 +135,5 @@ def export(rev):
     print(f"wrote {out}  [{cfg['printer_settings_id']} | {cfg['print_settings_id']} | {cfg['filament_settings_id']}]")
 
 
-for rev in sys.argv[1:] or ["rev1a", "rev2"]:
+for rev in sys.argv[1:] or ["rev2"]:
     export(rev)

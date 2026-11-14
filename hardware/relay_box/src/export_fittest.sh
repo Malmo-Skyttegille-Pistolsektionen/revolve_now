@@ -2,7 +2,7 @@
 # Bases only, for test-fitting the boards: generated/relay_box_<rev>-base.stl -> Bambu Studio projects.
 set -euo pipefail
 cd "$(dirname "$0")/../generated"
-for rev in rev1a rev2; do
+for rev in rev2; do
   python3 ~/.claude/plugins/cache/jimisola-plugins/cad-tools/0.2.1/skills/bambu-3mf/scripts/bambu_3mf.py \
     "relay_box_${rev}-base.stl" \
     --printer "Bambu Lab P2S 0.4 nozzle" \
