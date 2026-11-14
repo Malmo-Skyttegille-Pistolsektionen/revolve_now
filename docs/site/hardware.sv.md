@@ -127,7 +127,7 @@ fortsätter den över WiFi som tidigare. Inget behöver slås på, och
 [att ansluta](connecting.md#a-network-cable) kräver ingen installation.
 
 Koppla den till de här stiften — samma på ESP32-S3-DevKitC-1 och på klubbens
-eget Revolve Now-kort, vars ej monterade W5500 använder dem:
+eget Revolve Now-huvudkort, vars W5500 (`U10`) är kopplad till dem:
 
 | Modulens stift | GPIO |
 |---|---|
