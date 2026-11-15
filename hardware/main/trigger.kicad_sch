@@ -362,6 +362,207 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Device:LED"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "LED"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Light emitting diode"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Sim.Pins" "1=K 2=A"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "LED diode"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "LED* LED_SMD:* LED_THT:*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "LED_0_1"
+				(polyline
+					(pts
+						(xy -3.048 -0.762) (xy -4.572 -2.286) (xy -3.81 -2.286) (xy -4.572 -2.286) (xy -4.572 -1.524)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.778 -0.762) (xy -3.302 -2.286) (xy -2.54 -2.286) (xy -3.302 -2.286) (xy -3.302 -1.524)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 0) (xy 1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 -1.27) (xy -1.27 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -1.27) (xy 1.27 1.27) (xy -1.27 0) (xy 1.27 -1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "LED_1_1"
+				(pin passive line
+					(at -3.81 0 0)
+					(length 2.54)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 3.81 0 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Device:R"
 			(pin_numbers
 				(hide yes)
@@ -1308,16 +1509,64 @@
 		(uuid "a17af7ff-b8e0-4fc1-9db2-251217b02252")
 	)
 	(junction
+		(at 119.38 101.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "02ec8b5c-8b96-4e8c-bfe1-716b3dc24271")
+	)
+	(junction
+		(at 116.84 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "05bae1b7-5c6b-44e0-a6bb-c0844f5db366")
+	)
+	(junction
+		(at 123.19 67.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1fc4a755-ab61-4376-b521-d2b4103741a2")
+	)
+	(junction
+		(at 74.93 91.44)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2346b3cd-b3a0-4c4d-b84d-728e5eda3504")
+	)
+	(junction
+		(at 119.38 86.36)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "282dbe1b-91ac-4741-9dc8-0a910f917d11")
+	)
+	(junction
+		(at 74.93 83.82)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7330b194-2b75-4c92-bf8a-2aa974622d50")
+	)
+	(junction
+		(at 116.84 67.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7de80264-9e59-43b5-84af-70a1ea0299e9")
+	)
+	(junction
 		(at 119.38 95.25)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "8020d0d7-29eb-4e8f-9620-a3a484843d7a")
 	)
 	(junction
-		(at 116.84 67.31)
+		(at 73.66 74.93)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "af4c864e-a505-4b70-a668-0536757dd345")
+		(uuid "8d728c6c-2e54-4a25-b5db-6ef04d8baba9")
+	)
+	(junction
+		(at 128.27 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "af080b5a-a392-4248-a8e9-e4e6fd3932d3")
 	)
 	(junction
 		(at 113.03 62.23)
@@ -1326,10 +1575,10 @@
 		(uuid "d331ae27-4b45-4c3d-8289-b3eb19a18191")
 	)
 	(junction
-		(at 116.84 82.55)
+		(at 74.93 81.28)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "fbf62f59-92fa-47a7-ad48-f841456b1b44")
+		(uuid "f1826e47-3007-4f90-9afc-3e4d3a305a53")
 	)
 	(no_connect
 		(at 95.25 107.95)
@@ -1391,13 +1640,13 @@
 	)
 	(wire
 		(pts
-			(xy 74.93 86.36) (xy 92.71 86.36)
+			(xy 128.27 91.44) (xy 128.27 92.71)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "012e19a4-41eb-4aa2-a4c0-ac245534941c")
+		(uuid "030e1de3-3432-4f96-82f9-0ce972e70d5b")
 	)
 	(wire
 		(pts
@@ -1411,6 +1660,26 @@
 	)
 	(wire
 		(pts
+			(xy 86.36 90.17) (xy 83.82 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0934b388-25f7-474b-b04f-ec901d5fe511")
+	)
+	(wire
+		(pts
+			(xy 87.63 62.23) (xy 95.25 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0ae57f1a-03e9-40af-bd95-6013ee89f8c8")
+	)
+	(wire
+		(pts
 			(xy 116.84 92.71) (xy 119.38 95.25)
 		)
 		(stroke
@@ -1421,13 +1690,13 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 62.23) (xy 85.09 62.23)
+			(xy 76.2 90.17) (xy 74.93 90.17)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "0c257f4d-a11c-4456-97e4-caf7f2d6ab0c")
+		(uuid "11fa1813-8d0d-4fc3-a415-e5ced8a1e00f")
 	)
 	(wire
 		(pts
@@ -1441,7 +1710,57 @@
 	)
 	(wire
 		(pts
-			(xy 119.38 80.01) (xy 119.38 95.25)
+			(xy 92.71 82.55) (xy 92.71 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "18edcc0b-b0e9-474c-87c8-f6d0d8c76b7e")
+	)
+	(wire
+		(pts
+			(xy 74.93 83.82) (xy 76.2 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "193e17fc-b35c-4723-9d86-e308307617e4")
+	)
+	(wire
+		(pts
+			(xy 74.93 83.82) (xy 74.93 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1be266d5-6668-418b-bb8f-80c6a65cc230")
+	)
+	(wire
+		(pts
+			(xy 123.19 67.31) (xy 148.59 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1ed5d9ae-25da-48e3-ad93-eb6eaeddae5b")
+	)
+	(wire
+		(pts
+			(xy 90.17 77.47) (xy 90.17 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "23d1c969-1af4-4f5f-83b0-6f038c48910a")
+	)
+	(wire
+		(pts
+			(xy 119.38 80.01) (xy 119.38 86.36)
 		)
 		(stroke
 			(width 0)
@@ -1451,53 +1770,133 @@
 	)
 	(wire
 		(pts
-			(xy 71.12 83.82) (xy 74.93 83.82)
+			(xy 86.36 86.36) (xy 86.36 90.17)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "68766eb6-ec60-40ad-9b59-10441856f8df")
+		(uuid "275b9025-e6b6-453c-bcfa-215dc7322aeb")
 	)
 	(wire
 		(pts
-			(xy 71.12 81.28) (xy 87.63 81.28)
+			(xy 128.27 82.55) (xy 148.59 82.55)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "68cc0a9f-e944-4471-b00a-2e3b9fb931f6")
+		(uuid "2a047ad2-7c89-4aba-99f3-03ae461dd014")
 	)
 	(wire
 		(pts
-			(xy 87.63 81.28) (xy 87.63 67.31)
+			(xy 83.82 72.39) (xy 87.63 72.39)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "6b1aeb33-6a56-486a-909e-4ea07a5ae60a")
+		(uuid "2aa233a8-34bc-4013-8e7b-af51f1c5329e")
 	)
 	(wire
 		(pts
-			(xy 116.84 82.55) (xy 123.19 82.55)
+			(xy 71.12 81.28) (xy 74.93 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3ccd2212-6a97-4869-a418-bcb42b85e2d4")
+	)
+	(wire
+		(pts
+			(xy 119.38 101.6) (xy 119.38 118.11)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "42c97ba1-a14e-4c82-ae42-029601f777cf")
+	)
+	(wire
+		(pts
+			(xy 86.36 74.93) (xy 86.36 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4a20b3f7-4402-44dd-9de8-dea804b11e5f")
+	)
+	(wire
+		(pts
+			(xy 128.27 82.55) (xy 128.27 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "503ba9ed-7385-4b70-be78-fece89fe765a")
+	)
+	(wire
+		(pts
+			(xy 88.9 81.28) (xy 88.9 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "53578db5-5555-49f2-afb7-2a129d698902")
+	)
+	(wire
+		(pts
+			(xy 74.93 91.44) (xy 74.93 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5945a623-d89e-4ee9-8082-efc2e9e96f8b")
+	)
+	(wire
+		(pts
+			(xy 86.36 78.74) (xy 83.82 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b9d355f-29e6-49b6-b5d8-5c987010e9cd")
+	)
+	(wire
+		(pts
+			(xy 74.93 78.74) (xy 76.2 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6052a858-b4e7-4d30-9bf3-15d99c4aef75")
+	)
+	(wire
+		(pts
+			(xy 123.19 85.09) (xy 123.19 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "61c4b38f-b3a9-4352-b35d-132ec01e2323")
+	)
+	(wire
+		(pts
+			(xy 116.84 82.55) (xy 128.27 82.55)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "6ca417f1-a557-4d4d-aacd-c21208141bd2")
-	)
-	(wire
-		(pts
-			(xy 92.71 82.55) (xy 92.71 86.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6cc397a5-8d10-4d82-9a3a-9d608246c582")
 	)
 	(wire
 		(pts
@@ -1511,13 +1910,13 @@
 	)
 	(wire
 		(pts
-			(xy 71.12 78.74) (xy 74.93 78.74)
+			(xy 123.19 67.31) (xy 123.19 68.58)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "7090dac5-8398-4cd7-a7e6-b055704b2465")
+		(uuid "6e3e7873-f4bd-4733-88bc-f082685c290c")
 	)
 	(wire
 		(pts
@@ -1531,13 +1930,43 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 83.82) (xy 90.17 77.47)
+			(xy 71.12 83.82) (xy 74.93 83.82)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "79019793-e60e-4096-8f9b-74d3f76648fb")
+		(uuid "773c1e52-bb88-4087-8f12-086117bf6811")
+	)
+	(wire
+		(pts
+			(xy 119.38 101.6) (xy 128.27 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "786052b3-cc33-4fe8-92b6-a8f8df7afe60")
+	)
+	(wire
+		(pts
+			(xy 123.19 86.36) (xy 119.38 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7a4fa0c9-0525-477c-a64a-21db50bf7474")
+	)
+	(wire
+		(pts
+			(xy 73.66 72.39) (xy 76.2 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7acd53f3-9eea-4b46-9c9b-6e8b7027c6c0")
 	)
 	(wire
 		(pts
@@ -1551,13 +1980,33 @@
 	)
 	(wire
 		(pts
-			(xy 87.63 67.31) (xy 95.25 67.31)
+			(xy 83.82 74.93) (xy 86.36 74.93)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "85da2798-28e7-4424-86cf-b3087e6d2e59")
+		(uuid "7d0b5247-f020-4283-8a96-02cb93bc7f1b")
+	)
+	(wire
+		(pts
+			(xy 83.82 86.36) (xy 86.36 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "86ad6623-7b3f-4c42-bb96-36c0485a0799")
+	)
+	(wire
+		(pts
+			(xy 119.38 86.36) (xy 119.38 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "90df3fd4-d6cb-4cde-a48d-0b23060087af")
 	)
 	(wire
 		(pts
@@ -1571,6 +2020,66 @@
 	)
 	(wire
 		(pts
+			(xy 73.66 78.74) (xy 73.66 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c1bf416-d335-4fb6-9dac-d7a2a7ea15a5")
+	)
+	(wire
+		(pts
+			(xy 74.93 81.28) (xy 88.9 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9e07e14c-ab4c-41b1-a828-1dde6bc56fcf")
+	)
+	(wire
+		(pts
+			(xy 74.93 86.36) (xy 76.2 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9e63b2b1-9578-4667-9a21-e88a9e9bf937")
+	)
+	(wire
+		(pts
+			(xy 123.19 76.2) (xy 123.19 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a13c2c48-57ff-47dd-9ab9-50d9d258adc9")
+	)
+	(wire
+		(pts
+			(xy 74.93 90.17) (xy 74.93 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a70d9683-41fa-40d8-9e70-a7db71d9a084")
+	)
+	(wire
+		(pts
+			(xy 74.93 81.28) (xy 74.93 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "afec37b4-5f0f-4e39-8885-881ffdd2722d")
+	)
+	(wire
+		(pts
 			(xy 110.49 67.31) (xy 116.84 67.31)
 		)
 		(stroke
@@ -1581,33 +2090,53 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 62.23) (xy 85.09 78.74)
+			(xy 73.66 74.93) (xy 76.2 74.93)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "b964002e-79dd-48f5-aa88-ed17abafcd21")
+		(uuid "b48191da-7438-4de9-ac9b-eab1bd466e66")
 	)
 	(wire
 		(pts
-			(xy 82.55 83.82) (xy 90.17 83.82)
+			(xy 88.9 67.31) (xy 95.25 67.31)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "b9c0a687-e802-4c7f-b575-5dde19fee7b1")
+		(uuid "becebf37-dc80-4f54-b4ed-a5896dc9a30e")
 	)
 	(wire
 		(pts
-			(xy 74.93 91.44) (xy 74.93 86.36)
+			(xy 74.93 92.71) (xy 92.71 92.71)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "bbf90aab-c3bb-411f-ba9e-b0e1f36440ae")
+		(uuid "c5f0dbdf-6745-4939-ad63-a7f2f5c939e5")
+	)
+	(wire
+		(pts
+			(xy 87.63 72.39) (xy 87.63 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c67d5bad-1efa-4107-921f-5e497f232a64")
+	)
+	(wire
+		(pts
+			(xy 128.27 100.33) (xy 128.27 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca3e9dd2-a21e-4c03-987d-ee316c976ef4")
 	)
 	(wire
 		(pts
@@ -1621,16 +2150,6 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 78.74) (xy 85.09 78.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ceeed497-679b-41e9-861e-7e32049e5a22")
-	)
-	(wire
-		(pts
 			(xy 116.84 67.31) (xy 116.84 69.85)
 		)
 		(stroke
@@ -1641,7 +2160,7 @@
 	)
 	(wire
 		(pts
-			(xy 119.38 95.25) (xy 119.38 118.11)
+			(xy 119.38 95.25) (xy 119.38 101.6)
 		)
 		(stroke
 			(width 0)
@@ -1671,6 +2190,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 83.82) (xy 90.17 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ead09681-b21d-4500-8664-350e3cba37a0")
+	)
+	(wire
+		(pts
 			(xy 113.03 50.8) (xy 113.03 62.23)
 		)
 		(stroke
@@ -1679,9 +2208,29 @@
 		)
 		(uuid "f1912ed3-86f5-469e-b68e-59022fd910da")
 	)
+	(wire
+		(pts
+			(xy 71.12 78.74) (xy 73.66 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ffebf188-7246-4c43-9d06-cb48ddab817d")
+	)
+	(wire
+		(pts
+			(xy 73.66 74.93) (xy 73.66 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fff35036-962b-4249-a09c-a17ec5956721")
+	)
 	(hierarchical_label "Trigger1"
 		(shape input)
-		(at 123.19 82.55 0)
+		(at 148.59 82.55 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1692,7 +2241,7 @@
 	)
 	(hierarchical_label "Trigger0"
 		(shape input)
-		(at 123.19 67.31 0)
+		(at 148.59 67.31 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1711,10 +2260,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "0feaaedf-50bc-4d67-a4c4-2f17d3a0ba8d")
 		(property "Reference" "R2"
-			(at 119.38 87.6299 0)
+			(at 113.792 85.09 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1725,7 +2273,7 @@
 			)
 		)
 		(property "Value" "10K"
-			(at 119.38 90.1699 0)
+			(at 116.84 90.932 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1785,7 +2333,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 78.74 78.74 90)
+		(at 80.01 72.39 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -1795,7 +2343,7 @@
 		(dnp no)
 		(uuid "1b841987-f7ce-4d6e-bf5c-ea1cc887bdde")
 		(property "Reference" "R40"
-			(at 73.914 80.01 90)
+			(at 84.836 71.12 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1805,7 +2353,7 @@
 			)
 		)
 		(property "Value" "750R"
-			(at 84.074 80.01 90)
+			(at 80.01 72.39 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1815,7 +2363,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 78.74 80.518 90)
+			(at 80.01 70.612 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1826,7 +2374,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 78.74 78.74 0)
+			(at 80.01 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1837,7 +2385,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 78.74 78.74 0)
+			(at 80.01 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1864,6 +2412,168 @@
 	)
 	(symbol
 		(lib_id "Device:R")
+		(at 80.01 74.93 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2466bcc9-b9b2-4b00-af2d-2de743a0a9fd")
+		(property "Reference" "R4"
+			(at 86.36 73.66 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "300R"
+			(at 82.55 74.93 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 80.01 76.708 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 80.01 74.93 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 80.01 74.93 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "1e843c0d-6df9-4ccf-91f4-dafdc20ef492")
+		)
+		(pin "1"
+			(uuid "bdd60b11-ce8c-44e0-81e6-26715d0da63c")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 128.27 96.52 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "296b949e-f2bd-4b02-aec8-8438aab7139b")
+		(property "Reference" "R69"
+			(at 129.794 94.996 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100R"
+			(at 128.27 99.06 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 126.492 96.52 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 128.27 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 128.27 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "42a1163e-9d75-4620-a9a3-e52cfebc6d35")
+		)
+		(pin "2"
+			(uuid "8e9bfd38-3936-4da0-b5f3-bfc2384fa71c")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "R69")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
 		(at 116.84 73.66 0)
 		(unit 1)
 		(body_style 1)
@@ -1872,10 +2582,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "341bac69-4b15-40a6-8857-2f8b4b540fe5")
 		(property "Reference" "R1"
-			(at 119.38 72.3899 0)
+			(at 114.046 70.104 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1886,7 +2595,7 @@
 			)
 		)
 		(property "Value" "10K"
-			(at 119.38 74.9299 0)
+			(at 116.84 75.692 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2145,7 +2854,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 78.74 83.82 90)
+		(at 80.01 83.82 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -2155,7 +2864,7 @@
 		(dnp no)
 		(uuid "64e54ebc-75de-4e49-8fce-941dfdd88466")
 		(property "Reference" "R41"
-			(at 73.914 85.09 90)
+			(at 84.836 82.55 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2165,7 +2874,7 @@
 			)
 		)
 		(property "Value" "2.2k"
-			(at 83.82 85.344 90)
+			(at 79.756 83.82 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2175,7 +2884,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 78.74 85.598 90)
+			(at 80.01 82.042 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2186,7 +2895,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 78.74 83.82 0)
+			(at 80.01 83.82 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2197,7 +2906,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 78.74 83.82 0)
+			(at 80.01 83.82 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2323,6 +3032,190 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:LED")
+		(at 123.19 72.39 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "70664339-10fd-4a9b-8707-2d75e0f66f74")
+		(property "Reference" "D5"
+			(at 123.698 70.104 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "GREEN LED"
+			(at 125.476 73.152 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder"
+			(at 123.19 72.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 123.19 72.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 123.19 72.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 123.19 72.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "0940c7d7-7008-42c1-917f-bc3974abeef4")
+		)
+		(pin "1"
+			(uuid "8b86f52a-8ca0-47c1-96d6-74b74faf7ed2")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "D5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
+		(at 128.27 87.63 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "73d1e9d2-58e9-40a3-85fd-6189e2ed0e3f")
+		(property "Reference" "D6"
+			(at 128.778 85.09 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "GREEN LED"
+			(at 130.048 88.138 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder"
+			(at 128.27 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 128.27 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 128.27 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 128.27 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "f17f6214-274d-4a58-93ed-35c7024405f7")
+		)
+		(pin "1"
+			(uuid "51a704c7-7d74-4d6b-865e-1eed812d53e1")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "D6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 119.38 118.11 0)
 		(unit 1)
@@ -2395,6 +3288,269 @@
 			(project "revolvenow_hardware"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
 					(reference "#PWR026")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 123.19 81.28 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "840a06d2-550d-4899-b728-7627b606f3b9")
+		(property "Reference" "R66"
+			(at 124.714 79.756 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100R"
+			(at 123.19 84.074 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 121.412 81.28 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 123.19 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 123.19 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "647423b9-545c-4194-8af2-d42a647ed01e")
+		)
+		(pin "2"
+			(uuid "cc1f94a2-3741-4f7e-b0e0-2b30b7fec55f")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "R66")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
+		(at 80.01 78.74 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "966b0660-d9b2-4479-8992-6cc6976e0d37")
+		(property "Reference" "D2"
+			(at 78.486 77.216 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "RED LED"
+			(at 89.662 80.264 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder"
+			(at 80.01 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 80.01 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 80.01 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 80.01 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "6756c921-6b17-4250-8343-00d3867b1f33")
+		)
+		(pin "1"
+			(uuid "cd91c186-b1d3-4c5f-9403-5af7ef2ca3a1")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "D2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
+		(at 80.01 90.17 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a4617e37-816d-4484-9858-b9787f1ed81e")
+		(property "Reference" "D3"
+			(at 77.47 88.9 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "RED LED"
+			(at 86.106 91.44 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder"
+			(at 80.01 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 80.01 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 80.01 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 80.01 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "bbe355c5-523e-41a5-a3f0-0b89618d209c")
+		)
+		(pin "1"
+			(uuid "b3b2d1f3-13c1-4eae-ae22-37d93398fd80")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "D3")
 					(unit 1)
 				)
 			)
@@ -2758,6 +3914,85 @@
 			(project "revolvenow_hardware"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
 					(reference "U3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 80.01 86.36 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e828d98a-8a0b-48b0-9c3c-d47a0c1571c1")
+		(property "Reference" "R7"
+			(at 84.328 85.344 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 80.01 86.36 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 80.01 88.138 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 80.01 86.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 80.01 86.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a97a2be1-51fa-43a4-98a9-b497b0ac4cdd")
+		)
+		(pin "2"
+			(uuid "87ca4f0a-a4d1-429f-825b-7cbd29152076")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/d12a2120-5470-491f-9e6e-04f93832b7e4"
+					(reference "R7")
 					(unit 1)
 				)
 			)

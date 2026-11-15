@@ -507,8 +507,8 @@
 			(on_board yes)
 			(in_pos_files yes)
 			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "U"
-				(at -3.81 3.175 0)
+			(property "Reference" "U6"
+				(at 0 6.35 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -518,18 +518,17 @@
 				)
 			)
 			(property "Value" "AMS1117-3.3"
-				(at 0 3.175 0)
+				(at 0 3.81 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
-					(justify left)
 				)
 			)
-			(property "Footprint" "Package_TO_SOT_SMD:SOT-223-3_TabPin2"
-				(at 0 5.08 0)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-223"
+				(at 0.762 9.906 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(hide yes)
@@ -540,7 +539,7 @@
 				)
 			)
 			(property "Datasheet" "http://www.advanced-monolithic.com/pdf/ds1117.pdf"
-				(at 2.54 -6.35 0)
+				(at 4.826 -12.446 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(hide yes)
@@ -551,7 +550,7 @@
 				)
 			)
 			(property "Description" "1A Low Dropout regulator, positive, 3.3V fixed output, SOT-223"
-				(at 0 0 0)
+				(at -1.524 -14.986 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(hide yes)
@@ -644,6 +643,25 @@
 						)
 					)
 					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin no_connect line
+					(at 7.62 -2.54 180)
+					(length 2.54)
+					(hide yes)
+					(name "Thermal"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1055,6 +1073,18 @@
 		(uuid "2dd305ac-61b7-4a95-bb67-5f852c5b1d30")
 	)
 	(junction
+		(at 128.27 96.52)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "54b42455-0094-4a4d-b1e9-502676dcedfc")
+	)
+	(junction
+		(at 120.65 76.2)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8ed3dfd8-725b-4747-9831-8ff2435abbcd")
+	)
+	(junction
 		(at 154.94 83.82)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1077,6 +1107,16 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "faebfe53-4fc6-46c5-8a29-e8a172611901")
+	)
+	(wire
+		(pts
+			(xy 113.03 96.52) (xy 128.27 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0ed0c223-613b-4a48-a29e-2c241553e27d")
 	)
 	(wire
 		(pts
@@ -1200,13 +1240,43 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 83.82) (xy 120.65 78.74)
+			(xy 113.03 76.2) (xy 113.03 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6d740c19-78e5-4972-b381-0cfa55ee1db9")
+	)
+	(wire
+		(pts
+			(xy 120.65 83.82) (xy 120.65 76.2)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "7f98ec3f-6ed1-455e-895d-692e7741e8df")
+	)
+	(wire
+		(pts
+			(xy 120.65 76.2) (xy 120.65 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "84587068-d517-4d96-8ad7-52d9015eeafc")
+	)
+	(wire
+		(pts
+			(xy 113.03 85.09) (xy 113.03 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "85f3080a-7cc4-4ce0-97d5-5c9b3b211b6d")
 	)
 	(wire
 		(pts
@@ -1250,6 +1320,16 @@
 	)
 	(wire
 		(pts
+			(xy 120.65 76.2) (xy 113.03 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bf7e1c37-35eb-42b5-8bf6-770678ecaef3")
+	)
+	(wire
+		(pts
 			(xy 184.15 95.25) (xy 184.15 96.52)
 		)
 		(stroke
@@ -1280,6 +1360,16 @@
 	)
 	(wire
 		(pts
+			(xy 113.03 93.98) (xy 113.03 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e7f65450-b3f6-48b0-9801-7e8ad8239c8c")
+	)
+	(wire
+		(pts
 			(xy 154.94 96.52) (xy 184.15 96.52)
 		)
 		(stroke
@@ -1290,7 +1380,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 120.65 78.74 0)
+		(at 120.65 72.39 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -1301,7 +1391,7 @@
 		(fields_autoplaced yes)
 		(uuid "1765058b-83af-43a8-a4b4-8aab51ca7c81")
 		(property "Reference" "#PWR013"
-			(at 120.65 82.55 0)
+			(at 120.65 76.2 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1312,7 +1402,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 120.65 73.66 0)
+			(at 120.65 67.31 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1322,7 +1412,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 120.65 78.74 0)
+			(at 120.65 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1333,7 +1423,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 120.65 78.74 0)
+			(at 120.65 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1344,7 +1434,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 120.65 78.74 0)
+			(at 120.65 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1361,6 +1451,88 @@
 			(project "revolvenow_hardware"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/5ba213aa-a48e-40b3-9679-8a0e3b1f3cb3"
 					(reference "#PWR013")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 113.03 81.28 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "44285a3e-9080-4c73-81c2-e7957476c2fc")
+		(property "Reference" "R8"
+			(at 115.57 80.0099 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "220R"
+			(at 115.57 82.5499 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 111.252 81.28 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 113.03 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 113.03 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "35dfdbf4-89f7-4a61-ad80-96f703fdfa29")
+		)
+		(pin "1"
+			(uuid "dcd6fa58-eb43-4250-818d-c6a242e10c3f")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/5ba213aa-a48e-40b3-9679-8a0e3b1f3cb3"
+					(reference "R8")
 					(unit 1)
 				)
 			)
@@ -1549,7 +1721,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "5.1K"
+		(property "Value" "100R"
 			(at 186.69 83.8199 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1688,6 +1860,99 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
+		(at 113.03 90.17 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9a06de2f-1c71-40e1-b93b-e89800421db7")
+		(property "Reference" "D4"
+			(at 116.84 90.4874 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "GREEN LED"
+			(at 116.84 93.0274 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder"
+			(at 113.03 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 113.03 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 113.03 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 113.03 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a00a838e-6b8c-4254-82ac-967be330bba2")
+		)
+		(pin "2"
+			(uuid "c258b30c-e3d8-4505-85f0-bd533508e60c")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/5ba213aa-a48e-40b3-9679-8a0e3b1f3cb3"
+					(reference "D4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
 		(at 184.15 91.44 90)
 		(unit 1)
 		(body_style 1)
@@ -1709,7 +1974,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "GREEN LED"
 			(at 187.96 94.2974 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1894,7 +2159,7 @@
 			)
 		)
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-223"
-			(at 142.24 78.74 0)
+			(at 143.002 73.914 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1905,7 +2170,7 @@
 			)
 		)
 		(property "Datasheet" "http://www.advanced-monolithic.com/pdf/ds1117.pdf"
-			(at 144.78 90.17 0)
+			(at 147.066 96.266 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1916,7 +2181,7 @@
 			)
 		)
 		(property "Description" "1A Low Dropout regulator, positive, 3.3V fixed output, SOT-223"
-			(at 142.24 83.82 0)
+			(at 140.716 98.806 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1934,6 +2199,9 @@
 		)
 		(pin "2"
 			(uuid "b46ad0c4-fea5-422f-981e-2c5003025cd8")
+		)
+		(pin "4"
+			(uuid "0cac85e5-341e-485b-a215-cb1496255c5b")
 		)
 		(instances
 			(project "revolvenow_hardware"

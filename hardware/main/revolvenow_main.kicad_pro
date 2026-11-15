@@ -697,6 +697,18 @@
           "label": "#",
           "name": "${ITEM_NUMBER}",
           "show": false
+        },
+        {
+          "group_by": false,
+          "label": "KLC_S3.3",
+          "name": "KLC_S3.3",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "KLC_S4.1",
+          "name": "KLC_S4.1",
+          "show": false
         }
       ],
       "filter_string": "",
@@ -755,7 +767,7 @@
         "uuid": "de9ecf92-6730-4560-a7a7-5400aee7d30f"
       }
     ],
-    "used_designators": "U9,C21,C26-27,#PWR19,#PWR26,Y1,FB2,R46,R48,R67",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [

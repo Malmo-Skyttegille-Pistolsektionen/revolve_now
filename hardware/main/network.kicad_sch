@@ -2118,6 +2118,121 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:PWR_FLAG"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#FLG"
+				(at 0 1.905 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PWR_FLAG"
+				(at 0 3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Special symbol for telling ERC where power comes from"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "flag power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PWR_FLAG_0_0"
+				(pin power_out line
+					(at 0 0 90)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "PWR_FLAG_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 1.27) (xy -1.016 1.905) (xy 0 2.54) (xy 1.016 1.905) (xy 0 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "revolvenow:RJ45_PulseJack_J0026D21BNL"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -3652,6 +3767,12 @@
 		(uuid "1bc75e1c-a43e-40f0-ac8e-2b4e304323be")
 	)
 	(junction
+		(at 172.72 44.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "21786ef6-1b42-4456-b5ed-f9c610e916d4")
+	)
+	(junction
 		(at 165.1 57.15)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3680,6 +3801,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4831fa32-644e-4d51-b6cf-0e7790c44604")
+	)
+	(junction
+		(at 158.75 44.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4d240a1a-b251-4ea2-8030-f4ad20a99320")
 	)
 	(junction
 		(at 226.06 88.9)
@@ -3830,12 +3957,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d24407b3-2da0-46b1-a597-e83232c982a7")
-	)
-	(junction
-		(at 153.67 44.45)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "dda5ca32-9720-4d94-a1b0-447720ff0b1a")
 	)
 	(junction
 		(at 80.01 99.06)
@@ -3997,13 +4118,13 @@
 	)
 	(wire
 		(pts
-			(xy 170.18 44.45) (xy 175.26 44.45)
+			(xy 172.72 43.18) (xy 172.72 44.45)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "095937c5-ab98-4316-a9e8-ddf64dbe7955")
+		(uuid "09467b9a-0f5c-4cef-831a-4b67be3cfe9d")
 	)
 	(wire
 		(pts
@@ -4054,6 +4175,16 @@
 			(type default)
 		)
 		(uuid "10d7444c-fdd6-4c2e-9477-6a2dea847ee7")
+	)
+	(wire
+		(pts
+			(xy 233.68 102.87) (xy 226.06 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "10e603ae-a2ef-431a-8877-2a93076b40c4")
 	)
 	(wire
 		(pts
@@ -4137,6 +4268,16 @@
 	)
 	(wire
 		(pts
+			(xy 233.68 104.14) (xy 233.68 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1b896f83-c6b9-482e-bf90-d9d7f271d4fb")
+	)
+	(wire
+		(pts
 			(xy 226.06 88.9) (xy 226.06 102.87)
 		)
 		(stroke
@@ -4184,16 +4325,6 @@
 			(type default)
 		)
 		(uuid "218a9fbf-252f-481a-8f5f-ecd069547efb")
-	)
-	(wire
-		(pts
-			(xy 160.02 44.45) (xy 165.1 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "223010b9-8dba-4c69-9b31-cf9f3f09ffd5")
 	)
 	(wire
 		(pts
@@ -4287,7 +4418,7 @@
 	)
 	(wire
 		(pts
-			(xy 151.13 44.45) (xy 153.67 44.45)
+			(xy 151.13 44.45) (xy 158.75 44.45)
 		)
 		(stroke
 			(width 0)
@@ -4514,6 +4645,16 @@
 			(type default)
 		)
 		(uuid "4fc8281f-2623-43ba-814a-1e820846b32d")
+	)
+	(wire
+		(pts
+			(xy 172.72 44.45) (xy 175.26 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5082c5cd-e071-4271-add0-be6c7f1c7c5c")
 	)
 	(wire
 		(pts
@@ -4857,16 +4998,6 @@
 	)
 	(wire
 		(pts
-			(xy 165.1 44.45) (xy 170.18 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "803fd746-777b-4a67-87cc-ef68cddaf8b7")
-	)
-	(wire
-		(pts
 			(xy 189.23 111.76) (xy 189.23 97.79)
 		)
 		(stroke
@@ -5127,16 +5258,6 @@
 	)
 	(wire
 		(pts
-			(xy 154.94 44.45) (xy 160.02 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a9a09940-0f06-4f03-99df-48fc4a360ed0")
-	)
-	(wire
-		(pts
 			(xy 256.54 111.76) (xy 189.23 111.76)
 		)
 		(stroke
@@ -5297,6 +5418,16 @@
 	)
 	(wire
 		(pts
+			(xy 158.75 44.45) (xy 172.72 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bdb0b0fa-92d7-43ba-8c3c-3a08be7f603e")
+	)
+	(wire
+		(pts
 			(xy 226.06 82.55) (xy 226.06 88.9)
 		)
 		(stroke
@@ -5364,16 +5495,6 @@
 			(type default)
 		)
 		(uuid "caa13c87-e990-4599-a04b-83e9ac6911b4")
-	)
-	(wire
-		(pts
-			(xy 154.94 44.45) (xy 153.67 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cac48f43-a361-419d-bd80-8342ef2dc89c")
 	)
 	(wire
 		(pts
@@ -5697,7 +5818,7 @@
 	)
 	(wire
 		(pts
-			(xy 153.67 44.45) (xy 153.67 43.18)
+			(xy 158.75 44.45) (xy 158.75 43.18)
 		)
 		(stroke
 			(width 0)
@@ -7173,6 +7294,84 @@
 		)
 	)
 	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 233.68 104.14 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "61111594-76fb-43e6-9b7b-3badfcb68a21")
+		(property "Reference" "#FLG03"
+			(at 233.68 106.045 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 233.68 109.22 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 233.68 104.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 233.68 104.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 233.68 104.14 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "62d360dc-a893-4d57-a956-1bd8ad0db2e4")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/fa839252-d740-414d-83ed-a9cc7d46eaa9"
+					(reference "#FLG03")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 226.06 104.14 0)
 		(unit 1)
@@ -7727,7 +7926,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3VA")
-		(at 153.67 43.18 0)
+		(at 158.75 43.18 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7738,7 +7937,7 @@
 		(fields_autoplaced yes)
 		(uuid "7df419a8-57a2-4f87-9ac0-6543d5b4831c")
 		(property "Reference" "#PWR034"
-			(at 153.67 46.99 0)
+			(at 158.75 46.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7749,7 +7948,7 @@
 			)
 		)
 		(property "Value" "+3.3VA_Ethernet"
-			(at 153.67 38.1 0)
+			(at 158.75 38.1 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7759,7 +7958,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 153.67 43.18 0)
+			(at 158.75 43.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7770,7 +7969,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 153.67 43.18 0)
+			(at 158.75 43.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7781,7 +7980,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3VA\""
-			(at 153.67 43.18 0)
+			(at 158.75 43.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8275,10 +8474,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "8a491064-9cc5-4d91-8f01-c26384eab9d7")
 		(property "Reference" "FB2"
-			(at 145.9992 36.83 90)
+			(at 145.796 38.354 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8288,7 +8486,7 @@
 			)
 		)
 		(property "Value" "CBM03YTAG121"
-			(at 145.9992 39.37 90)
+			(at 145.542 40.64 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9248,6 +9446,84 @@
 			(project "revolvenow_hardware"
 				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/fa839252-d740-414d-83ed-a9cc7d46eaa9"
 					(reference "#PWR038")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 172.72 43.18 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "daad2c33-a7b8-4a9f-be06-22cf125dd9f4")
+		(property "Reference" "#FLG02"
+			(at 172.72 41.275 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 172.72 38.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 172.72 43.18 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 172.72 43.18 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 172.72 43.18 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bd50f765-f8c3-43b9-804a-f9be11986399")
+		)
+		(instances
+			(project "revolvenow_hardware"
+				(path "/de9ecf92-6730-4560-a7a7-5400aee7d30f/fa839252-d740-414d-83ed-a9cc7d46eaa9"
+					(reference "#FLG02")
 					(unit 1)
 				)
 			)
