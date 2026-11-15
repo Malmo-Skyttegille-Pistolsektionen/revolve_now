@@ -158,7 +158,7 @@
         "min_silk_clearance": 0.0,
         "min_text_height": 0.8,
         "min_text_thickness": 0.08,
-        "min_through_hole_diameter": 0.3,
+        "min_through_hole_diameter": 0.2,
         "min_track_width": 0.0,
         "min_via_annular_width": 0.1,
         "min_via_diameter": 0.5,
@@ -755,7 +755,7 @@
         "uuid": "de9ecf92-6730-4560-a7a7-5400aee7d30f"
       }
     ],
-    "used_designators": "",
+    "used_designators": "U9,C21,C26-27,#PWR19,#PWR26,Y1,FB2,R46,R48,R67",
     "variants": []
   },
   "sheets": [
