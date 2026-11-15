@@ -53,13 +53,14 @@ PCB_GAP = 8.0
 
 # Controller boards, turned so the RJ45 edge (kicad y = 125) faces the right wall:
 # X = kicad_y - 75, Y = kicad_x - kicad_x_min. Ø4.2 corner holes 4.5 in from each edge.
-# Jack sizes are typical datasheet values, cross-checked against the KiCad 3D models of
+# RJ45 and USB-C sizes are measured by hand on the main board's parts, assumed the same here; the rest are typical
+# datasheet values, cross-checked against the KiCad 3D models of
 # RJHSE538X (J3) and USB4105 (J8); J5, J7 and J9 have no model.
 # `at` runs along the jack's wall from the board's corner. The halves are bridged (R1/R2), so only
 # one USB-C may ever be powered: J8 is a knock-out, closed until pushed out from inside.
 # `plug_w`: the widest plug body that has to pass the wall, USB-C overmold and RJ45 plug maxima.
-JACK = {"usbc": dict(w=9.0, h=3.3, depth=9.0, cut_w=13.0, cut_h=7.0, plug_w=12.35, label="USB-C"),
-        "rj45": dict(w=16.0, h=13.5, depth=14.0, cut_w=17.0, cut_h=14.5, plug_w=11.68, label="RJ45")}
+JACK = {"usbc": dict(w=9.1, h=3.3, depth=9.0, cut_w=13.0, cut_h=7.0, plug_w=12.35, label="USB-C"),
+        "rj45": dict(w=15.2, h=14.6, depth=14.0, cut_w=17.0, cut_h=14.5, plug_w=11.68, label="RJ45")}
 # `overhang` is each jack's courtyard past the board edge; the right wall sits on the farthest
 # one, so the jack faces end just behind it.
 VARIANTS = {

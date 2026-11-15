@@ -114,7 +114,7 @@ Nothing here has been measured against a board in hand unless the script says so
 | Part | Assumed | Constant |
 |---|---|---|
 | ELEGOO relay board | 56 × 138 mm, Ø3.1 holes 132 × 50 apart, from listings; 19 mm tall over the relays and terminal blocks, 3 mm solder pins, typical | `RELAYS["elegoo"]` |
-| Controller jacks | typical datasheet sizes, cross-checked against the KiCad 3D models of J3 (RJHSE538X) and J8 (USB4105); J5, J7 and J9 have no model | `JACK` |
+| Controller jacks | RJ45 15.2 × 14.6 and USB-C 9.1 wide, measured by hand on the main board's parts and assumed to be the same parts here; the openings are sized for the plugs, which the script checks. Depths are typical datasheet values | `JACK` |
 | C016 receptacle | Ø22 cutout, 2 × M3 at 31 mm, flange 38 × 29, from the datasheet; flange thickness 4 mm, not in the datasheet, used by the stand-in only | `CONN_*`, `FLANGE_T` |
 | Receptacle roll | 45°; the plug's own cable exit relative to the key decides the final roll | `CONN_ROLL` |
 | Angled plug | stand-in scaled off the C016 datasheet drawing | `ANGLED_PLUG` |
