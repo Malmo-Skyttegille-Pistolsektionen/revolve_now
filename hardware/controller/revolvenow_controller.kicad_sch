@@ -918,6 +918,16 @@
 	)
 	(wire
 		(pts
+			(xy 125.73 123.19) (xy 128.27 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "53cbda46-e777-4808-9a19-e1998dadb0bc")
+	)
+	(wire
+		(pts
 			(xy 185.42 119.38) (xy 196.85 119.38)
 		)
 		(stroke
@@ -1015,6 +1025,16 @@
 			(type default)
 		)
 		(uuid "6c89c388-1efc-48b5-80d0-30ad48ab99b0")
+	)
+	(wire
+		(pts
+			(xy 125.73 123.19) (xy 125.73 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6d7c3633-e307-4cd3-9173-ad7a5b68554c")
 	)
 	(wire
 		(pts
@@ -1118,6 +1138,16 @@
 	)
 	(wire
 		(pts
+			(xy 124.46 82.55) (xy 128.27 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f4feeb1-deea-4add-a1e4-5a68b3db0405")
+	)
+	(wire
+		(pts
 			(xy 146.05 125.73) (xy 156.21 125.73)
 		)
 		(stroke
@@ -1135,6 +1165,16 @@
 			(type default)
 		)
 		(uuid "a1f8372e-8710-4137-a8dc-eaa190f9483d")
+	)
+	(wire
+		(pts
+			(xy 124.46 82.55) (xy 124.46 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a2d05521-2102-408c-a521-05123542205d")
 	)
 	(wire
 		(pts
@@ -1507,6 +1547,162 @@
 			(project "revolvenow_controller"
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a"
 					(reference "#PWR04")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 124.46 85.09 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "561f2cd0-74fe-40f6-97aa-83f42e2226d7")
+		(property "Reference" "#PWR05"
+			(at 124.46 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SH1"
+			(at 124.46 90.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 124.46 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 124.46 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 124.46 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d809c28e-e3fa-4301-bdc0-3b9594389b44")
+		)
+		(instances
+			(project "revolvenow_controller"
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a"
+					(reference "#PWR05")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 125.73 125.73 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "844d40b7-9342-40d6-a9db-29385447cc21")
+		(property "Reference" "#PWR06"
+			(at 125.73 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SH2"
+			(at 125.73 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 125.73 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 125.73 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 125.73 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "92036b0e-f679-4eef-8942-25ff6ecd1a27")
+		)
+		(instances
+			(project "revolvenow_controller"
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a"
+					(reference "#PWR06")
 					(unit 1)
 				)
 			)
@@ -2168,8 +2364,8 @@
 		)
 	)
 	(sheet
-		(at 128.016 115.189)
-		(size 18.034 17.907)
+		(at 128.27 115.189)
+		(size 17.78 17.907)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -2184,7 +2380,7 @@
 		)
 		(uuid "0a2fddd8-0b8f-474b-a967-cec399a58d0f")
 		(property "Sheetname" "Power2"
-			(at 128.016 114.4774 0)
+			(at 128.27 114.4774 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2195,7 +2391,7 @@
 			)
 		)
 		(property "Sheetfile" "power1.kicad_sch"
-			(at 128.016 133.6806 0)
+			(at 128.27 133.6806 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2225,6 +2421,16 @@
 				(justify right)
 			)
 		)
+		(pin "SH" output
+			(at 128.27 123.19 180)
+			(uuid "2eabadc4-3176-4270-87d0-3dfb31c7aa66")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 		(instances
 			(project "revolvenow_controller"
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a"
@@ -2234,8 +2440,8 @@
 		)
 	)
 	(sheet
-		(at 128.016 74.676)
-		(size 18.034 17.907)
+		(at 128.27 74.676)
+		(size 17.78 17.907)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -2250,7 +2456,7 @@
 		)
 		(uuid "5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e")
 		(property "Sheetname" "Power1"
-			(at 128.016 73.9644 0)
+			(at 128.27 73.9644 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2261,7 +2467,7 @@
 			)
 		)
 		(property "Sheetfile" "power1.kicad_sch"
-			(at 128.016 93.1676 0)
+			(at 128.27 93.1676 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2289,6 +2495,16 @@
 					(size 1.27 1.27)
 				)
 				(justify right)
+			)
+		)
+		(pin "SH" output
+			(at 128.27 82.55 180)
+			(uuid "41970bae-7c94-4b5d-9229-c4e099530709")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
 			)
 		)
 		(instances

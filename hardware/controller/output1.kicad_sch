@@ -1182,7 +1182,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Revolvenow:RJ45"
+		(property "Footprint" "revolvenow:RJ45"
 			(at 133.35 93.345 90)
 			(hide yes)
 			(show_name no)
