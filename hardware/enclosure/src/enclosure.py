@@ -44,7 +44,7 @@ LID_T = 2.0         # lid top
 GAP = 0.5           # PCB edge (or module tip, if it overhangs) to inner wall
 R_OUT = 3.0         # outer vertical corner radius
 STANDOFF_H = 5.0    # floor to PCB underside (THT leads stick out ~2-3 mm)
-HEADROOM = 16.0     # PCB top to lid underside; tallest part is an RJ45 (~13.5)
+HEADROOM = 16.0     # PCB top to lid underside; tallest part is an RJ45 (14.6)
 BOSS_D = 8.0        # standoff / lid-post diameter at the board (clears J4's pads by 0.97 mm)
 
 # Fastening: M3x12 socket-head screws (ISO 4762) up through the base into M3 heat-set
@@ -68,27 +68,28 @@ LED_WINDOW_D = 3.0  # hole in the lid top over STATUS_LED; 0 for none
 # 1 mm or more on every side of the connector body.
 OPENINGS = [
     # ref, side, centre, kind, width, height (rect: bottom at PCB top) / dia + axis z (round)
-    dict(ref="J1 RJ45 Turn 0-3",       side="front", c=22.5,   kind="rect", w=18.8, h=16.0),
-    dict(ref="J2 RJ45 Turn 4-7",       side="front", c=42.5,   kind="rect", w=18.8, h=16.0),
-    dict(ref="J7 audio PJ-320A",       side="front", c=60.5,   kind="round", d=9.0, z=2.6),
-    dict(ref="U11 Ethernet MagJack",   side="front", c=78.215, kind="rect", w=19.0, h=16.3),
-    dict(ref="J4 USB-C",               side="right", c=84.71,  kind="slot", w=14.5, h=9.0, z=1.63, r=2.5),
-    dict(ref="J8 RJ45 Turn 12-15",     side="left",  c=23.0,   kind="rect", w=18.8, h=16.0),
-    dict(ref="J6 RJ45 Turn 8-11",      side="left",  c=43.0,   kind="rect", w=18.8, h=16.0),
-    dict(ref="J3 RJ45 Trigger",        side="left",  c=79.0,   kind="rect", w=18.8, h=16.0),
+    dict(ref="J1 RJ45 Turn 0-3",       side="front", c=22.5,   kind="rect", w=18.0, h=16.0),
+    dict(ref="J2 RJ45 Turn 4-7",       side="front", c=42.5,   kind="rect", w=18.0, h=16.0),
+    dict(ref="J7 audio PJ-320A",       side="front", c=60.5,   kind="round", d=9.0, z=2.505),
+    dict(ref="U11 Ethernet MagJack",   side="front", c=78.215, kind="rect", w=18.9, h=16.0),
+    dict(ref="J4 USB-C",               side="right", c=84.71,  kind="slot", w=14.5, h=9.0, z=1.65, r=2.5),
+    dict(ref="J8 RJ45 Turn 12-15",     side="left",  c=23.0,   kind="rect", w=18.0, h=16.0),
+    dict(ref="J6 RJ45 Turn 8-11",      side="left",  c=43.0,   kind="rect", w=18.0, h=16.0),
+    dict(ref="J3 RJ45 Trigger",        side="left",  c=79.0,   kind="rect", w=18.0, h=16.0),
 ]
 
 # Fit-check stand-ins (approximate bodies, not exported): ref, x0, x1, y0, y1, h above PCB
-# RJ45 bodies: 16 mm wide about the footprint centre, depth from the courtyard.
+# RJ45 bodies: 15.2 mm wide and 14.6 tall (measured) about the footprint centre, depth from the
+# courtyard; the MagJack is 16.1 wide and 13.4 tall.
 FIT = [
-    ("J1", 14.5, 30.5, -3.25, 10.75, 13.5),
-    ("J2", 34.5, 50.5, -3.25, 10.75, 13.5),
-    ("J8", -3.25, 10.75, 15.0, 31.0, 13.5),
-    ("J6", -3.25, 10.75, 35.0, 51.0, 13.5),
-    ("J3", -3.25, 10.75, 71.0, 87.0, 13.5),
-    ("U11", 70.1, 86.3, -2.9, 19.7, 13.6),
+    ("J1", 14.9, 30.1, -3.25, 10.75, 14.6),
+    ("J2", 34.9, 50.1, -3.25, 10.75, 14.6),
+    ("J8", -3.25, 10.75, 15.4, 30.6, 14.6),
+    ("J6", -3.25, 10.75, 35.4, 50.6, 14.6),
+    ("J3", -3.25, 10.75, 71.4, 86.6, 14.6),
+    ("U11", 70.165, 86.265, -2.9, 19.7, 13.4),
     ("J7", 57.5, 63.5, -0.4, 12.35, 5.0),  # body only; the barrel sits in the round hole
-    ("J4", 93.22, 102.22, 79.71, 89.71, 3.3),
+    ("J4", 93.22, 102.22, 80.16, 89.26, 3.3),
     ("J9", 18.24, 26.86, 88.67, 94.76, 8.5),  # 2x3 jumper header (LED / trigger GPIO), jumper on
     ("J5", 66.55, 75.17, 88.43, 91.97, 8.5),  # UART header
 ]

@@ -44,7 +44,7 @@ The J5 UART header and the J9 jumper header stay inside; take the lid off to rea
 | Standoff and lid post diameter | 8.0 | `BOSS_D` |
 | Standoff foot round the counterbore | 10.0 | `FOOT_D` |
 
-Measured from the generated solids: base 28.1 cm³, lid 33.4 cm³, logo 0.4 cm³.
+Measured from the generated solids: base 28.1 cm³, lid 33.5 cm³, logo 0.4 cm³.
 
 ## Openings
 
@@ -54,17 +54,17 @@ Positions are along the side in board coordinates, heights from the board's top 
 
 | Connector | Side | Centre | Opening | Constant |
 |---|---|---|---|---|
-| J1 RJ45 Turn 0-3 | front | 22.5 | 18.8 wide × 16.0 tall | `OPENINGS` |
-| J2 RJ45 Turn 4-7 | front | 42.5 | 18.8 × 16.0 | `OPENINGS` |
-| J7 audio PJ-320A | front | 60.5 | Ø9.0, axis 2.6 above the board, open down into the base | `OPENINGS` |
-| U11 Ethernet MagJack | front | 78.215 | 19.0 × 16.3 | `OPENINGS` |
-| J4 USB-C | right | 84.71 | 14.5 × 9.0 slot, R2.5 corners, centre 1.63 above the board | `OPENINGS` |
-| J8 RJ45 Turn 12-15 | left | 23.0 | 18.8 × 16.0 | `OPENINGS` |
-| J6 RJ45 Turn 8-11 | left | 43.0 | 18.8 × 16.0 | `OPENINGS` |
-| J3 RJ45 Trigger | left | 79.0 | 18.8 × 16.0 | `OPENINGS` |
+| J1 RJ45 Turn 0-3 | front | 22.5 | 18.0 wide × 16.0 tall | `OPENINGS` |
+| J2 RJ45 Turn 4-7 | front | 42.5 | 18.0 × 16.0 | `OPENINGS` |
+| J7 audio PJ-320A | front | 60.5 | Ø9.0, axis 2.505 above the board, open down into the base | `OPENINGS` |
+| U11 Ethernet MagJack | front | 78.215 | 18.9 × 16.0 | `OPENINGS` |
+| J4 USB-C | right | 84.71 | 14.5 × 9.0 slot, R2.5 corners, centre 1.65 above the board | `OPENINGS` |
+| J8 RJ45 Turn 12-15 | left | 23.0 | 18.0 × 16.0 | `OPENINGS` |
+| J6 RJ45 Turn 8-11 | left | 43.0 | 18.0 × 16.0 | `OPENINGS` |
+| J3 RJ45 Trigger | left | 79.0 | 18.0 × 16.0 | `OPENINGS` |
 | D8 status LED | lid top | X 80.5, Y 96.7 | Ø3.0 | `STATUS_LED`, `LED_WINDOW_D` |
 
-The ribs between J1 and J2, and between J8 and J6, are 1.2 mm wide. They print, but handle the lid with care until the connectors are in them.
+The ribs between J1 and J2, and between J8 and J6, are 2.0 mm wide. They print, but handle the lid with care until the connectors are in them.
 
 ## Printing
 
@@ -82,15 +82,16 @@ The ribs between J1 and J2, and between J8 and J6, are 1.2 mm wide. They print, 
 
 ## Check before printing
 
-The KiCad project has no 3D models, so connector heights and face widths are typical datasheet values, not measurements:
+The KiCad project has no 3D models, so the connector dimensions come from the parts on the board, measured by hand:
 
-| Part | Assumed | Constant |
+| Part | Measured | Constant |
 |---|---|---|
-| RJ45 J1/J2/J3/J6/J8 | 16 mm wide, 13.5 mm tall | `OPENINGS`, `FIT` |
-| MagJack U11 | 16.2 mm wide, 13.6 mm tall | `OPENINGS`, `FIT` |
-| Audio J7 | barrel axis 2.6 mm above the board | `OPENINGS` |
-| USB-C J4 | connector centre 1.63 mm above the board | `OPENINGS` |
-| Pin headers J5/J9 | 8.5 mm tall with a jumper on | `FIT` |
+| RJ45 J1/J2/J3/J6/J8 | 15.2 mm wide, 14.6 mm tall | `OPENINGS`, `FIT` |
+| MagJack U11 | 16.1 mm wide, 13.4 mm tall | `OPENINGS`, `FIT` |
+| Audio J7 | barrel Ø5 mm, axis 2.505 mm above the board | `OPENINGS` |
+| USB-C J4 | 9.1 mm wide, centre 1.65 mm above the board | `OPENINGS`, `FIT` |
+
+Not measured: the pin headers J5/J9 are assumed 8.5 mm tall with a jumper on (`FIT`).
 
 The openings are deliberately generous for a first test print. Tighten them in `OPENINGS` once a print fits. Measure the board you have, update the constants, and regenerate.
 
