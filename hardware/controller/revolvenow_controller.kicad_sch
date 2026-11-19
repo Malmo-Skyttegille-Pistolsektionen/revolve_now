@@ -968,7 +968,7 @@
 	)
 	(wire
 		(pts
-			(xy 161.29 125.73) (xy 167.005 125.73)
+			(xy 161.29 125.73) (xy 167.64 125.73)
 		)
 		(stroke
 			(width 0)
@@ -1158,7 +1158,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 121.92) (xy 167.005 121.92)
+			(xy 156.21 121.92) (xy 167.64 121.92)
 		)
 		(stroke
 			(width 0)
@@ -1248,7 +1248,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 81.28) (xy 167.005 81.28)
+			(xy 156.21 81.28) (xy 167.64 81.28)
 		)
 		(stroke
 			(width 0)
@@ -1338,7 +1338,7 @@
 	)
 	(wire
 		(pts
-			(xy 161.29 85.09) (xy 167.005 85.09)
+			(xy 161.29 85.09) (xy 167.64 85.09)
 		)
 		(stroke
 			(width 0)
@@ -2516,8 +2516,8 @@
 		)
 	)
 	(sheet
-		(at 167.005 75.692)
-		(size 18.415 16.891)
+		(at 167.64 75.692)
+		(size 17.78 16.891)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -2532,7 +2532,7 @@
 		)
 		(uuid "bb7cb162-3bcb-46ba-af58-b9221d8dae65")
 		(property "Sheetname" "Output1"
-			(at 167.005 74.9804 0)
+			(at 167.64 74.9804 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2543,7 +2543,7 @@
 			)
 		)
 		(property "Sheetfile" "output1.kicad_sch"
-			(at 167.005 93.1676 0)
+			(at 167.64 93.1676 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2554,7 +2554,7 @@
 			)
 		)
 		(pin "Ground" input
-			(at 167.005 85.09 180)
+			(at 167.64 85.09 180)
 			(uuid "ccd189ef-df92-446e-ae3b-8b67de11ca51")
 			(effects
 				(font
@@ -2564,7 +2564,7 @@
 			)
 		)
 		(pin "Power" input
-			(at 167.005 81.28 180)
+			(at 167.64 81.28 180)
 			(uuid "9b16378c-3744-4ad4-8dff-0b8834e44690")
 			(effects
 				(font
@@ -2622,8 +2622,8 @@
 		)
 	)
 	(sheet
-		(at 167.005 115.57)
-		(size 18.415 17.78)
+		(at 167.64 115.57)
+		(size 17.78 17.78)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -2638,7 +2638,7 @@
 		)
 		(uuid "f25cd4da-8fb4-4445-94dd-e273609cfff5")
 		(property "Sheetname" "Output2"
-			(at 167.005 114.8584 0)
+			(at 167.64 114.8584 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2649,7 +2649,7 @@
 			)
 		)
 		(property "Sheetfile" "output1.kicad_sch"
-			(at 167.005 133.9346 0)
+			(at 167.64 133.9346 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -2660,7 +2660,7 @@
 			)
 		)
 		(pin "Ground" input
-			(at 167.005 125.73 180)
+			(at 167.64 125.73 180)
 			(uuid "fe981a63-9101-4486-a7d6-0dbadfb312b5")
 			(effects
 				(font
@@ -2670,7 +2670,7 @@
 			)
 		)
 		(pin "Power" input
-			(at 167.005 121.92 180)
+			(at 167.64 121.92 180)
 			(uuid "c2d65c57-6401-4891-aaae-b6a7da9527b3")
 			(effects
 				(font

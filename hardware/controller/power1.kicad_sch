@@ -14,8 +14,8 @@
 			(on_board yes)
 			(in_pos_files yes)
 			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "J"
-				(at 0 22.225 0)
+			(property "Reference" "J7"
+				(at 0 22.86 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -25,7 +25,7 @@
 				)
 			)
 			(property "Value" "USB_C_Receptacle_USB2.0_16P"
-				(at 0 19.685 0)
+				(at 0 20.32 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -34,7 +34,7 @@
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "revolvenow:USB Type-C-02"
 				(at 3.81 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -512,44 +512,6 @@
 					)
 				)
 				(pin passive line
-					(at 15.24 15.24 180)
-					(length 5.08)
-					(hide yes)
-					(name "VBUS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "A9"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -22.86 90)
-					(length 5.08)
-					(hide yes)
-					(name "GND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "A12"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
 					(at 0 -22.86 90)
 					(length 5.08)
 					(hide yes)
@@ -652,44 +614,6 @@
 						)
 					)
 					(number "B8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 15.24 15.24 180)
-					(length 5.08)
-					(hide yes)
-					(name "VBUS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "B9"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -22.86 90)
-					(length 5.08)
-					(hide yes)
-					(name "GND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "B12"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1013,12 +937,145 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:PWR_FLAG"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#FLG"
+				(at 0 1.905 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PWR_FLAG"
+				(at 0 3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Special symbol for telling ERC where power comes from"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "flag power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PWR_FLAG_0_0"
+				(pin power_out line
+					(at 0 0 90)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "PWR_FLAG_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 1.27) (xy -1.016 1.905) (xy 0 2.54) (xy 1.016 1.905) (xy 0 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(junction
 		(at 130.81 127)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "7b5cc804-1a4b-4477-91a3-a692e40abc66")
+	)
+	(junction
+		(at 120.65 125.73)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7f93d94e-ec2e-44fd-a7b1-7b0e3f80fe0c")
+	)
+	(junction
+		(at 140.97 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "88df7ef6-3b5c-4f26-a304-a9992503d5cf")
+	)
+	(junction
+		(at 154.94 78.74)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b516d229-323d-4883-9a6a-5d2d198608d6")
 	)
 	(junction
 		(at 134.62 127)
@@ -1114,6 +1171,26 @@
 	)
 	(wire
 		(pts
+			(xy 161.29 77.47) (xy 161.29 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "21649be3-6bd0-4114-8ba0-a118d8fb7d6a")
+	)
+	(wire
+		(pts
+			(xy 114.3 125.73) (xy 114.3 128.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "326e2e1d-dd70-48c4-976a-584b5e9db39b")
+	)
+	(wire
+		(pts
 			(xy 152.4 123.19) (xy 152.4 124.46)
 		)
 		(stroke
@@ -1184,6 +1261,16 @@
 	)
 	(wire
 		(pts
+			(xy 114.3 125.73) (xy 120.65 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8b84ec35-855d-46b6-972b-d0d6d4ce7b1a")
+	)
+	(wire
+		(pts
 			(xy 134.62 116.84) (xy 134.62 127)
 		)
 		(stroke
@@ -1201,6 +1288,26 @@
 			(type default)
 		)
 		(uuid "aeedde8d-9ab0-4917-bec6-db7f1fcc5a58")
+	)
+	(wire
+		(pts
+			(xy 161.29 78.74) (xy 154.94 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2e8e239-2b39-4945-abbe-8736411d9256")
+	)
+	(wire
+		(pts
+			(xy 120.65 125.73) (xy 120.65 128.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c1995acc-aee1-4bf5-92e8-535edb41ed94")
 	)
 	(wire
 		(pts
@@ -1254,7 +1361,7 @@
 	)
 	(wire
 		(pts
-			(xy 130.81 127) (xy 153.67 127)
+			(xy 130.81 127) (xy 140.97 127)
 		)
 		(stroke
 			(width 0)
@@ -1274,13 +1381,23 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 116.84) (xy 120.65 128.27)
+			(xy 120.65 116.84) (xy 120.65 125.73)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "ee427152-b111-4326-b631-f110eadd874e")
+	)
+	(wire
+		(pts
+			(xy 140.97 127) (xy 153.67 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef7861a2-3b66-4196-af65-f9e5266a1260")
 	)
 	(hierarchical_label "SH"
 		(shape output)
@@ -1314,6 +1431,88 @@
 			(justify right)
 		)
 		(uuid "fdecf9a8-0edd-4f93-a799-a84bfeb32549")
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 114.3 128.27 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "08e8a171-b87e-4c59-b3c1-d1a912d5e423")
+		(property "Reference" "#FLG05"
+			(at 114.3 130.175 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 114.3 133.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 114.3 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 114.3 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 114.3 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a93886f4-eaca-473b-85d8-959042919050")
+		)
+		(instances
+			(project "revolvenow_controller"
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/0a2fddd8-0b8f-474b-a967-cec399a58d0f"
+					(reference "#FLG06")
+					(unit 1)
+				)
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
+					(reference "#FLG05")
+					(unit 1)
+				)
+			)
+		)
 	)
 	(symbol
 		(lib_id "Device:R")
@@ -1395,6 +1594,88 @@
 				)
 				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
 					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 161.29 77.47 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4705a08f-4de7-4ea0-b934-545ea6d49f08")
+		(property "Reference" "#FLG03"
+			(at 161.29 75.565 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 161.29 72.39 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 161.29 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 161.29 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 161.29 77.47 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "cd6d18dd-01ba-4224-9c7f-5c36b6402893")
+		)
+		(instances
+			(project "revolvenow_controller"
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/0a2fddd8-0b8f-474b-a967-cec399a58d0f"
+					(reference "#FLG04")
+					(unit 1)
+				)
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
+					(reference "#FLG03")
 					(unit 1)
 				)
 			)
@@ -1656,6 +1937,88 @@
 		)
 	)
 	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 140.97 127 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "f72fe6da-dbf7-425e-a6a7-5755ad5a6761")
+		(property "Reference" "#FLG01"
+			(at 140.97 128.905 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 140.97 132.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 140.97 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 140.97 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 140.97 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "392846ad-6559-46c1-a1e6-4d27119e90ab")
+		)
+		(instances
+			(project "revolvenow_controller"
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/0a2fddd8-0b8f-474b-a967-cec399a58d0f"
+					(reference "#FLG02")
+					(unit 1)
+				)
+				(path "/f6e6825c-feea-453b-9887-1eb0e811e83a/5c35d1cd-afcc-4c5c-bac7-cb2a8ed5578e"
+					(reference "#FLG01")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:USB_C_Receptacle_USB2.0_16P")
 		(at 134.62 93.98 0)
 		(unit 1)
@@ -1729,9 +2092,6 @@
 		(pin "B1"
 			(uuid "a44585f8-8d30-46be-ad14-ee106642726c")
 		)
-		(pin "A12"
-			(uuid "abf77b1a-c6e6-481c-bc36-b940fdd34555")
-		)
 		(pin "A5"
 			(uuid "5081f821-1201-4552-8254-ddcbfa4d0e37")
 		)
@@ -1740,9 +2100,6 @@
 		)
 		(pin "A1"
 			(uuid "27adddf4-46af-403e-a4bb-d4716e1fd93d")
-		)
-		(pin "A9"
-			(uuid "c466ba18-a675-4386-9ebc-a9b97645dd8b")
 		)
 		(pin "SH"
 			(uuid "ab9c49a6-f52f-4653-982b-4670b2b8176e")
@@ -1764,12 +2121,6 @@
 		)
 		(pin "B5"
 			(uuid "db1482f2-7627-4f7f-81bb-0dd205f9fbeb")
-		)
-		(pin "B12"
-			(uuid "520ca7e0-56aa-4200-a16b-a78b5c7a83aa")
-		)
-		(pin "B9"
-			(uuid "a3de6952-d097-4aab-8bec-c2899e40f141")
 		)
 		(instances
 			(project "revolvenow_controller"
