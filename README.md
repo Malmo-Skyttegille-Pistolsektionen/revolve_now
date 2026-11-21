@@ -92,6 +92,7 @@ should work.
 | [`firmware/`](firmware/README.md) | The ESP-IDF firmware: target IO, audio, storage, REST + SSE server |
 | [`webapp/`](webapp/README.md) | The React front end, embedded in the firmware's application image |
 | [`resources/`](resources/README.md) | Shipped programs and audio clips flashed onto the device |
+| [`hardware/`](hardware/README.md) | KiCad sources of the boards, with what was sent to the fab |
 | [`docs/`](docs/) | The [decision log](docs/DECISIONS.md), [how releases are cut](docs/RELEASING.md), and the source of the documentation site |
 
 ## Contributing
