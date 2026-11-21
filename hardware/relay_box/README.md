@@ -22,7 +22,7 @@ Everything under `generated/` is written by the scripts; edit `src/relay_box.py`
 The box coordinates start at the inner front-left corner, on top of the floor: X runs from the connector wall to the controller, Y from the front wall to the back.
 
 - **Controller board:** rev 2, `hardware/controller/revolvenow_controller.kicad_pcb`, 95 × 50 mm, turned so that its jack edge faces the right wall, centred front to back. Its Ø4.2 corner holes are 4.5 mm in from each edge.
-- **Relay board:** an ELEGOO 8-channel 5 V 10 A board (Songle SRD-05VDC-SL-C relays), 56 × 138 mm, long side front to back, outputs facing the connectors. Its holes are 3 mm in from the edges, 132 × 50 mm apart. It sits 8 mm from the controller board (`PCB_GAP`).
+- **Relay board:** an ELEGOO 8-channel 5 V 10 A board (Songle SRD-05VDC-SL-C relays), 56 × 138 mm, long side front to back, outputs facing the connectors. Its holes are measured 128.3 × 46.5 mm apart, about 4.8 mm in from the edges. It sits 8 mm from the controller board (`PCB_GAP`).
 - **Right wall:** the controller's five jacks, J7, J3, J9, J5 and J8 from the front. J8 is a knock-out (see [Openings](#openings)).
 - **Left wall:** two Amphenol ecomate C016 30C006 100 12 receptacles (6+PE male, solder), and a 10 mm 230 VAC metal indicator beside each, on the outer side. The mating plugs are 90° angled; the receptacles are rolled 45° so the two plugs lie parallel with the cable leaving up and towards the front.
 - **Wiring space:** 36 mm free between the connector bodies and the relay board, for the AC wiring (`WIRE_GAP`).
@@ -69,7 +69,7 @@ The two USB-Cs are bridged on the board (R1/R2), so only one may ever be powered
 
 ![The base from above with the lid off: the 8-channel relay board (blue block) beside the controller board with its jacks against the right wall, the two 230 V connectors and their indicator LEDs in the left wall](../../docs/site/img/hardware/relay-box-boards.png)
 
-The controller board is the real KiCad 3D model of `hardware/controller`. The relay board, the 230 V connectors and the LEDs are stand-in shapes, and so are the J7 and J9 jacks, which have no 3D model. The relay board is the ELEGOO 8-channel board from its listing dimensions, not measured.
+The controller board is the real KiCad 3D model of `hardware/controller`. The relay board, the 230 V connectors and the LEDs are stand-in shapes, and so are the J7 and J9 jacks, which have no 3D model. The relay board is the ELEGOO 8-channel board; its hole spacing is measured, its outline and height are from the listing.
 
 ## Printing
 
@@ -113,7 +113,7 @@ Nothing here has been measured against a board in hand unless the script says so
 
 | Part | Assumed | Constant |
 |---|---|---|
-| ELEGOO relay board | 56 × 138 mm, Ø3.1 holes 132 × 50 apart, from listings; 19 mm tall over the relays and terminal blocks, 3 mm solder pins, typical | `RELAYS["elegoo"]` |
+| ELEGOO relay board | 56 × 138 mm, holes 128.3 × 46.5 apart (measured); 19 mm tall over the relays and terminal blocks, 3 mm solder pins, typical | `RELAYS["elegoo"]` |
 | Controller jacks | RJ45 15.2 × 14.6 and USB-C 9.1 wide, measured by hand on the main board's parts and assumed to be the same parts here; the openings are sized for the plugs, which the script checks. Depths are typical datasheet values | `JACK` |
 | C016 receptacle | Ø22 cutout, 2 × M3 at 31 mm, flange 38 × 29, from the datasheet; flange thickness 4 mm, not in the datasheet, used by the stand-in only | `CONN_*`, `FLANGE_T` |
 | Receptacle roll | 45°; the plug's own cable exit relative to the key decides the final roll | `CONN_ROLL` |

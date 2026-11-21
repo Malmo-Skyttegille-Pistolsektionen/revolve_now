@@ -45,9 +45,10 @@ ANGLED_PLUG = dict(start=7.5, ring=(30.0, 20.4), nut=(30.0, 4.5), body=(30.0, 10
 RELAYS = {
     # DollaTek G3MB-202P SSR board, measured: holes "slightly more than 3", 1.3 from hole edge to board edge.
     "ssr": dict(w=55.0, d=105.0, h=21.6, inset=1.3 + 3.2 / 2, pins=3.2, label="SSR_8ch"),
-    # ELEGOO 8-channel 5 V 10 A (Songle SRD-05VDC-SL-C): 137-138 × 56, Ø3.1 holes 132 × 50 apart, per
-    # listings, not yet measured. Height over the relays and terminal blocks is typical, ditto the pins.
-    "elegoo": dict(w=56.0, d=138.0, h=19.0, inset=3.0, pins=3.0, label="Relay_8ch"),
+    # ELEGOO 8-channel 5 V 10 A (Songle SRD-05VDC-SL-C): 137-138 × 56. Holes measured 128.3 × 46.5 apart,
+    # so the centre is 4.8 in from the edge (4.85 long, 4.75 across). Height over the relays and terminal
+    # blocks is typical, ditto the pins.
+    "elegoo": dict(w=56.0, d=138.0, h=19.0, inset=4.8, pins=3.0, label="Relay_8ch"),
 }
 PCB_GAP = 8.0
 
