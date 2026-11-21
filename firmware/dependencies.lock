@@ -46,7 +46,7 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 6.1.0
+    version: 6.1.1
   joltwallet/littlefs:
     component_hash: e1a0f4a6adf821759cb34703a91107bbdce5d7ff6f4728f40ab012bb87842974
     dependencies:
@@ -63,6 +63,6 @@ direct_dependencies:
 - espressif/w5500
 - idf
 - joltwallet/littlefs
-manifest_hash: f1b28daf4d045f57b99b3c98a4e7602a5aa99f28401e69235a66c35d5489837e
+manifest_hash: 12ef0a933d45c91c0e584ce7f6030388bc991b1b6c431e5d7e8d4859509c4d09
 target: esp32s3
 version: 3.0.0
