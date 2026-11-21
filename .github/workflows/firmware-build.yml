@@ -88,7 +88,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: espressif/esp-idf
-          ref: v6.1
+          ref: v6.1.1
           path: esp-idf
           submodules: false
 
@@ -126,7 +126,7 @@ jobs:
     container:
       image: >-
         ${{ needs.changes.outputs.firmware != 'false'
-        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
+        && 'espressif/idf:v6.1.1@sha256:2b4f966c37eaedc19542b0637a5f850b2eff9478d8e858192aa0073d92c2dc91' || '' }}
     defaults:
       run:
         working-directory: firmware
@@ -234,7 +234,7 @@ jobs:
     container:
       image: >-
         ${{ needs.changes.outputs.firmware != 'false'
-        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
+        && 'espressif/idf:v6.1.1@sha256:2b4f966c37eaedc19542b0637a5f850b2eff9478d8e858192aa0073d92c2dc91' || '' }}
     defaults:
       run:
         working-directory: firmware
@@ -328,7 +328,7 @@ jobs:
     container:
       image: >-
         ${{ needs.changes.outputs.firmware != 'false'
-        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
+        && 'espressif/idf:v6.1.1@sha256:2b4f966c37eaedc19542b0637a5f850b2eff9478d8e858192aa0073d92c2dc91' || '' }}
     defaults:
       run:
         working-directory: firmware
