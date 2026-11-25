@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Repository overrides. Everything else comes from the central config
+# (<owner>/coderabbit) via `inheritance: true`.
+# https://docs.coderabbit.ai/configuration/central-configuration
+inheritance: true
+
+reviews:
+  path_filters:
+    # Vendored or generated; never reformatted.
+    - "!firmware/lib/psychic_http/**"
+    - "!firmware/lib/arduinojson/**"
+    - "!firmware/lib/dns_server/**"
+    - "!resources/**"
+    - "!webapp/src/api/generated.d.ts"
+    - "!contracts/history/**"
+  path_instructions:
+    - path: "contracts/**"
+      instructions: >-
+        Canonical API. Changes within a major must be additive, and must land
+        in the same PR as the firmware and webapp implementation.
+    - path: "firmware/lib/rt_logic/**"
+      instructions: >-
+        The webapp mock server (webapp/test/mock-server/) mirrors this logic.
+        Flag behaviour changes with no matching mock change.
