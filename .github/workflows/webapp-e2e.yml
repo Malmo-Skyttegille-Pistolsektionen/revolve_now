@@ -75,7 +75,7 @@ jobs:
     container:
       image: >-
         ${{ needs.changes.outputs.e2e != 'false'
-        && 'espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c' || '' }}
+        && 'espressif/idf:v6.1.1@sha256:2b4f966c37eaedc19542b0637a5f850b2eff9478d8e858192aa0073d92c2dc91' || '' }}
     timeout-minutes: 30
     # The QEMU profile's compiler cache, which firmware-build.yml saves from
     # main; read-only here.
