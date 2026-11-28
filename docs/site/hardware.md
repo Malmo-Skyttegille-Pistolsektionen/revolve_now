@@ -123,7 +123,7 @@ WiFi; if it does not, it carries on over WiFi as before. Nothing needs to be
 switched on, and [connecting](connecting.md#a-network-cable) needs no setup.
 
 Wire it to these pins — the same on the ESP32-S3-DevKitC-1 and on the club's
-own Revolve Now board, whose unfitted W5500 uses them:
+own Revolve Now main board, whose W5500 (`U10`) is wired to them:
 
 | Module pin | GPIO |
 |---|---|
